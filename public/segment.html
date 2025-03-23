@@ -186,12 +186,35 @@
         if (event.detail.xhr.status === 400) {
           event.detail.shouldSwap = false;
           const response = JSON.parse(event.detail.xhr.responseText);
-          // Get the Alpine.js component using the $data property
-          const app = document.querySelector("[x-data]").__x.$data;
-          app.error = response.error;
+          try {
+            // Try to get the Alpine.js component safely
+            if (document.querySelector("[x-data]").__x) {
+              const app = document.querySelector("[x-data]").__x.$data;
+              app.error = response.error;
+            } else {
+              console.error("Alpine.js component not found");
+            }
+          } catch (e) {
+            console.error("Error accessing Alpine.js component:", e);
+          }
           document.getElementById("result").style.display = "none";
         } else {
           document.getElementById("result").style.display = "block";
+        }
+      });
+
+      // Reinitialize Alpine.js components after HTMX updates the DOM
+      document.addEventListener("htmx:afterSwap", function (event) {
+        if (window.Alpine && window.Alpine.initTree) {
+          // Alpine.js v3 syntax
+          window.Alpine.initTree(event.detail.target);
+        } else if (window.Alpine) {
+          // Fallback for older Alpine.js versions
+          document.querySelectorAll("[x-data]").forEach((el) => {
+            if (!el.__x) {
+              window.Alpine.initializeComponent(el);
+            }
+          });
         }
       });
 
