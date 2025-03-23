@@ -177,7 +177,7 @@
           this.result = null;
           
           try {
-            const response = await fetch(`/api.php/sms/segments/${this.selectedSegmentId}/send`, {
+            const response = await fetch(`/api.php?endpoint=sms/segments/${this.selectedSegmentId}/send`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -211,7 +211,7 @@
           this.result = null;
           
           try {
-            const response = await fetch('/api.php/sms/send', {
+            const response = await fetch('/api.php?endpoint=sms/send', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -254,7 +254,7 @@
           this.result = null;
           
           try {
-            const response = await fetch('/api.php/sms/bulk', {
+            const response = await fetch('/api.php?endpoint=sms/bulk', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -276,7 +276,7 @@
         
         async loadSegments() {
           try {
-            const response = await fetch('/api.php/sms/segments');
+            const response = await fetch('/api.php?endpoint=sms/segments');
             const data = await response.json();
             
             if (data.status === 'success') {

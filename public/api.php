@@ -38,11 +38,18 @@ try {
 $phoneController = new App\Controllers\PhoneController($pdo);
 $smsController = new App\Controllers\SMSController($pdo);
 
-// Get the request method and path
+// Get the request method and endpoint
 $method = $_SERVER['REQUEST_METHOD'];
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$pathParts = explode('/', trim($path, '/'));
-$endpoint = $pathParts[count($pathParts) - 1];
+
+// Check if endpoint is provided in the query string
+if (isset($_GET['endpoint'])) {
+    $endpoint = $_GET['endpoint'];
+} else {
+    // Otherwise, get it from the path
+    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $pathParts = explode('/', trim($path, '/'));
+    $endpoint = $pathParts[count($pathParts) - 1];
+}
 
 // Handle the request
 try {
