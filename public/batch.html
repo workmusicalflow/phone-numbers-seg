@@ -209,7 +209,7 @@
         </div>
 
         <button
-          hx-post="/api.php/batch-segment"
+          hx-post="/api.php?endpoint=batch-segment"
           hx-trigger="click"
           hx-vals='{"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")}'
           hx-target="#result"
@@ -233,7 +233,7 @@
         </div>
 
         <button
-          hx-post="/api.php/batch-phones"
+          hx-post="/api.php?endpoint=batch-phones"
           hx-trigger="click"
           hx-vals='{"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")}'
           hx-target="#result"
