@@ -34,8 +34,9 @@ try {
     exit;
 }
 
-// Initialize the controller
+// Initialize the controllers
 $phoneController = new App\Controllers\PhoneController($pdo);
+$smsController = new App\Controllers\SMSController($pdo);
 
 // Get the request method and path
 $method = $_SERVER['REQUEST_METHOD'];
@@ -187,6 +188,55 @@ try {
         $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
 
         $result = $phoneController->searchPhoneNumbers($query, $limit, $offset);
+        echo json_encode($result);
+    }
+    // Get segments for SMS
+    elseif ($method === 'GET' && $endpoint === 'sms/segments') {
+        $result = $smsController->getSegmentsForSMS();
+        echo json_encode($result);
+    }
+    // Send SMS to a single number
+    elseif ($method === 'POST' && $endpoint === 'sms/send') {
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($requestBody['number'])) {
+            throw new InvalidArgumentException('Phone number is required');
+        }
+        if (!isset($requestBody['message'])) {
+            throw new InvalidArgumentException('Message is required');
+        }
+
+        $result = $smsController->sendSMS($requestBody['number'], $requestBody['message']);
+        echo json_encode($result);
+    }
+    // Send SMS to multiple numbers
+    elseif ($method === 'POST' && $endpoint === 'sms/bulk') {
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($requestBody['numbers']) || !is_array($requestBody['numbers'])) {
+            throw new InvalidArgumentException('Array of phone numbers is required');
+        }
+        if (!isset($requestBody['message'])) {
+            throw new InvalidArgumentException('Message is required');
+        }
+
+        $result = $smsController->sendBulkSMS($requestBody['numbers'], $requestBody['message']);
+        echo json_encode($result);
+    }
+    // Send SMS to a segment
+    elseif ($method === 'POST' && preg_match('/^sms\/segments\/(\d+)\/send$/', $endpoint, $matches)) {
+        $segmentId = (int) $matches[1];
+
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($requestBody['message'])) {
+            throw new InvalidArgumentException('Message is required');
+        }
+
+        $result = $smsController->sendSMSToSegment($segmentId, $requestBody['message']);
         echo json_encode($result);
     }
     // List all phone numbers

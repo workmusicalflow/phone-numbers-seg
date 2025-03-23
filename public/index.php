@@ -114,6 +114,7 @@ require APP_ROOT . '/vendor/autoload.php';
         <div class="nav">
             <a href="segment.html">Segmentation Individuelle</a>
             <a href="batch.html">Traitement par Lot</a>
+            <a href="sms.html">Envoi de SMS</a>
         </div>
 
         <div class="features">
@@ -129,6 +130,12 @@ require APP_ROOT . '/vendor/autoload.php';
                 <p>Traitez plusieurs numéros de téléphone simultanément pour une analyse efficace de grands volumes de
                     données.</p>
                 <p>Possibilité de sauvegarder les résultats dans la base de données pour référence future.</p>
+            </div>
+
+            <div class="feature">
+                <h2>Envoi de SMS</h2>
+                <p>Envoyez des SMS à des segments spécifiques pour vos campagnes marketing ciblées.</p>
+                <p>Utilisez l'API Orange pour envoyer des SMS à des numéros individuels ou à des groupes.</p>
             </div>
         </div>
     </div>

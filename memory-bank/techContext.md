@@ -139,6 +139,13 @@
 - `DELETE /phones/{id}/segments/{segmentId}`: Remove a phone number from a custom segment
 - `GET /segments/{id}/phones`: Get all phone numbers in a custom segment
 
+#### SMS
+
+- `GET /sms/segments`: Get all segments with phone number counts for SMS campaigns
+- `POST /sms/send`: Send an SMS to a single phone number
+- `POST /sms/bulk`: Send an SMS to multiple phone numbers
+- `POST /sms/segments/{id}/send`: Send an SMS to all phone numbers in a segment
+
 #### Search
 
 - `GET /phones/search`: Search phone numbers by various criteria

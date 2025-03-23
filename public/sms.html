@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Envoi de SMS par Segment</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://unpkg.com/alpinejs@3.12.3" defer></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="text"],
+      textarea,
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+      .success {
+        color: #27ae60;
+        font-weight: bold;
+      }
+      .error {
+        color: #e74c3c;
+        font-weight: bold;
+      }
+      .segment-card {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .segment-card:hover {
+        background-color: #f5f5f5;
+        border-color: #3498db;
+      }
+      .segment-card.selected {
+        background-color: #ebf5fb;
+        border-color: #3498db;
+      }
+      .segment-name {
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 5px;
+      }
+      .segment-description {
+        color: #7f8c8d;
+        margin-bottom: 5px;
+      }
+      .segment-count {
+        color: #3498db;
+        font-size: 0.9em;
+      }
+      .nav {
+        margin-bottom: 20px;
+      }
+      .nav a {
+        color: #3498db;
+        text-decoration: none;
+        margin-right: 15px;
+      }
+      .nav a:hover {
+        text-decoration: underline;
+      }
+      .summary {
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #f0f0f0;
+        border-radius: 4px;
+      }
+      .tabs {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+      }
+      .tab {
+        padding: 10px 15px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        margin-right: 5px;
+      }
+      .tab.active {
+        background-color: #f9f9f9;
+        border-color: #ddd;
+        border-bottom-color: #f9f9f9;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="container"
+      x-data="{
+        segments: [],
+        selectedSegmentId: null,
+        message: '',
+        singleNumber: '',
+        bulkNumbers: '',
+        result: null,
+        error: null,
+        loading: false,
+        activeTab: 'segment',
+        
+        selectSegment(id) {
+          this.selectedSegmentId = id;
+        },
+        
+        async sendSMSToSegment() {
+          if (!this.selectedSegmentId) {
+            this.error = 'Veuillez sélectionner un segment';
+            return;
+          }
+          if (!this.message) {
+            this.error = 'Veuillez saisir un message';
+            return;
+          }
+          
+          this.loading = true;
+          this.error = null;
+          this.result = null;
+          
+          try {
+            const response = await fetch(`/api.php/sms/segments/${this.selectedSegmentId}/send`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                message: this.message
+              })
+            });
+            
+            const data = await response.json();
+            this.result = data;
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        async sendSMSToSingle() {
+          if (!this.singleNumber) {
+            this.error = 'Veuillez saisir un numéro de téléphone';
+            return;
+          }
+          if (!this.message) {
+            this.error = 'Veuillez saisir un message';
+            return;
+          }
+          
+          this.loading = true;
+          this.error = null;
+          this.result = null;
+          
+          try {
+            const response = await fetch('/api.php/sms/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                number: this.singleNumber,
+                message: this.message
+              })
+            });
+            
+            const data = await response.json();
+            this.result = data;
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        async sendSMSToBulk() {
+          if (!this.bulkNumbers) {
+            this.error = 'Veuillez saisir des numéros de téléphone';
+            return;
+          }
+          if (!this.message) {
+            this.error = 'Veuillez saisir un message';
+            return;
+          }
+          
+          // Split the numbers by comma, newline, or space
+          const numbers = this.bulkNumbers.split(/[\s,]+/).filter(n => n.trim());
+          
+          if (numbers.length === 0) {
+            this.error = 'Aucun numéro valide trouvé';
+            return;
+          }
+          
+          this.loading = true;
+          this.error = null;
+          this.result = null;
+          
+          try {
+            const response = await fetch('/api.php/sms/bulk', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                numbers: numbers,
+                message: this.message
+              })
+            });
+            
+            const data = await response.json();
+            this.result = data;
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        async loadSegments() {
+          try {
+            const response = await fetch('/api.php/sms/segments');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+              this.segments = data.segments;
+            } else {
+              this.error = data.message || 'Erreur lors du chargement des segments';
+            }
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          }
+        }
+      }"
+      x-init="loadSegments()"
+    >
+      <div class="nav">
+        <a href="index.php">Accueil</a>
+        <a href="segment.html">Segmentation Individuelle</a>
+        <a href="batch.html">Traitement par Lot</a>
+        <a href="sms.html">Envoi de SMS</a>
+      </div>
+
+      <h1>Envoi de SMS</h1>
+
+      <div class="tabs">
+        <div
+          class="tab"
+          :class="{ 'active': activeTab === 'segment' }"
+          @click="activeTab = 'segment'"
+        >
+          Envoyer par Segment
+        </div>
+        <div
+          class="tab"
+          :class="{ 'active': activeTab === 'single' }"
+          @click="activeTab = 'single'"
+        >
+          Envoyer à un Numéro
+        </div>
+        <div
+          class="tab"
+          :class="{ 'active': activeTab === 'bulk' }"
+          @click="activeTab = 'bulk'"
+        >
+          Envoi en Masse
+        </div>
+      </div>
+
+      <!-- Tab content for sending to a segment -->
+      <div class="tab-content" :class="{ 'active': activeTab === 'segment' }">
+        <div class="form-group">
+          <label>Sélectionnez un segment</label>
+          <div x-show="segments.length === 0">Chargement des segments...</div>
+          <template x-for="segment in segments" :key="segment.id">
+            <div
+              class="segment-card"
+              :class="{ 'selected': selectedSegmentId === segment.id }"
+              @click="selectSegment(segment.id)"
+            >
+              <div class="segment-name" x-text="segment.name"></div>
+              <div
+                class="segment-description"
+                x-text="segment.description || 'Aucune description'"
+              ></div>
+              <div
+                class="segment-count"
+                x-text="`${segment.phoneNumberCount} numéros`"
+              ></div>
+            </div>
+          </template>
+        </div>
+
+        <div class="form-group">
+          <label for="message">Message</label>
+          <textarea
+            id="message"
+            x-model="message"
+            placeholder="Saisissez votre message SMS ici"
+          ></textarea>
+        </div>
+
+        <button @click="sendSMSToSegment()" :disabled="loading">
+          <span x-show="!loading">Envoyer le SMS</span>
+          <span x-show="loading">Envoi en cours...</span>
+        </button>
+      </div>
+
+      <!-- Tab content for sending to a single number -->
+      <div class="tab-content" :class="{ 'active': activeTab === 'single' }">
+        <div class="form-group">
+          <label for="singleNumber">Numéro de téléphone</label>
+          <input
+            type="text"
+            id="singleNumber"
+            x-model="singleNumber"
+            placeholder="Entrez un numéro de téléphone (ex: +2250777104936)"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="singleMessage">Message</label>
+          <textarea
+            id="singleMessage"
+            x-model="message"
+            placeholder="Saisissez votre message SMS ici"
+          ></textarea>
+        </div>
+
+        <button @click="sendSMSToSingle()" :disabled="loading">
+          <span x-show="!loading">Envoyer le SMS</span>
+          <span x-show="loading">Envoi en cours...</span>
+        </button>
+      </div>
+
+      <!-- Tab content for bulk sending -->
+      <div class="tab-content" :class="{ 'active': activeTab === 'bulk' }">
+        <div class="form-group">
+          <label for="bulkNumbers">Numéros de téléphone</label>
+          <textarea
+            id="bulkNumbers"
+            x-model="bulkNumbers"
+            placeholder="Entrez les numéros de téléphone séparés par des virgules, des espaces ou des sauts de ligne"
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="bulkMessage">Message</label>
+          <textarea
+            id="bulkMessage"
+            x-model="message"
+            placeholder="Saisissez votre message SMS ici"
+          ></textarea>
+        </div>
+
+        <button @click="sendSMSToBulk()" :disabled="loading">
+          <span x-show="!loading">Envoyer les SMS</span>
+          <span x-show="loading">Envoi en cours...</span>
+        </button>
+      </div>
+
+      <!-- Error display -->
+      <div
+        class="error"
+        x-show="error"
+        x-text="error"
+        style="
+          margin-top: 20px;
+          padding: 10px;
+          border: 1px solid #e74c3c;
+          border-radius: 4px;
+          background-color: #fadbd8;
+        "
+      ></div>
+
+      <!-- Result display -->
+      <div class="result" x-show="result">
+        <div x-show="result.status === 'success'" class="success">
+          <p>SMS envoyé avec succès!</p>
+
+          <!-- Summary for segment sending -->
+          <div class="summary" x-show="result.segment">
+            <p>
+              <strong>Segment:</strong>
+              <span x-text="result.segment.name"></span>
+            </p>
+            <p>
+              <strong>Total:</strong>
+              <span x-text="result.summary.total"></span> numéros
+            </p>
+            <p>
+              <strong>Réussis:</strong>
+              <span x-text="result.summary.successful"></span>
+            </p>
+            <p>
+              <strong>Échoués:</strong>
+              <span x-text="result.summary.failed"></span>
+            </p>
+          </div>
+
+          <!-- Summary for bulk sending -->
+          <div class="summary" x-show="result.summary && !result.segment">
+            <p>
+              <strong>Total:</strong>
+              <span x-text="result.summary.total"></span> numéros
+            </p>
+            <p>
+              <strong>Réussis:</strong>
+              <span x-text="result.summary.successful"></span>
+            </p>
+            <p>
+              <strong>Échoués:</strong>
+              <span x-text="result.summary.failed"></span>
+            </p>
+          </div>
+        </div>
+
+        <div x-show="result.status === 'error'" class="error">
+          <p>Erreur: <span x-text="result.message"></span></p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

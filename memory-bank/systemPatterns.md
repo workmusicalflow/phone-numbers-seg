@@ -105,11 +105,13 @@ The presentation layer is responsible for the user interface and interactions. I
 flowchart LR
     subgraph Controllers
         PC[PhoneController]
+        SC[SMSController]
     end
 
     subgraph Services
         PS[PhoneSegmentationService]
         BS[BatchSegmentationService]
+        SS[SMSService]
     end
 
     subgraph Repositories
@@ -129,6 +131,11 @@ flowchart LR
     PC --> PR
     PC --> TSR
     PC --> CSR
+    SC --> SS
+    SC --> PR
+    SC --> CSR
+    SS --> PR
+    SS --> CSR
     BS --> PS
     BS --> PR
     BS --> TSR

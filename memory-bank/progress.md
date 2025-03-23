@@ -31,17 +31,19 @@
 | Segmentation algorithms  | Completed | Implemented algorithms for the three Ivorian formats (+225, 00225, local) |
 | Validation logic         | Completed | Input validation for Côte d'Ivoire phone numbers                          |
 | Business segmentation    | Completed | Support for custom business-oriented segments                             |
+| SMS Service              | Completed | Service for sending SMS messages using the Orange API                     |
 
 ### Presentation Layer
 
-| Feature               | Status    | Notes                                                       |
-| --------------------- | --------- | ----------------------------------------------------------- |
-| Controllers           | Completed | Enhanced PhoneController with segment management operations |
-| Routing               | Completed | API endpoints for individual, batch, and segment management |
-| HTML templates        | Completed | Created segment.html and batch.html with navigation         |
-| HTMX integration      | Completed | Implemented for AJAX requests without page reload           |
-| Alpine.js integration | Completed | Implemented for reactive UI components                      |
-| CSS styling           | Completed | Consistent styling across all pages                         |
+| Feature               | Status    | Notes                                                            |
+| --------------------- | --------- | ---------------------------------------------------------------- |
+| Controllers           | Completed | Enhanced PhoneController with segment management operations      |
+| SMS Controller        | Completed | Implemented SMSController for SMS operations                     |
+| Routing               | Completed | API endpoints for individual, batch, segment management, and SMS |
+| HTML templates        | Completed | Created segment.html, batch.html, and sms.html with navigation   |
+| HTMX integration      | Completed | Implemented for AJAX requests without page reload                |
+| Alpine.js integration | Completed | Implemented for reactive UI components                           |
+| CSS styling           | Completed | Consistent styling across all pages                              |
 
 ## Testing Status
 
@@ -78,9 +80,11 @@ _No known issues at this time._
 - ✅ Set up PHPUnit and create basic tests
 - ✅ Implement batch processing functionality
 - ✅ Implement business-oriented segmentation
+- ✅ Implement SMS functionality using the Orange API
 - Update tests for the new models and repositories
 - Implement UI for managing custom segments
-- Add SMS campaign functionality
+- Enhance SMS campaign functionality with scheduling and templates
+- Add SMS delivery tracking and reporting
 - Deploy the application
 
 ## Overall Progress
@@ -89,6 +93,7 @@ _No known issues at this time._
 - Technical segmentation functionality is working
 - Business-oriented segmentation is implemented
 - Batch processing functionality is implemented
+- SMS functionality for sending messages to segments is implemented
 - Unit tests for models and services are passing
 - Need to update tests for new models and repositories
-- Current focus is on implementing UI for managing custom segments and preparing for SMS campaign functionality
+- Current focus is on enhancing SMS campaign functionality and implementing UI for managing custom segments

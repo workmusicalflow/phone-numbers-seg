@@ -69,6 +69,18 @@
 - Support filtering and searching phone numbers by custom segments
 - Provide API endpoints for managing custom segments and their associations
 
+### SMS Functionality
+
+- Use the Orange SMS API for sending messages
+- Support sending SMS to:
+  - Individual phone numbers
+  - Multiple phone numbers (bulk sending)
+  - All phone numbers in a segment
+- Normalize phone numbers to the format required by the Orange API (tel:+2250777104936)
+- Handle API authentication with client ID and client secret
+- Provide a user interface for composing and sending SMS messages
+- Track success/failure of SMS sending operations
+
 ### Database Interactions
 
 - Use prepared statements for all database queries
@@ -110,6 +122,8 @@
 - The three-layer architecture was adopted to ensure clean separation of concerns
 - Enhanced the database schema to support business-oriented segmentation for SMS campaigns
 - Added custom segments to support business requirements for targeted SMS campaigns
+- Integrated with the Orange SMS API for sending messages to segments
+- Created a dedicated SMS service and controller for handling SMS operations
 
 ## Tool Usage Patterns
 

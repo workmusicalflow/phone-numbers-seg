@@ -22,6 +22,10 @@ We have completed the implementation of the core components of the application. 
 - Added support for custom segments (e.g., by sector, company, etc.)
 - Implemented API endpoints for managing custom segments
 - Added sample custom segments for common business categories
+- Implemented SMS functionality using the Orange API
+- Created SMSService for sending SMS messages to individuals and segments
+- Added SMSController with endpoints for SMS operations
+- Created a user interface for sending SMS messages to segments
 
 ## Current Status
 
@@ -30,7 +34,8 @@ We have completed the implementation of the core components of the application. 
 - Business-oriented segmentation for SMS campaigns is implemented
 - Batch processing functionality for multiple phone numbers is implemented
 - Web interface for both individual and batch segmentation is available
-- API endpoints for CRUD, batch operations, and segment management are implemented
+- SMS functionality for sending messages to segments is implemented
+- API endpoints for CRUD, batch operations, segment management, and SMS operations are implemented
 - GitHub repository is available at: https://github.com/workmusicalflow/phone-numbers-seg.git
 - Dependencies installed and database initialized with sample segments
 - Unit tests for models and services are passing
@@ -45,18 +50,20 @@ We have completed the implementation of the core components of the application. 
    - Write integration tests for repositories
    - Create end-to-end tests for the complete application flow
    - Add tests for edge cases and error handling
+   - Add tests for SMS functionality
 
 2. **Documentation**
 
    - Add PHPDoc comments to the code
    - Create API documentation
-   - Create a user guide with examples of business segmentation
+   - Create a user guide with examples of business segmentation and SMS campaigns
 
 3. **Additional Features**
    - Implement a user interface for managing custom segments
-   - Add SMS campaign functionality targeting specific segments
-   - Implement user authentication for managing phone numbers
+   - Enhance SMS campaign functionality with scheduling and templates
+   - Implement user authentication for managing phone numbers and SMS campaigns
    - Add export functionality for segmentation results
+   - Add SMS delivery tracking and reporting
 
 ### Short-term Goals
 
