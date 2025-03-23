@@ -2,7 +2,7 @@
 
 ## Current Work Focus
 
-We have completed the implementation of the core components of the application. The project structure has been set up, and the functionality for segmenting Côte d'Ivoire phone numbers is working. The application can now handle the three specified formats (+225, 00225, and local) and extract segments such as country code, operator code, and subscriber number. We have also implemented business-oriented segmentation to support future SMS campaigns by segment.
+We have completed the implementation of the core components of the application. The project structure has been set up, and the functionality for segmenting Côte d'Ivoire phone numbers is working. The application can now handle the three specified formats (+225, 00225, and local) and extract segments such as country code, operator code, and subscriber number. We have also implemented business-oriented segmentation and SMS functionality to support SMS campaigns by segment.
 
 ## Recent Changes
 
@@ -26,6 +26,8 @@ We have completed the implementation of the core components of the application. 
 - Created SMSService for sending SMS messages to individuals and segments
 - Added SMSController with endpoints for SMS operations
 - Created a user interface for sending SMS messages to segments
+- Tested SMS functionality with the Orange API
+- Set the sender name to "Qualitas CI" for all SMS messages
 
 ## Current Status
 
@@ -34,7 +36,7 @@ We have completed the implementation of the core components of the application. 
 - Business-oriented segmentation for SMS campaigns is implemented
 - Batch processing functionality for multiple phone numbers is implemented
 - Web interface for both individual and batch segmentation is available
-- SMS functionality for sending messages to segments is implemented
+- SMS functionality for sending messages to segments is implemented and tested
 - API endpoints for CRUD, batch operations, segment management, and SMS operations are implemented
 - GitHub repository is available at: https://github.com/workmusicalflow/phone-numbers-seg.git
 - Dependencies installed and database initialized with sample segments
@@ -64,6 +66,7 @@ We have completed the implementation of the core components of the application. 
    - Implement user authentication for managing phone numbers and SMS campaigns
    - Add export functionality for segmentation results
    - Add SMS delivery tracking and reporting
+   - Implement SMS campaign analytics and reporting
 
 ### Short-term Goals
 

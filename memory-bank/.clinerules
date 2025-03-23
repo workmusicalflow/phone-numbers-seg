@@ -80,6 +80,8 @@
 - Handle API authentication with client ID and client secret
 - Provide a user interface for composing and sending SMS messages
 - Track success/failure of SMS sending operations
+- Use "Qualitas CI" as the sender name for all SMS messages
+- Return detailed results for bulk SMS operations, including success/failure counts
 
 ### Database Interactions
 
