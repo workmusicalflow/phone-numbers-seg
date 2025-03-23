@@ -26,27 +26,28 @@
 | Feature                  | Status    | Notes                                                                     |
 | ------------------------ | --------- | ------------------------------------------------------------------------- |
 | PhoneSegmentationService | Completed | Core service for segmenting Côte d'Ivoire phone numbers                   |
+| BatchSegmentationService | Completed | Service for batch processing of multiple phone numbers                    |
 | Segmentation algorithms  | Completed | Implemented algorithms for the three Ivorian formats (+225, 00225, local) |
 | Validation logic         | Completed | Input validation for Côte d'Ivoire phone numbers                          |
 
 ### Presentation Layer
 
-| Feature               | Status    | Notes                                               |
-| --------------------- | --------- | --------------------------------------------------- |
-| Controllers           | Completed | Implemented PhoneController with CRUD operations    |
-| Routing               | Completed | Basic routing implemented in api.php                |
-| HTML templates        | Completed | Created segment.html for phone number segmentation  |
-| HTMX integration      | Completed | Implemented for AJAX requests without page reload   |
-| Alpine.js integration | Completed | Implemented for reactive UI components              |
-| CSS styling           | Completed | Basic styling implemented for the segmentation page |
+| Feature               | Status    | Notes                                                                 |
+| --------------------- | --------- | --------------------------------------------------------------------- |
+| Controllers           | Completed | Implemented PhoneController with CRUD and batch processing operations |
+| Routing               | Completed | API endpoints for individual and batch processing                     |
+| HTML templates        | Completed | Created segment.html and batch.html with navigation                   |
+| HTMX integration      | Completed | Implemented for AJAX requests without page reload                     |
+| Alpine.js integration | Completed | Implemented for reactive UI components                                |
+| CSS styling           | Completed | Consistent styling across all pages                                   |
 
 ## Testing Status
 
-| Test Type         | Status      | Notes                                                    |
-| ----------------- | ----------- | -------------------------------------------------------- |
-| Unit tests        | In Progress | Created tests for Models and Services, all tests passing |
-| Integration tests | Not Started | Need to test component interactions                      |
-| End-to-end tests  | Not Started | Need to test complete application flow                   |
+| Test Type         | Status      | Notes                                                                |
+| ----------------- | ----------- | -------------------------------------------------------------------- |
+| Unit tests        | In Progress | Created tests for Models and Services, including batch functionality |
+| Integration tests | Not Started | Need to test component interactions                                  |
+| End-to-end tests  | Not Started | Need to test complete application flow                               |
 
 ## Documentation Status
 
@@ -73,14 +74,16 @@ _No known issues at this time._
 - ✅ Run composer install to install dependencies
 - ✅ Initialize the SQLite database
 - ✅ Set up PHPUnit and create basic tests
+- ✅ Implement batch processing functionality
 - Write more comprehensive tests for all components
-- Implement additional features (batch processing, more detailed segmentation)
+- Add more detailed segmentation (e.g., region codes)
 - Deploy the application
 
 ## Overall Progress
 
 - Project structure and core components are implemented
 - Basic functionality for phone number segmentation is working
+- Batch processing functionality is implemented
 - Unit tests for models and services are passing
 - Need to complete testing and deployment
 - Current focus is on expanding test coverage and preparing for deployment
