@@ -148,10 +148,10 @@ class PhoneNumber
             return $number;
         } elseif (substr($number, 0, 4) === '0022') {
             // Format: 002250777104936 - convert to +225...
-            return '+' . substr($number, 3);
+            return '+225' . substr($number, 5);
         } elseif (substr($number, 0, 1) === '0') {
             // Format: 0777104936 - convert to +225...
-            return '+225' . substr($number, 1);
+            return '+2250' . substr($number, 1);
         }
 
         // If none of the above, assume it's already normalized or invalid
