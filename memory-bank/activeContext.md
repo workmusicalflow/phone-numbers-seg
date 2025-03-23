@@ -61,7 +61,7 @@ We have completed the implementation of the core components of the application. 
    - Create a user guide with examples of business segmentation and SMS campaigns
 
 3. **Additional Features**
-   - Implement a user interface for managing custom segments
+   - Implement a user interface for managing custom segments (completed)
    - Enhance SMS campaign functionality with scheduling and templates
    - Implement user authentication for managing phone numbers and SMS campaigns
    - Add export functionality for segmentation results
