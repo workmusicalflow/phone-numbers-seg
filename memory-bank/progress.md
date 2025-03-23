@@ -82,7 +82,8 @@ _No known issues at this time._
 - ✅ Implement business-oriented segmentation
 - ✅ Implement SMS functionality using the Orange API
 - ✅ Test SMS functionality with the Orange API
-- Update tests for the new models and repositories
+- ✅ Add tests for SMS functionality
+- Update tests for other models and repositories
 - Implement UI for managing custom segments
 - Enhance SMS campaign functionality with scheduling and templates
 - Add SMS delivery tracking and reporting
