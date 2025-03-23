@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\PhoneNumber;
 use App\Repositories\PhoneNumberRepository;
-use App\Repositories\SegmentRepository;
+use App\Repositories\TechnicalSegmentRepository;
 
 /**
  * BatchSegmentationService
@@ -24,25 +24,25 @@ class BatchSegmentationService
     private ?PhoneNumberRepository $phoneNumberRepository;
 
     /**
-     * @var SegmentRepository|null
+     * @var TechnicalSegmentRepository|null
      */
-    private ?SegmentRepository $segmentRepository;
+    private ?TechnicalSegmentRepository $technicalSegmentRepository;
 
     /**
      * Constructor
      * 
      * @param PhoneSegmentationService $segmentationService
      * @param PhoneNumberRepository|null $phoneNumberRepository
-     * @param SegmentRepository|null $segmentRepository
+     * @param TechnicalSegmentRepository|null $technicalSegmentRepository
      */
     public function __construct(
         PhoneSegmentationService $segmentationService,
         ?PhoneNumberRepository $phoneNumberRepository = null,
-        ?SegmentRepository $segmentRepository = null
+        ?TechnicalSegmentRepository $technicalSegmentRepository = null
     ) {
         $this->segmentationService = $segmentationService;
         $this->phoneNumberRepository = $phoneNumberRepository;
-        $this->segmentRepository = $segmentRepository;
+        $this->technicalSegmentRepository = $technicalSegmentRepository;
     }
 
     /**
@@ -93,8 +93,8 @@ class BatchSegmentationService
      */
     public function processAndSavePhoneNumbers(array $phoneNumbers): array
     {
-        if ($this->phoneNumberRepository === null || $this->segmentRepository === null) {
-            throw new \RuntimeException('Phone number and segment repositories are required for saving to database');
+        if ($this->phoneNumberRepository === null || $this->technicalSegmentRepository === null) {
+            throw new \RuntimeException('Phone number and technical segment repositories are required for saving to database');
         }
 
         $results = [];
@@ -122,19 +122,13 @@ class BatchSegmentationService
                     continue;
                 }
 
-                // Save the phone number
-                $savedPhoneNumber = $this->phoneNumberRepository->save($phoneNumber);
-
                 // Segment the phone number
-                $segmentedPhoneNumber = $this->segmentationService->segmentPhoneNumber($savedPhoneNumber);
+                $segmentedPhoneNumber = $this->segmentationService->segmentPhoneNumber($phoneNumber);
 
-                // Save the segments
-                foreach ($segmentedPhoneNumber->getSegments() as $segment) {
-                    $segment->setPhoneNumberId($savedPhoneNumber->getId());
-                    $this->segmentRepository->save($segment);
-                }
+                // Save the phone number with segments
+                $savedPhoneNumber = $this->phoneNumberRepository->save($segmentedPhoneNumber);
 
-                $results[$index] = $segmentedPhoneNumber;
+                $results[$index] = $savedPhoneNumber;
             } catch (\Exception $e) {
                 $errors[$index] = [
                     'number' => $number,

@@ -5,7 +5,7 @@ namespace App\Models;
 /**
  * Segment Model
  * 
- * Represents a segment of a phone number
+ * Represents a technical segment of a phone number (e.g., country code, operator code)
  */
 class Segment
 {
@@ -15,12 +15,12 @@ class Segment
     private ?int $id;
 
     /**
-     * @var int The ID of the associated phone number
+     * @var int The ID of the phone number this segment belongs to
      */
     private int $phoneNumberId;
 
     /**
-     * @var string The type of segment (e.g., country_code, operator, subscriber_number)
+     * @var string The type of segment (e.g., country_code, operator_code)
      */
     private string $segmentType;
 
@@ -30,18 +30,26 @@ class Segment
     private string $value;
 
     /**
+     * Segment type constants
+     */
+    public const TYPE_COUNTRY_CODE = 'country_code';
+    public const TYPE_OPERATOR_CODE = 'operator_code';
+    public const TYPE_SUBSCRIBER_NUMBER = 'subscriber_number';
+    public const TYPE_OPERATOR_NAME = 'operator_name';
+
+    /**
      * Constructor
      * 
      * @param string $segmentType The type of segment
      * @param string $value The value of the segment
-     * @param int|null $phoneNumberId The ID of the associated phone number (null for new records)
+     * @param int $phoneNumberId The ID of the phone number this segment belongs to
      * @param int|null $id The ID (null for new records)
      */
-    public function __construct(string $segmentType, string $value, ?int $phoneNumberId = null, ?int $id = null)
+    public function __construct(string $segmentType, string $value, int $phoneNumberId = 0, ?int $id = null)
     {
         $this->segmentType = $segmentType;
         $this->value = $value;
-        $this->phoneNumberId = $phoneNumberId ?? 0;
+        $this->phoneNumberId = $phoneNumberId;
         $this->id = $id;
     }
 

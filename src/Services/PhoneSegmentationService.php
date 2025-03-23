@@ -30,20 +30,20 @@ class PhoneSegmentationService
 
         // Extract country code
         $countryCode = $this->extractCountryCode($number);
-        $phoneNumber->addSegment(new Segment('country_code', $countryCode));
+        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_COUNTRY_CODE, $countryCode));
 
         // Extract operator code
         $operatorCode = $this->extractOperatorCode($number);
-        $phoneNumber->addSegment(new Segment('operator_code', $operatorCode));
+        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_OPERATOR_CODE, $operatorCode));
 
         // Extract subscriber number
         $subscriberNumber = $this->extractSubscriberNumber($number);
-        $phoneNumber->addSegment(new Segment('subscriber_number', $subscriberNumber));
+        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_SUBSCRIBER_NUMBER, $subscriberNumber));
 
         // Extract operator name (if known)
         $operatorName = $this->identifyOperator($operatorCode);
         if ($operatorName) {
-            $phoneNumber->addSegment(new Segment('operator_name', $operatorName));
+            $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_OPERATOR_NAME, $operatorName));
         }
 
         return $phoneNumber;

@@ -82,9 +82,119 @@ try {
         http_response_code(201);
         echo json_encode($result);
     }
+    // Get all custom segments
+    elseif ($method === 'GET' && $endpoint === 'segments') {
+        $result = $phoneController->getCustomSegments();
+        echo json_encode($result);
+    }
+    // Get a specific custom segment
+    elseif ($method === 'GET' && preg_match('/^segments\/(\d+)$/', $endpoint, $matches)) {
+        $segmentId = (int) $matches[1];
+        $result = $phoneController->getCustomSegment($segmentId);
+
+        if ($result === null) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Segment not found']);
+        } else {
+            echo json_encode($result);
+        }
+    }
+    // Create a custom segment
+    elseif ($method === 'POST' && $endpoint === 'segments') {
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($requestBody['name'])) {
+            throw new InvalidArgumentException('Segment name is required');
+        }
+
+        $result = $phoneController->createCustomSegment(
+            $requestBody['name'],
+            $requestBody['description'] ?? null
+        );
+        http_response_code(201);
+        echo json_encode($result);
+    }
+    // Update a custom segment
+    elseif ($method === 'PUT' && preg_match('/^segments\/(\d+)$/', $endpoint, $matches)) {
+        $segmentId = (int) $matches[1];
+
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($requestBody['name'])) {
+            throw new InvalidArgumentException('Segment name is required');
+        }
+
+        $result = $phoneController->updateCustomSegment(
+            $segmentId,
+            $requestBody['name'],
+            $requestBody['description'] ?? null
+        );
+
+        if ($result === null) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Segment not found']);
+        } else {
+            echo json_encode($result);
+        }
+    }
+    // Delete a custom segment
+    elseif ($method === 'DELETE' && preg_match('/^segments\/(\d+)$/', $endpoint, $matches)) {
+        $segmentId = (int) $matches[1];
+        $result = $phoneController->deleteCustomSegment($segmentId);
+
+        if (!$result) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Segment not found']);
+        } else {
+            http_response_code(204);
+        }
+    }
+    // Add a phone number to a segment
+    elseif ($method === 'POST' && preg_match('/^phones\/(\d+)\/segments\/(\d+)$/', $endpoint, $matches)) {
+        $phoneNumberId = (int) $matches[1];
+        $segmentId = (int) $matches[2];
+
+        $result = $phoneController->addPhoneNumberToSegment($phoneNumberId, $segmentId);
+        http_response_code(204);
+    }
+    // Remove a phone number from a segment
+    elseif ($method === 'DELETE' && preg_match('/^phones\/(\d+)\/segments\/(\d+)$/', $endpoint, $matches)) {
+        $phoneNumberId = (int) $matches[1];
+        $segmentId = (int) $matches[2];
+
+        $result = $phoneController->removePhoneNumberFromSegment($phoneNumberId, $segmentId);
+        http_response_code(204);
+    }
+    // Get phone numbers by segment
+    elseif ($method === 'GET' && preg_match('/^segments\/(\d+)\/phones$/', $endpoint, $matches)) {
+        $segmentId = (int) $matches[1];
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 100;
+        $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+
+        $result = $phoneController->findPhoneNumbersBySegment($segmentId, $limit, $offset);
+        echo json_encode($result);
+    }
+    // Search phone numbers
+    elseif ($method === 'GET' && $endpoint === 'phones/search') {
+        if (!isset($_GET['q'])) {
+            throw new InvalidArgumentException('Search query is required');
+        }
+
+        $query = $_GET['q'];
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 100;
+        $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+
+        $result = $phoneController->searchPhoneNumbers($query, $limit, $offset);
+        echo json_encode($result);
+    }
     // List all phone numbers
     elseif ($method === 'GET' && $endpoint === 'phones') {
-        $result = $phoneController->index();
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 100;
+        $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+
+        $result = $phoneController->index($limit, $offset);
         echo json_encode($result);
     }
     // Get a specific phone number
@@ -107,7 +217,7 @@ try {
             throw new InvalidArgumentException('Phone number is required');
         }
 
-        $result = $phoneController->create($requestBody['number']);
+        $result = $phoneController->create($requestBody);
         http_response_code(201);
         echo json_encode($result);
     }
@@ -116,11 +226,7 @@ try {
         // Get the request body
         $requestBody = json_decode(file_get_contents('php://input'), true);
 
-        if (!isset($requestBody['number'])) {
-            throw new InvalidArgumentException('Phone number is required');
-        }
-
-        $result = $phoneController->update((int) $endpoint, $requestBody['number']);
+        $result = $phoneController->update((int) $endpoint, $requestBody);
 
         if ($result === null) {
             http_response_code(404);

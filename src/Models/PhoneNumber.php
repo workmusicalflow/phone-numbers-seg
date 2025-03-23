@@ -5,7 +5,7 @@ namespace App\Models;
 /**
  * PhoneNumber Model
  * 
- * Represents a phone number in the system
+ * Represents a phone number in the system with business information
  */
 class PhoneNumber
 {
@@ -20,26 +20,66 @@ class PhoneNumber
     private string $number;
 
     /**
+     * @var string|null The name associated with this phone number
+     */
+    private ?string $name;
+
+    /**
+     * @var string|null The company associated with this phone number
+     */
+    private ?string $company;
+
+    /**
+     * @var string|null The business sector associated with this phone number
+     */
+    private ?string $sector;
+
+    /**
+     * @var string|null Additional notes about this phone number
+     */
+    private ?string $notes;
+
+    /**
      * @var string The date the phone number was added
      */
     private string $dateAdded;
 
     /**
-     * @var array The segments associated with this phone number
+     * @var array The technical segments associated with this phone number
      */
-    private array $segments = [];
+    private array $technicalSegments = [];
+
+    /**
+     * @var array The custom segments associated with this phone number
+     */
+    private array $customSegments = [];
 
     /**
      * Constructor
      * 
      * @param string $number The phone number
      * @param int|null $id The ID (null for new records)
+     * @param string|null $name The name associated with this phone number
+     * @param string|null $company The company associated with this phone number
+     * @param string|null $sector The business sector associated with this phone number
+     * @param string|null $notes Additional notes about this phone number
      * @param string|null $dateAdded The date added (null for current timestamp)
      */
-    public function __construct(string $number, ?int $id = null, ?string $dateAdded = null)
-    {
+    public function __construct(
+        string $number,
+        ?int $id = null,
+        ?string $name = null,
+        ?string $company = null,
+        ?string $sector = null,
+        ?string $notes = null,
+        ?string $dateAdded = null
+    ) {
         $this->number = $this->normalizeNumber($number);
         $this->id = $id;
+        $this->name = $name;
+        $this->company = $company;
+        $this->sector = $sector;
+        $this->notes = $notes;
         $this->dateAdded = $dateAdded ?? date('Y-m-d H:i:s');
     }
 
@@ -98,36 +138,192 @@ class PhoneNumber
     }
 
     /**
-     * Get the segments
+     * Get the name
+     * 
+     * @return string|null
+     */
+    public function getName(): ?string
+    {
+        return $this->name;
+    }
+
+    /**
+     * Set the name
+     * 
+     * @param string|null $name
+     * @return self
+     */
+    public function setName(?string $name): self
+    {
+        $this->name = $name;
+        return $this;
+    }
+
+    /**
+     * Get the company
+     * 
+     * @return string|null
+     */
+    public function getCompany(): ?string
+    {
+        return $this->company;
+    }
+
+    /**
+     * Set the company
+     * 
+     * @param string|null $company
+     * @return self
+     */
+    public function setCompany(?string $company): self
+    {
+        $this->company = $company;
+        return $this;
+    }
+
+    /**
+     * Get the sector
+     * 
+     * @return string|null
+     */
+    public function getSector(): ?string
+    {
+        return $this->sector;
+    }
+
+    /**
+     * Set the sector
+     * 
+     * @param string|null $sector
+     * @return self
+     */
+    public function setSector(?string $sector): self
+    {
+        $this->sector = $sector;
+        return $this;
+    }
+
+    /**
+     * Get the notes
+     * 
+     * @return string|null
+     */
+    public function getNotes(): ?string
+    {
+        return $this->notes;
+    }
+
+    /**
+     * Set the notes
+     * 
+     * @param string|null $notes
+     * @return self
+     */
+    public function setNotes(?string $notes): self
+    {
+        $this->notes = $notes;
+        return $this;
+    }
+
+    /**
+     * Get the technical segments
+     * 
+     * @return array
+     */
+    public function getTechnicalSegments(): array
+    {
+        return $this->technicalSegments;
+    }
+
+    /**
+     * Set the technical segments
+     * 
+     * @param array $segments
+     * @return self
+     */
+    public function setTechnicalSegments(array $segments): self
+    {
+        $this->technicalSegments = $segments;
+        return $this;
+    }
+
+    /**
+     * Add a technical segment
+     * 
+     * @param Segment $segment
+     * @return self
+     */
+    public function addTechnicalSegment(Segment $segment): self
+    {
+        $this->technicalSegments[] = $segment;
+        return $this;
+    }
+
+    /**
+     * Get the custom segments
+     * 
+     * @return array
+     */
+    public function getCustomSegments(): array
+    {
+        return $this->customSegments;
+    }
+
+    /**
+     * Set the custom segments
+     * 
+     * @param array $segments
+     * @return self
+     */
+    public function setCustomSegments(array $segments): self
+    {
+        $this->customSegments = $segments;
+        return $this;
+    }
+
+    /**
+     * Add a custom segment
+     * 
+     * @param CustomSegment $segment
+     * @return self
+     */
+    public function addCustomSegment($segment): self
+    {
+        $this->customSegments[] = $segment;
+        return $this;
+    }
+
+    /**
+     * For backward compatibility
      * 
      * @return array
      */
     public function getSegments(): array
     {
-        return $this->segments;
+        return $this->technicalSegments;
     }
 
     /**
-     * Set the segments
+     * For backward compatibility
      * 
      * @param array $segments
      * @return self
      */
     public function setSegments(array $segments): self
     {
-        $this->segments = $segments;
+        $this->technicalSegments = $segments;
         return $this;
     }
 
     /**
-     * Add a segment
+     * For backward compatibility
      * 
      * @param Segment $segment
      * @return self
      */
     public function addSegment(Segment $segment): self
     {
-        $this->segments[] = $segment;
+        $this->technicalSegments[] = $segment;
         return $this;
     }
 
@@ -183,10 +379,17 @@ class PhoneNumber
         return [
             'id' => $this->id,
             'number' => $this->number,
+            'name' => $this->name,
+            'company' => $this->company,
+            'sector' => $this->sector,
+            'notes' => $this->notes,
             'dateAdded' => $this->dateAdded,
-            'segments' => array_map(function ($segment) {
+            'technicalSegments' => array_map(function ($segment) {
                 return $segment->toArray();
-            }, $this->segments)
+            }, $this->technicalSegments),
+            'customSegments' => array_map(function ($segment) {
+                return $segment instanceof \stdClass ? $segment : $segment->toArray();
+            }, $this->customSegments)
         ];
     }
 }

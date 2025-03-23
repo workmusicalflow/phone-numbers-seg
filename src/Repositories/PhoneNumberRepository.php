@@ -18,13 +18,30 @@ class PhoneNumberRepository
     private PDO $db;
 
     /**
+     * @var TechnicalSegmentRepository|null
+     */
+    private ?TechnicalSegmentRepository $technicalSegmentRepository;
+
+    /**
+     * @var CustomSegmentRepository|null
+     */
+    private ?CustomSegmentRepository $customSegmentRepository;
+
+    /**
      * Constructor
      * 
      * @param PDO $db The database connection
+     * @param TechnicalSegmentRepository|null $technicalSegmentRepository
+     * @param CustomSegmentRepository|null $customSegmentRepository
      */
-    public function __construct(PDO $db)
-    {
+    public function __construct(
+        PDO $db,
+        ?TechnicalSegmentRepository $technicalSegmentRepository = null,
+        ?CustomSegmentRepository $customSegmentRepository = null
+    ) {
         $this->db = $db;
+        $this->technicalSegmentRepository = $technicalSegmentRepository;
+        $this->customSegmentRepository = $customSegmentRepository;
     }
 
     /**
@@ -44,7 +61,21 @@ class PhoneNumberRepository
             return null;
         }
 
-        return new PhoneNumber($row['number'], $row['id'], $row['date_added']);
+        $phoneNumber = $this->createFromRow($row);
+
+        // Load technical segments if repository is available
+        if ($this->technicalSegmentRepository !== null) {
+            $segments = $this->technicalSegmentRepository->findByPhoneNumberId($id);
+            $phoneNumber->setTechnicalSegments($segments);
+        }
+
+        // Load custom segments if repository is available
+        if ($this->customSegmentRepository !== null) {
+            $segments = $this->customSegmentRepository->findByPhoneNumberId($id);
+            $phoneNumber->setCustomSegments($segments);
+        }
+
+        return $phoneNumber;
     }
 
     /**
@@ -68,22 +99,184 @@ class PhoneNumberRepository
             return null;
         }
 
-        return new PhoneNumber($row['number'], $row['id'], $row['date_added']);
+        $phoneNumber = $this->createFromRow($row);
+
+        // Load technical segments if repository is available
+        if ($this->technicalSegmentRepository !== null) {
+            $segments = $this->technicalSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+            $phoneNumber->setTechnicalSegments($segments);
+        }
+
+        // Load custom segments if repository is available
+        if ($this->customSegmentRepository !== null) {
+            $segments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+            $phoneNumber->setCustomSegments($segments);
+        }
+
+        return $phoneNumber;
     }
 
     /**
      * Find all phone numbers
      * 
+     * @param int $limit Limit the number of results
+     * @param int $offset Offset for pagination
      * @return array
      */
-    public function findAll(): array
+    public function findAll(int $limit = 100, int $offset = 0): array
     {
-        $stmt = $this->db->query('SELECT * FROM phone_numbers ORDER BY date_added DESC');
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $this->db->prepare('
+            SELECT * FROM phone_numbers 
+            ORDER BY date_added DESC
+            LIMIT :limit OFFSET :offset
+        ');
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
 
         $phoneNumbers = [];
-        foreach ($rows as $row) {
-            $phoneNumbers[] = new PhoneNumber($row['number'], $row['id'], $row['date_added']);
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $phoneNumber = $this->createFromRow($row);
+
+            // Load technical segments if repository is available
+            if ($this->technicalSegmentRepository !== null) {
+                $segments = $this->technicalSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setTechnicalSegments($segments);
+            }
+
+            // Load custom segments if repository is available
+            if ($this->customSegmentRepository !== null) {
+                $segments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setCustomSegments($segments);
+            }
+
+            $phoneNumbers[] = $phoneNumber;
+        }
+
+        return $phoneNumbers;
+    }
+
+    /**
+     * Count all phone numbers
+     * 
+     * @return int
+     */
+    public function countAll(): int
+    {
+        $stmt = $this->db->query('SELECT COUNT(*) FROM phone_numbers');
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Find phone numbers by custom segment
+     * 
+     * @param int $segmentId
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public function findByCustomSegment(int $segmentId, int $limit = 100, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare('
+            SELECT p.* FROM phone_numbers p
+            JOIN phone_number_segments pns ON p.id = pns.phone_number_id
+            WHERE pns.custom_segment_id = :segment_id
+            ORDER BY p.date_added DESC
+            LIMIT :limit OFFSET :offset
+        ');
+        $stmt->bindParam(':segment_id', $segmentId, PDO::PARAM_INT);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $phoneNumbers = [];
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $phoneNumber = $this->createFromRow($row);
+
+            // Load technical segments if repository is available
+            if ($this->technicalSegmentRepository !== null) {
+                $segments = $this->technicalSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setTechnicalSegments($segments);
+            }
+
+            // Load custom segments if repository is available
+            if ($this->customSegmentRepository !== null) {
+                $segments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setCustomSegments($segments);
+            }
+
+            $phoneNumbers[] = $phoneNumber;
+        }
+
+        return $phoneNumbers;
+    }
+
+    /**
+     * Count phone numbers by custom segment
+     * 
+     * @param int $segmentId
+     * @return int
+     */
+    public function countByCustomSegment(int $segmentId): int
+    {
+        $stmt = $this->db->prepare('
+            SELECT COUNT(*) FROM phone_numbers p
+            JOIN phone_number_segments pns ON p.id = pns.phone_number_id
+            WHERE pns.custom_segment_id = :segment_id
+        ');
+        $stmt->bindParam(':segment_id', $segmentId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Search phone numbers
+     * 
+     * @param string $query
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public function search(string $query, int $limit = 100, int $offset = 0): array
+    {
+        $searchQuery = '%' . $query . '%';
+
+        $stmt = $this->db->prepare('
+            SELECT * FROM phone_numbers 
+            WHERE number LIKE :query 
+               OR name LIKE :query 
+               OR company LIKE :query 
+               OR sector LIKE :query
+               OR notes LIKE :query
+            ORDER BY date_added DESC
+            LIMIT :limit OFFSET :offset
+        ');
+        $stmt->bindParam(':query', $searchQuery, PDO::PARAM_STR);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $phoneNumbers = [];
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $phoneNumber = $this->createFromRow($row);
+
+            // Load technical segments if repository is available
+            if ($this->technicalSegmentRepository !== null) {
+                $segments = $this->technicalSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setTechnicalSegments($segments);
+            }
+
+            // Load custom segments if repository is available
+            if ($this->customSegmentRepository !== null) {
+                $segments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setCustomSegments($segments);
+            }
+
+            $phoneNumbers[] = $phoneNumber;
         }
 
         return $phoneNumbers;
@@ -99,21 +292,86 @@ class PhoneNumberRepository
     {
         if ($phoneNumber->getId() === null) {
             // Insert new phone number
-            $stmt = $this->db->prepare('INSERT INTO phone_numbers (number) VALUES (:number)');
+            $stmt = $this->db->prepare('
+                INSERT INTO phone_numbers (number, name, company, sector, notes)
+                VALUES (:number, :name, :company, :sector, :notes)
+            ');
             $number = $phoneNumber->getNumber();
+            $name = $phoneNumber->getName();
+            $company = $phoneNumber->getCompany();
+            $sector = $phoneNumber->getSector();
+            $notes = $phoneNumber->getNotes();
+
             $stmt->bindParam(':number', $number, PDO::PARAM_STR);
+            $stmt->bindParam(':name', $name, PDO::PARAM_STR);
+            $stmt->bindParam(':company', $company, PDO::PARAM_STR);
+            $stmt->bindParam(':sector', $sector, PDO::PARAM_STR);
+            $stmt->bindParam(':notes', $notes, PDO::PARAM_STR);
             $stmt->execute();
 
             $id = (int) $this->db->lastInsertId();
             $phoneNumber->setId($id);
         } else {
             // Update existing phone number
-            $stmt = $this->db->prepare('UPDATE phone_numbers SET number = :number WHERE id = :id');
+            $stmt = $this->db->prepare('
+                UPDATE phone_numbers 
+                SET number = :number, name = :name, company = :company, sector = :sector, notes = :notes
+                WHERE id = :id
+            ');
             $id = $phoneNumber->getId();
             $number = $phoneNumber->getNumber();
+            $name = $phoneNumber->getName();
+            $company = $phoneNumber->getCompany();
+            $sector = $phoneNumber->getSector();
+            $notes = $phoneNumber->getNotes();
+
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
             $stmt->bindParam(':number', $number, PDO::PARAM_STR);
+            $stmt->bindParam(':name', $name, PDO::PARAM_STR);
+            $stmt->bindParam(':company', $company, PDO::PARAM_STR);
+            $stmt->bindParam(':sector', $sector, PDO::PARAM_STR);
+            $stmt->bindParam(':notes', $notes, PDO::PARAM_STR);
             $stmt->execute();
+        }
+
+        // Save technical segments if repository is available
+        if ($this->technicalSegmentRepository !== null && $phoneNumber->getId() !== null) {
+            // Delete existing segments
+            $this->technicalSegmentRepository->deleteByPhoneNumberId($phoneNumber->getId());
+
+            // Save new segments
+            foreach ($phoneNumber->getTechnicalSegments() as $segment) {
+                $segment->setPhoneNumberId($phoneNumber->getId());
+                $this->technicalSegmentRepository->save($segment);
+            }
+        }
+
+        // Save custom segments if repository is available
+        if ($this->customSegmentRepository !== null && $phoneNumber->getId() !== null) {
+            // Get existing segments
+            $existingSegments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+            $existingSegmentIds = array_map(function ($segment) {
+                return $segment->getId();
+            }, $existingSegments);
+
+            // Get new segment IDs
+            $newSegmentIds = array_map(function ($segment) {
+                return $segment->getId();
+            }, $phoneNumber->getCustomSegments());
+
+            // Remove segments that are no longer associated
+            foreach ($existingSegmentIds as $segmentId) {
+                if (!in_array($segmentId, $newSegmentIds)) {
+                    $this->customSegmentRepository->removePhoneNumberFromSegment($phoneNumber->getId(), $segmentId);
+                }
+            }
+
+            // Add new segments
+            foreach ($newSegmentIds as $segmentId) {
+                if (!in_array($segmentId, $existingSegmentIds)) {
+                    $this->customSegmentRepository->addPhoneNumberToSegment($phoneNumber->getId(), $segmentId);
+                }
+            }
         }
 
         return $phoneNumber;
@@ -132,5 +390,24 @@ class PhoneNumberRepository
         $stmt->execute();
 
         return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Create a PhoneNumber object from a database row
+     * 
+     * @param array $row
+     * @return PhoneNumber
+     */
+    private function createFromRow(array $row): PhoneNumber
+    {
+        return new PhoneNumber(
+            $row['number'],
+            $row['id'],
+            $row['name'] ?? null,
+            $row['company'] ?? null,
+            $row['sector'] ?? null,
+            $row['notes'] ?? null,
+            $row['date_added']
+        );
     }
 }
