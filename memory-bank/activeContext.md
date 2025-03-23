@@ -2,13 +2,13 @@
 
 ## Current Work Focus
 
-We have completed the initial implementation of the core components of the application. The project structure has been set up, and the basic functionality for segmenting Côte d'Ivoire phone numbers is working. The application can now handle the three specified formats (+225, 00225, and local) and extract segments such as country code, operator code, and subscriber number.
+We have completed the implementation of the core components of the application. The project structure has been set up, and the functionality for segmenting Côte d'Ivoire phone numbers is working. The application can now handle the three specified formats (+225, 00225, and local) and extract segments such as country code, operator code, and subscriber number. We have also implemented business-oriented segmentation to support future SMS campaigns by segment.
 
 ## Recent Changes
 
 - Set up the project structure with src/, public/, and tests/ directories
 - Created the database schema and migration scripts
-- Implemented the core models (PhoneNumber and Segment)
+- Implemented the core models (PhoneNumber, Segment, CustomSegment)
 - Implemented the repositories for data access
 - Implemented the PhoneSegmentationService for phone number segmentation
 - Created the PhoneController for handling HTTP requests
@@ -18,17 +18,22 @@ We have completed the initial implementation of the core components of the appli
 - Created a dedicated batch processing interface
 - Improved navigation between different pages
 - Added comprehensive unit tests for all components
+- Enhanced the database schema to support business-oriented segmentation
+- Added support for custom segments (e.g., by sector, company, etc.)
+- Implemented API endpoints for managing custom segments
+- Added sample custom segments for common business categories
 
 ## Current Status
 
 - Project structure and core components are implemented
-- Basic functionality for phone number segmentation is working
+- Technical segmentation functionality for phone numbers is working
+- Business-oriented segmentation for SMS campaigns is implemented
 - Batch processing functionality for multiple phone numbers is implemented
 - Web interface for both individual and batch segmentation is available
-- API endpoints for CRUD and batch operations are implemented
+- API endpoints for CRUD, batch operations, and segment management are implemented
 - GitHub repository is available at: https://github.com/workmusicalflow/phone-numbers-seg.git
-- Dependencies installed and database initialized
-- Unit tests for models and services are passing (18 tests with 79 assertions)
+- Dependencies installed and database initialized with sample segments
+- Unit tests for models and services are passing
 
 ## Next Steps
 
@@ -36,6 +41,7 @@ We have completed the initial implementation of the core components of the appli
 
 1. **Expand Test Coverage**
 
+   - Update unit tests for the new models and repositories
    - Write integration tests for repositories
    - Create end-to-end tests for the complete application flow
    - Add tests for edge cases and error handling
@@ -44,10 +50,11 @@ We have completed the initial implementation of the core components of the appli
 
    - Add PHPDoc comments to the code
    - Create API documentation
-   - Create a user guide
+   - Create a user guide with examples of business segmentation
 
 3. **Additional Features**
-   - Add more detailed segmentation (e.g., region codes)
+   - Implement a user interface for managing custom segments
+   - Add SMS campaign functionality targeting specific segments
    - Implement user authentication for managing phone numbers
    - Add export functionality for segmentation results
 

@@ -13,33 +13,35 @@
 
 ### Data Layer
 
-| Feature             | Status    | Notes                                                   |
-| ------------------- | --------- | ------------------------------------------------------- |
-| Database schema     | Completed | Schema defined in SQL migration script                  |
-| Database migrations | Completed | Created migration script in src/database/migrations/    |
-| PhoneNumber model   | Completed | Implemented with normalization and validation           |
-| Segment model       | Completed | Implemented with all required properties                |
-| Repositories        | Completed | Implemented PhoneNumberRepository and SegmentRepository |
+| Feature             | Status    | Notes                                                                                  |
+| ------------------- | --------- | -------------------------------------------------------------------------------------- |
+| Database schema     | Completed | Enhanced schema with business-oriented segmentation support                            |
+| Database migrations | Completed | Updated migration script in src/database/migrations/                                   |
+| PhoneNumber model   | Completed | Enhanced with business information fields and support for both segmentation types      |
+| Segment model       | Completed | Implemented for technical segmentation with constants for segment types                |
+| CustomSegment model | Completed | Implemented for business-oriented segmentation                                         |
+| Repositories        | Completed | Implemented PhoneNumberRepository, TechnicalSegmentRepository, CustomSegmentRepository |
 
 ### Business Logic Layer
 
 | Feature                  | Status    | Notes                                                                     |
 | ------------------------ | --------- | ------------------------------------------------------------------------- |
-| PhoneSegmentationService | Completed | Core service for segmenting Côte d'Ivoire phone numbers                   |
+| PhoneSegmentationService | Completed | Core service for technical segmentation of Côte d'Ivoire phone numbers    |
 | BatchSegmentationService | Completed | Service for batch processing of multiple phone numbers                    |
 | Segmentation algorithms  | Completed | Implemented algorithms for the three Ivorian formats (+225, 00225, local) |
 | Validation logic         | Completed | Input validation for Côte d'Ivoire phone numbers                          |
+| Business segmentation    | Completed | Support for custom business-oriented segments                             |
 
 ### Presentation Layer
 
-| Feature               | Status    | Notes                                                                 |
-| --------------------- | --------- | --------------------------------------------------------------------- |
-| Controllers           | Completed | Implemented PhoneController with CRUD and batch processing operations |
-| Routing               | Completed | API endpoints for individual and batch processing                     |
-| HTML templates        | Completed | Created segment.html and batch.html with navigation                   |
-| HTMX integration      | Completed | Implemented for AJAX requests without page reload                     |
-| Alpine.js integration | Completed | Implemented for reactive UI components                                |
-| CSS styling           | Completed | Consistent styling across all pages                                   |
+| Feature               | Status    | Notes                                                       |
+| --------------------- | --------- | ----------------------------------------------------------- |
+| Controllers           | Completed | Enhanced PhoneController with segment management operations |
+| Routing               | Completed | API endpoints for individual, batch, and segment management |
+| HTML templates        | Completed | Created segment.html and batch.html with navigation         |
+| HTMX integration      | Completed | Implemented for AJAX requests without page reload           |
+| Alpine.js integration | Completed | Implemented for reactive UI components                      |
+| CSS styling           | Completed | Consistent styling across all pages                         |
 
 ## Testing Status
 
@@ -75,15 +77,18 @@ _No known issues at this time._
 - ✅ Initialize the SQLite database
 - ✅ Set up PHPUnit and create basic tests
 - ✅ Implement batch processing functionality
-- Write more comprehensive tests for all components
-- Add more detailed segmentation (e.g., region codes)
+- ✅ Implement business-oriented segmentation
+- Update tests for the new models and repositories
+- Implement UI for managing custom segments
+- Add SMS campaign functionality
 - Deploy the application
 
 ## Overall Progress
 
 - Project structure and core components are implemented
-- Basic functionality for phone number segmentation is working
+- Technical segmentation functionality is working
+- Business-oriented segmentation is implemented
 - Batch processing functionality is implemented
 - Unit tests for models and services are passing
-- Need to complete testing and deployment
-- Current focus is on expanding test coverage and preparing for deployment
+- Need to update tests for new models and repositories
+- Current focus is on implementing UI for managing custom segments and preparing for SMS campaign functionality

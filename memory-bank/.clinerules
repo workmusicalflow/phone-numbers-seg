@@ -46,24 +46,36 @@
 
 ### Phone Number Segmentation
 
+#### Technical Segmentation
+
 - Focus specifically on Côte d'Ivoire phone numbers
 - Support three formats:
   - International format with + prefix: +2250777104936
   - International format with 00 prefix: 002250777104936
   - Local format: 0777104936
 - Standardize all formats internally for consistent processing
-- Extract segments such as:
+- Extract technical segments such as:
   - Country code (225 for Côte d'Ivoire)
   - Operator code (e.g., 07 for certain mobile operators)
   - Subscriber number
+  - Operator name (derived from operator code)
 - Validation should check for valid Ivorian phone number formats
+
+#### Business Segmentation
+
+- Support custom business-oriented segments for grouping phone numbers
+- Allow creating and managing custom segments (e.g., by sector, company, client type)
+- Implement many-to-many relationship between phone numbers and custom segments
+- Support filtering and searching phone numbers by custom segments
+- Provide API endpoints for managing custom segments and their associations
 
 ### Database Interactions
 
 - Use prepared statements for all database queries
 - Implement transactions for operations that modify multiple tables
-- Keep database schema simple but extensible
+- Keep database schema extensible to support both technical and business segmentation
 - Use migrations for database schema changes
+- Initialize database with sample custom segments
 
 ### Frontend Approach
 
@@ -71,6 +83,7 @@
 - Use Alpine.js for reactive components
 - Keep JavaScript usage minimal and focused
 - Ensure responsive design for mobile compatibility
+- Provide intuitive interfaces for both technical and business segmentation
 
 ## Learning Journal
 
@@ -79,6 +92,7 @@
 - The project uses a combination of HTMX and Alpine.js to create a dynamic UI with minimal JavaScript
 - SQLite provides a simple, file-based database solution that's perfect for this application
 - The three-layer architecture ensures separation of concerns and maintainability
+- Dual segmentation approach (technical and business) provides comprehensive phone number management
 
 ### Challenges to Watch
 
@@ -87,12 +101,15 @@
 - Keeping up with any changes in Ivorian telecom numbering plans
 - Balancing between simple UI and powerful functionality
 - Ensuring performance with potentially complex segmentation algorithms
+- Managing the many-to-many relationship between phone numbers and custom segments efficiently
 
 ### Evolution of Decisions
 
 - SQLite was chosen for simplicity, but may need to evaluate if it meets performance needs as the application grows
 - HTMX and Alpine.js were selected to minimize JavaScript while still providing dynamic UI capabilities
 - The three-layer architecture was adopted to ensure clean separation of concerns
+- Enhanced the database schema to support business-oriented segmentation for SMS campaigns
+- Added custom segments to support business requirements for targeted SMS campaigns
 
 ## Tool Usage Patterns
 

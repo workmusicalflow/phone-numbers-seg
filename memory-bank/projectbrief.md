@@ -2,9 +2,9 @@
 
 ## Overview
 
-This project aims to create a web application for segmenting Côte d'Ivoire (Ivory Coast) phone numbers into meaningful components. The application will allow users to input phone numbers and receive a breakdown of various segments (such as country code, operator, etc.) to facilitate better understanding and organization of phone number data.
+This project aims to create a web application for segmenting Côte d'Ivoire (Ivory Coast) phone numbers into meaningful components and grouping them by business criteria. The application allows users to input phone numbers and receive a breakdown of various technical segments (such as country code, operator, etc.) while also supporting custom business segmentation for SMS campaigns and customer management.
 
-The application will support the following Côte d'Ivoire phone number formats:
+The application supports the following Côte d'Ivoire phone number formats:
 
 - International format with + prefix: +2250777104936
 - International format with 00 prefix: 002250777104936
@@ -14,11 +14,14 @@ The application will support the following Côte d'Ivoire phone number formats:
 
 ### Functional Requirements
 
-- Allow users to input phone numbers for segmentation
-- Process phone numbers to identify and extract meaningful segments
+- Allow users to input phone numbers for technical segmentation
+- Process phone numbers to identify and extract meaningful technical segments
+- Create and manage custom business segments for grouping phone numbers
+- Assign phone numbers to business segments for SMS campaigns
 - Display segmented components in a clear, user-friendly interface
-- Store phone numbers and their segments for future reference
+- Store phone numbers, their technical segments, and business segment associations
 - Support CRUD operations for phone numbers and segments
+- Support batch processing for multiple phone numbers
 
 ### Technical Requirements
 
@@ -39,16 +42,40 @@ The application will support the following Côte d'Ivoire phone number formats:
 
 ## Database Schema
 
-- `phone_numbers`: id, number, date_added
-- `segments`: id, phone_number_id, segment_type, value
+- `phone_numbers`: id, number, name, company, sector, notes, date_added
+- `technical_segments`: id, phone_number_id, segment_type, value
+- `custom_segments`: id, name, description
+- `phone_number_segments`: phone_number_id, custom_segment_id, date_added
+
+## Segmentation Types
+
+### Technical Segmentation
+
+Technical segmentation extracts information embedded in the phone number structure:
+
+- Country code (e.g., 225 for Côte d'Ivoire)
+- Operator code (e.g., 07 for MTN)
+- Subscriber number
+- Operator name (e.g., MTN, Orange, Moov)
+
+### Business Segmentation
+
+Business segmentation groups phone numbers by business criteria:
+
+- Sector (e.g., healthcare, education, finance)
+- Company
+- Client type (e.g., VIP, business, individual)
+- Custom categories defined by the user
 
 ## Development Approach
 
-The project will follow an incremental, test-driven development approach, with each feature being developed in small, testable increments.
+The project follows an incremental, test-driven development approach, with each feature being developed in small, testable increments.
 
 ## Success Criteria
 
 - A functional web application that accurately segments phone numbers
+- Support for both technical and business-oriented segmentation
+- Ability to manage custom segments for business purposes
 - Clean, maintainable code following SOLID principles
 - Comprehensive test coverage
 - Clear documentation for both users and developers
