@@ -146,7 +146,7 @@
       <button
         hx-post="/api.php?endpoint=segment"
         hx-trigger="click"
-        hx-vals='{"number": phoneNumber}'
+        :hx-vals='JSON.stringify({"number": phoneNumber})'
         hx-target="#result"
         hx-swap="innerHTML"
         @click="error = null"
@@ -186,7 +186,8 @@
         if (event.detail.xhr.status === 400) {
           event.detail.shouldSwap = false;
           const response = JSON.parse(event.detail.xhr.responseText);
-          const app = Alpine.getComponent(document.querySelector("[x-data]"));
+          // Get the Alpine.js component using the $data property
+          const app = document.querySelector("[x-data]").__x.$data;
           app.error = response.error;
           document.getElementById("result").style.display = "none";
         } else {

@@ -211,7 +211,7 @@
         <button
           hx-post="/api.php?endpoint=batch-segment"
           hx-trigger="click"
-          hx-vals='{"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")}'
+          :hx-vals='JSON.stringify({"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")})'
           hx-target="#result"
           hx-swap="innerHTML"
           @click="error = null"
@@ -235,7 +235,7 @@
         <button
           hx-post="/api.php?endpoint=batch-phones"
           hx-trigger="click"
-          hx-vals='{"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")}'
+          :hx-vals='JSON.stringify({"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")})'
           hx-target="#result"
           hx-swap="innerHTML"
           @click="error = null"
@@ -273,7 +273,8 @@
         if (event.detail.xhr.status >= 400) {
           event.detail.shouldSwap = false;
           const response = JSON.parse(event.detail.xhr.responseText);
-          const app = Alpine.getComponent(document.querySelector("[x-data]"));
+          // Get the Alpine.js component using the $data property
+          const app = document.querySelector("[x-data]").__x.$data;
           app.error = response.error;
           document.getElementById("result").style.display = "none";
         } else {
