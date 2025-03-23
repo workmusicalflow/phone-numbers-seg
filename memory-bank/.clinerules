@@ -1,0 +1,110 @@
+# Cline Rules: Phone Numbers Segmentation Web Application
+
+## Project Patterns
+
+### Coding Standards
+
+- PHP code follows PSR-12 coding standards
+- Use type hints for function parameters and return types
+- Document classes and methods with PHPDoc comments
+- Use meaningful variable and function names
+
+### Architecture Patterns
+
+- Follow three-layer architecture (presentation, business, data)
+- Use repository pattern for data access
+- Implement service classes for business logic
+- Keep controllers thin, delegating to services
+
+### File Organization
+
+- Models in `src/Models/`
+- Services in `src/Services/`
+- Controllers in `src/Controllers/`
+- Repositories in `src/Repositories/`
+- Templates in `public/templates/`
+- Static assets in `public/assets/`
+- Tests mirror the src structure in `tests/`
+
+## User Preferences
+
+### Development Workflow
+
+- Use Git for version control
+- Follow test-driven development (TDD) approach
+- Document changes in memory bank after significant updates
+- Keep track of progress in progress.md
+
+### Documentation Style
+
+- Use Markdown for all documentation
+- Include code examples where appropriate
+- Keep documentation up-to-date with code changes
+- Use mermaid diagrams for visualizing architecture and flows
+
+## Implementation Notes
+
+### Phone Number Segmentation
+
+- Focus specifically on Côte d'Ivoire phone numbers
+- Support three formats:
+  - International format with + prefix: +2250777104936
+  - International format with 00 prefix: 002250777104936
+  - Local format: 0777104936
+- Standardize all formats internally for consistent processing
+- Extract segments such as:
+  - Country code (225 for Côte d'Ivoire)
+  - Operator code (e.g., 07 for certain mobile operators)
+  - Subscriber number
+- Validation should check for valid Ivorian phone number formats
+
+### Database Interactions
+
+- Use prepared statements for all database queries
+- Implement transactions for operations that modify multiple tables
+- Keep database schema simple but extensible
+- Use migrations for database schema changes
+
+### Frontend Approach
+
+- Use HTMX for AJAX requests and dynamic content
+- Use Alpine.js for reactive components
+- Keep JavaScript usage minimal and focused
+- Ensure responsive design for mobile compatibility
+
+## Learning Journal
+
+### Key Insights
+
+- The project uses a combination of HTMX and Alpine.js to create a dynamic UI with minimal JavaScript
+- SQLite provides a simple, file-based database solution that's perfect for this application
+- The three-layer architecture ensures separation of concerns and maintainability
+
+### Challenges to Watch
+
+- Handling the three different Côte d'Ivoire phone number formats consistently
+- Identifying and extracting operator information from Ivorian numbers
+- Keeping up with any changes in Ivorian telecom numbering plans
+- Balancing between simple UI and powerful functionality
+- Ensuring performance with potentially complex segmentation algorithms
+
+### Evolution of Decisions
+
+- SQLite was chosen for simplicity, but may need to evaluate if it meets performance needs as the application grows
+- HTMX and Alpine.js were selected to minimize JavaScript while still providing dynamic UI capabilities
+- The three-layer architecture was adopted to ensure clean separation of concerns
+
+## Tool Usage Patterns
+
+### Development Tools
+
+- Composer for PHP dependency management
+- PHPUnit for testing
+- Git for version control
+- PHP's built-in server for local development
+
+### Testing Approach
+
+- Write unit tests for models, services, and repositories
+- Use integration tests for testing interactions between components
+- Manually test UI interactions

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Segmentation de Numéros de Téléphone</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://unpkg.com/alpinejs@3.12.3" defer></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+      .segment {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+      }
+      .segment:last-child {
+        border-bottom: none;
+      }
+      .segment-type {
+        font-weight: bold;
+        color: #2c3e50;
+      }
+      .segment-value {
+        color: #3498db;
+      }
+      .error {
+        color: #e74c3c;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #e74c3c;
+        border-radius: 4px;
+        background-color: #fadbd8;
+      }
+      .examples {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+      .example {
+        cursor: pointer;
+        color: #3498db;
+        margin-right: 10px;
+      }
+      .example:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="container"
+      x-data="{ phoneNumber: '', result: null, error: null }"
+    >
+      <h1>Segmentation de Numéros de Téléphone</h1>
+
+      <div class="form-group">
+        <label for="phoneNumber">Numéro de téléphone</label>
+        <input
+          type="text"
+          id="phoneNumber"
+          x-model="phoneNumber"
+          placeholder="Entrez un numéro de téléphone (ex: +2250777104936)"
+        />
+      </div>
+
+      <button
+        hx-post="/api.php/segment"
+        hx-trigger="click"
+        hx-vals='{"number": phoneNumber}'
+        hx-target="#result"
+        hx-swap="innerHTML"
+        @click="error = null"
+      >
+        Segmenter
+      </button>
+
+      <div class="examples">
+        <p>
+          Exemples:
+          <span class="example" @click="phoneNumber = '+2250777104936'"
+            >+2250777104936</span
+          >
+          <span class="example" @click="phoneNumber = '002250777104936'"
+            >002250777104936</span
+          >
+          <span class="example" @click="phoneNumber = '0777104936'"
+            >0777104936</span
+          >
+        </p>
+      </div>
+
+      <div id="result" class="result" x-show="!error" style="display: none">
+        <!-- Results will be displayed here -->
+      </div>
+
+      <div
+        class="error"
+        x-show="error"
+        x-text="error"
+        style="display: none"
+      ></div>
+    </div>
+
+    <script>
+      document.body.addEventListener("htmx:beforeSwap", function (event) {
+        if (event.detail.xhr.status === 400) {
+          event.detail.shouldSwap = false;
+          const response = JSON.parse(event.detail.xhr.responseText);
+          const app = Alpine.getComponent(document.querySelector("[x-data]"));
+          app.error = response.error;
+          document.getElementById("result").style.display = "none";
+        } else {
+          document.getElementById("result").style.display = "block";
+        }
+      });
+
+      document.body.addEventListener("htmx:afterSwap", function (event) {
+        const response = JSON.parse(event.detail.xhr.responseText);
+        const resultDiv = document.getElementById("result");
+
+        // Clear previous results
+        resultDiv.innerHTML = "";
+
+        // Display the normalized phone number
+        const numberDiv = document.createElement("div");
+        numberDiv.className = "segment";
+        numberDiv.innerHTML = `<span class="segment-type">Numéro normalisé:</span> <span class="segment-value">${response.number}</span>`;
+        resultDiv.appendChild(numberDiv);
+
+        // Display each segment
+        if (response.segments && response.segments.length > 0) {
+          response.segments.forEach((segment) => {
+            const segmentDiv = document.createElement("div");
+            segmentDiv.className = "segment";
+
+            let segmentType = segment.segmentType;
+            switch (segment.segmentType) {
+              case "country_code":
+                segmentType = "Code pays";
+                break;
+              case "operator_code":
+                segmentType = "Code opérateur";
+                break;
+              case "subscriber_number":
+                segmentType = "Numéro d'abonné";
+                break;
+              case "operator_name":
+                segmentType = "Opérateur";
+                break;
+            }
+
+            segmentDiv.innerHTML = `<span class="segment-type">${segmentType}:</span> <span class="segment-value">${segment.value}</span>`;
+            resultDiv.appendChild(segmentDiv);
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
