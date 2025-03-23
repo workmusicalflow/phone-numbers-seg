@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestion des Segments</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://unpkg.com/alpinejs@3.12.3" defer></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="text"],
+      textarea,
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+      .success {
+        color: #27ae60;
+        font-weight: bold;
+      }
+      .error {
+        color: #e74c3c;
+        font-weight: bold;
+      }
+      .segment-card {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+      }
+      .segment-card:hover {
+        background-color: #f5f5f5;
+        border-color: #3498db;
+      }
+      .segment-name {
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 5px;
+      }
+      .segment-description {
+        color: #7f8c8d;
+        margin-bottom: 5px;
+      }
+      .segment-count {
+        color: #3498db;
+        font-size: 0.9em;
+      }
+      .nav {
+        margin-bottom: 20px;
+      }
+      .nav a {
+        color: #3498db;
+        text-decoration: none;
+        margin-right: 15px;
+      }
+      .nav a:hover {
+        text-decoration: underline;
+      }
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+      }
+      .actions button {
+        margin-left: 10px;
+        padding: 5px 10px;
+        font-size: 0.9em;
+      }
+      .actions button.edit {
+        background-color: #f39c12;
+      }
+      .actions button.delete {
+        background-color: #e74c3c;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+      }
+      .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 5px;
+        width: 60%;
+        max-width: 500px;
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+      .modal-header h2 {
+        margin: 0;
+      }
+      .modal-close {
+        cursor: pointer;
+        font-size: 1.5em;
+      }
+      .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 15px;
+      }
+      .modal-footer button {
+        margin-left: 10px;
+      }
+      .loading {
+        text-align: center;
+        padding: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="container"
+      x-data="{
+        segments: [],
+        loading: true,
+        error: null,
+        showCreateModal: false,
+        showEditModal: false,
+        showDeleteModal: false,
+        currentSegment: { id: null, name: '', description: '' },
+        
+        async loadSegments() {
+          this.loading = true;
+          this.error = null;
+          
+          try {
+            const response = await fetch('/api.php?endpoint=segments');
+            const data = await response.json();
+            
+            if (data.error) {
+              this.error = data.error;
+            } else {
+              this.segments = data;
+            }
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        openCreateModal() {
+          this.currentSegment = { id: null, name: '', description: '' };
+          this.showCreateModal = true;
+        },
+        
+        openEditModal(segment) {
+          this.currentSegment = { ...segment };
+          this.showEditModal = true;
+        },
+        
+        openDeleteModal(segment) {
+          this.currentSegment = { ...segment };
+          this.showDeleteModal = true;
+        },
+        
+        async createSegment() {
+          if (!this.currentSegment.name) {
+            this.error = 'Le nom du segment est requis';
+            return;
+          }
+          
+          this.loading = true;
+          this.error = null;
+          
+          try {
+            const response = await fetch('/api.php?endpoint=segments', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                name: this.currentSegment.name,
+                description: this.currentSegment.description
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+              this.error = data.error;
+            } else {
+              this.showCreateModal = false;
+              this.loadSegments();
+            }
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        async updateSegment() {
+          if (!this.currentSegment.name) {
+            this.error = 'Le nom du segment est requis';
+            return;
+          }
+          
+          this.loading = true;
+          this.error = null;
+          
+          try {
+            const response = await fetch(`/api.php?endpoint=segments/${this.currentSegment.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                name: this.currentSegment.name,
+                description: this.currentSegment.description
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+              this.error = data.error;
+            } else {
+              this.showEditModal = false;
+              this.loadSegments();
+            }
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        async deleteSegment() {
+          this.loading = true;
+          this.error = null;
+          
+          try {
+            const response = await fetch(`/api.php?endpoint=segments/${this.currentSegment.id}`, {
+              method: 'DELETE'
+            });
+            
+            if (response.status === 204) {
+              this.showDeleteModal = false;
+              this.loadSegments();
+            } else {
+              const data = await response.json();
+              this.error = data.error || 'Erreur lors de la suppression du segment';
+            }
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+          } finally {
+            this.loading = false;
+          }
+        }
+      }"
+      x-init="loadSegments()"
+    >
+      <div class="nav">
+        <a href="index.php">Accueil</a>
+        <a href="segment.html">Segmentation Individuelle</a>
+        <a href="batch.html">Traitement par Lot</a>
+        <a href="sms.html">Envoi de SMS</a>
+        <a href="segments.html">Gestion des Segments</a>
+      </div>
+
+      <h1>Gestion des Segments</h1>
+
+      <button @click="openCreateModal()">Créer un nouveau segment</button>
+
+      <div x-show="loading" class="loading">Chargement des segments...</div>
+
+      <div
+        x-show="error"
+        class="error"
+        x-text="error"
+        style="
+          margin-top: 20px;
+          padding: 10px;
+          border: 1px solid #e74c3c;
+          border-radius: 4px;
+          background-color: #fadbd8;
+        "
+      ></div>
+
+      <div x-show="!loading && !error && segments.length === 0" class="result">
+        Aucun segment trouvé. Créez un nouveau segment pour commencer.
+      </div>
+
+      <div x-show="!loading && segments.length > 0" style="margin-top: 20px">
+        <template x-for="segment in segments" :key="segment.id">
+          <div class="segment-card">
+            <div class="segment-name" x-text="segment.name"></div>
+            <div
+              class="segment-description"
+              x-text="segment.description || 'Aucune description'"
+            ></div>
+            <div
+              class="segment-count"
+              x-text="`${segment.phoneNumberCount || 0} numéros`"
+            ></div>
+            <div class="actions">
+              <button class="edit" @click="openEditModal(segment)">
+                Modifier
+              </button>
+              <button class="delete" @click="openDeleteModal(segment)">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Create Modal -->
+      <div class="modal" x-show="showCreateModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Créer un nouveau segment</h2>
+            <span class="modal-close" @click="showCreateModal = false"
+              >&times;</span
+            >
+          </div>
+          <div class="form-group">
+            <label for="create-name">Nom</label>
+            <input
+              type="text"
+              id="create-name"
+              x-model="currentSegment.name"
+              placeholder="Nom du segment"
+            />
+          </div>
+          <div class="form-group">
+            <label for="create-description">Description</label>
+            <textarea
+              id="create-description"
+              x-model="currentSegment.description"
+              placeholder="Description du segment"
+            ></textarea>
+          </div>
+          <div class="modal-footer">
+            <button @click="showCreateModal = false">Annuler</button>
+            <button @click="createSegment()">Créer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Modal -->
+      <div class="modal" x-show="showEditModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Modifier le segment</h2>
+            <span class="modal-close" @click="showEditModal = false"
+              >&times;</span
+            >
+          </div>
+          <div class="form-group">
+            <label for="edit-name">Nom</label>
+            <input
+              type="text"
+              id="edit-name"
+              x-model="currentSegment.name"
+              placeholder="Nom du segment"
+            />
+          </div>
+          <div class="form-group">
+            <label for="edit-description">Description</label>
+            <textarea
+              id="edit-description"
+              x-model="currentSegment.description"
+              placeholder="Description du segment"
+            ></textarea>
+          </div>
+          <div class="modal-footer">
+            <button @click="showEditModal = false">Annuler</button>
+            <button @click="updateSegment()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Modal -->
+      <div class="modal" x-show="showDeleteModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Supprimer le segment</h2>
+            <span class="modal-close" @click="showDeleteModal = false"
+              >&times;</span
+            >
+          </div>
+          <p>
+            Êtes-vous sûr de vouloir supprimer le segment
+            <strong x-text="currentSegment.name"></strong> ?
+          </p>
+          <p>Cette action est irréversible.</p>
+          <div class="modal-footer">
+            <button @click="showDeleteModal = false">Annuler</button>
+            <button class="delete" @click="deleteSegment()">Supprimer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
