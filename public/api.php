@@ -57,6 +57,31 @@ try {
         $result = $phoneController->segment($requestBody['number']);
         echo json_encode($result);
     }
+    // Batch segment multiple phone numbers without saving them
+    elseif ($method === 'POST' && $endpoint === 'batch-segment') {
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($requestBody['numbers']) || !is_array($requestBody['numbers'])) {
+            throw new InvalidArgumentException('Array of phone numbers is required');
+        }
+
+        $result = $phoneController->batchSegment($requestBody['numbers']);
+        echo json_encode($result);
+    }
+    // Batch create multiple phone numbers
+    elseif ($method === 'POST' && $endpoint === 'batch-phones') {
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($requestBody['numbers']) || !is_array($requestBody['numbers'])) {
+            throw new InvalidArgumentException('Array of phone numbers is required');
+        }
+
+        $result = $phoneController->batchCreate($requestBody['numbers']);
+        http_response_code(201);
+        echo json_encode($result);
+    }
     // List all phone numbers
     elseif ($method === 'GET' && $endpoint === 'phones') {
         $result = $phoneController->index();

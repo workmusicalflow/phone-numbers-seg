@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\PhoneNumber;
 use App\Repositories\PhoneNumberRepository;
 use App\Repositories\SegmentRepository;
+use App\Services\BatchSegmentationService;
 use App\Services\PhoneSegmentationService;
 use PDO;
 
@@ -31,6 +32,11 @@ class PhoneController
     private PhoneSegmentationService $phoneSegmentationService;
 
     /**
+     * @var BatchSegmentationService
+     */
+    private BatchSegmentationService $batchSegmentationService;
+
+    /**
      * Constructor
      * 
      * @param PDO $db
@@ -40,6 +46,11 @@ class PhoneController
         $this->phoneNumberRepository = new PhoneNumberRepository($db);
         $this->segmentRepository = new SegmentRepository($db);
         $this->phoneSegmentationService = new PhoneSegmentationService();
+        $this->batchSegmentationService = new BatchSegmentationService(
+            $this->phoneSegmentationService,
+            $this->phoneNumberRepository,
+            $this->segmentRepository
+        );
     }
 
     /**
@@ -192,5 +203,37 @@ class PhoneController
         $phoneNumber = $this->phoneSegmentationService->segmentPhoneNumber($phoneNumber);
 
         return $phoneNumber->toArray();
+    }
+
+    /**
+     * Batch segment action - segment multiple phone numbers without saving them
+     * 
+     * @param array $numbers
+     * @return array
+     */
+    public function batchSegment(array $numbers): array
+    {
+        if (empty($numbers)) {
+            throw new \InvalidArgumentException('No phone numbers provided');
+        }
+
+        $result = $this->batchSegmentationService->processPhoneNumbers($numbers);
+        return $this->batchSegmentationService->formatResults($result);
+    }
+
+    /**
+     * Batch create action - create multiple phone numbers
+     * 
+     * @param array $numbers
+     * @return array
+     */
+    public function batchCreate(array $numbers): array
+    {
+        if (empty($numbers)) {
+            throw new \InvalidArgumentException('No phone numbers provided');
+        }
+
+        $result = $this->batchSegmentationService->processAndSavePhoneNumbers($numbers);
+        return $this->batchSegmentationService->formatResults($result);
     }
 }

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traitement par Lot - Segmentation de Numéros de Téléphone</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://unpkg.com/alpinejs@3.12.3" defer></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+        min-height: 150px;
+        font-family: monospace;
+      }
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+      .phone-result {
+        margin-bottom: 20px;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+      }
+      .phone-result:last-child {
+        border-bottom: none;
+      }
+      .phone-number {
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 10px;
+      }
+      .segment {
+        margin-left: 20px;
+        margin-bottom: 5px;
+      }
+      .segment-type {
+        font-weight: bold;
+        color: #2c3e50;
+      }
+      .segment-value {
+        color: #3498db;
+      }
+      .error {
+        color: #e74c3c;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #e74c3c;
+        border-radius: 4px;
+        background-color: #fadbd8;
+      }
+      .examples {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+      .example {
+        cursor: pointer;
+        color: #3498db;
+      }
+      .example:hover {
+        text-decoration: underline;
+      }
+      .summary {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #eee;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+      .success {
+        color: #27ae60;
+      }
+      .failure {
+        color: #e74c3c;
+      }
+      .tabs {
+        display: flex;
+        margin-bottom: 20px;
+      }
+      .tab {
+        padding: 10px 15px;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        background-color: #f9f9f9;
+        margin-right: 5px;
+      }
+      .tab.active {
+        background-color: #3498db;
+        color: white;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .nav {
+        margin-bottom: 20px;
+      }
+      .nav a {
+        color: #3498db;
+        text-decoration: none;
+        margin-right: 15px;
+      }
+      .nav a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="container"
+      x-data="{
+        phoneNumbers: '',
+        result: null,
+        error: null,
+        activeTab: 'segment',
+        setTab(tab) {
+          this.activeTab = tab;
+          this.result = null;
+          this.error = null;
+        }
+      }"
+    >
+      <div class="nav">
+        <a href="index.php">Accueil</a>
+        <a href="segment.html">Segmentation Individuelle</a>
+        <a href="batch.html">Traitement par Lot</a>
+      </div>
+
+      <h1>Traitement par Lot - Segmentation de Numéros de Téléphone</h1>
+
+      <div class="tabs">
+        <div
+          class="tab"
+          :class="{ 'active': activeTab === 'segment' }"
+          @click="setTab('segment')"
+        >
+          Segmenter
+        </div>
+        <div
+          class="tab"
+          :class="{ 'active': activeTab === 'save' }"
+          @click="setTab('save')"
+        >
+          Segmenter et Enregistrer
+        </div>
+      </div>
+
+      <div class="tab-content" :class="{ 'active': activeTab === 'segment' }">
+        <div class="form-group">
+          <label for="phoneNumbers">Numéros de téléphone (un par ligne)</label>
+          <textarea
+            id="phoneNumbers"
+            x-model="phoneNumbers"
+            placeholder="Entrez les numéros de téléphone, un par ligne"
+          ></textarea>
+        </div>
+
+        <button
+          hx-post="/api.php/batch-segment"
+          hx-trigger="click"
+          hx-vals='{"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")}'
+          hx-target="#result"
+          hx-swap="innerHTML"
+          @click="error = null"
+        >
+          Segmenter
+        </button>
+      </div>
+
+      <div class="tab-content" :class="{ 'active': activeTab === 'save' }">
+        <div class="form-group">
+          <label for="phoneNumbersSave"
+            >Numéros de téléphone (un par ligne)</label
+          >
+          <textarea
+            id="phoneNumbersSave"
+            x-model="phoneNumbers"
+            placeholder="Entrez les numéros de téléphone, un par ligne"
+          ></textarea>
+        </div>
+
+        <button
+          hx-post="/api.php/batch-phones"
+          hx-trigger="click"
+          hx-vals='{"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")}'
+          hx-target="#result"
+          hx-swap="innerHTML"
+          @click="error = null"
+        >
+          Segmenter et Enregistrer
+        </button>
+      </div>
+
+      <div class="examples">
+        <p>Exemple:</p>
+        <pre
+          class="example"
+          @click="phoneNumbers = '+2250777104936\n002250177104936\n0577104936'"
+        >
++2250777104936
+002250177104936
+0577104936</pre
+        >
+      </div>
+
+      <div id="result" class="result" x-show="!error" style="display: none">
+        <!-- Results will be displayed here -->
+      </div>
+
+      <div
+        class="error"
+        x-show="error"
+        x-text="error"
+        style="display: none"
+      ></div>
+    </div>
+
+    <script>
+      document.body.addEventListener("htmx:beforeSwap", function (event) {
+        if (event.detail.xhr.status >= 400) {
+          event.detail.shouldSwap = false;
+          const response = JSON.parse(event.detail.xhr.responseText);
+          const app = Alpine.getComponent(document.querySelector("[x-data]"));
+          app.error = response.error;
+          document.getElementById("result").style.display = "none";
+        } else {
+          document.getElementById("result").style.display = "block";
+        }
+      });
+
+      document.body.addEventListener("htmx:afterSwap", function (event) {
+        const response = JSON.parse(event.detail.xhr.responseText);
+        const resultDiv = document.getElementById("result");
+
+        // Clear previous results
+        resultDiv.innerHTML = "";
+
+        // Add summary
+        const summaryDiv = document.createElement("div");
+        summaryDiv.className = "summary";
+        summaryDiv.innerHTML = `
+          <div>Total: ${response.summary.total}</div>
+          <div class="success">Réussis: ${response.summary.successful}</div>
+          <div class="failure">Échoués: ${response.summary.failed}</div>
+        `;
+        resultDiv.appendChild(summaryDiv);
+
+        // Display successful results
+        Object.keys(response.results).forEach((key) => {
+          const phoneNumber = response.results[key];
+          const phoneDiv = document.createElement("div");
+          phoneDiv.className = "phone-result";
+
+          // Display the normalized phone number
+          const numberDiv = document.createElement("div");
+          numberDiv.className = "phone-number";
+          numberDiv.textContent = `Numéro: ${phoneNumber.number}`;
+          phoneDiv.appendChild(numberDiv);
+
+          // Display each segment
+          if (phoneNumber.segments && phoneNumber.segments.length > 0) {
+            phoneNumber.segments.forEach((segment) => {
+              const segmentDiv = document.createElement("div");
+              segmentDiv.className = "segment";
+
+              let segmentType = segment.segmentType;
+              switch (segment.segmentType) {
+                case "country_code":
+                  segmentType = "Code pays";
+                  break;
+                case "operator_code":
+                  segmentType = "Code opérateur";
+                  break;
+                case "subscriber_number":
+                  segmentType = "Numéro d'abonné";
+                  break;
+                case "operator_name":
+                  segmentType = "Opérateur";
+                  break;
+              }
+
+              segmentDiv.innerHTML = `<span class="segment-type">${segmentType}:</span> <span class="segment-value">${segment.value}</span>`;
+              phoneDiv.appendChild(segmentDiv);
+            });
+          }
+
+          resultDiv.appendChild(phoneDiv);
+        });
+
+        // Display errors
+        if (Object.keys(response.errors).length > 0) {
+          const errorsTitle = document.createElement("h3");
+          errorsTitle.textContent = "Erreurs:";
+          resultDiv.appendChild(errorsTitle);
+
+          Object.keys(response.errors).forEach((key) => {
+            const error = response.errors[key];
+            const errorDiv = document.createElement("div");
+            errorDiv.className = "error";
+            errorDiv.textContent = `${error.number}: ${error.error}`;
+            resultDiv.appendChild(errorDiv);
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
