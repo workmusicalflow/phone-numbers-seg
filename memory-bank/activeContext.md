@@ -1,108 +1,224 @@
-# Active Context: Phone Numbers Segmentation Web Application
+# Contexte Actif - Application de Segmentation de Numéros de Téléphone
 
-## Current Work Focus
+## Focus de Travail Actuel
 
-We have completed the implementation of the core components of the application. The project structure has been set up, and the functionality for segmenting Côte d'Ivoire phone numbers is working. The application can now handle the three specified formats (+225, 00225, and local) and extract segments such as country code, operator code, and subscriber number. We have also implemented business-oriented segmentation and SMS functionality to support SMS campaigns by segment.
+Le développement se concentre actuellement sur quatre axes principaux :
 
-## Recent Changes
+1. **Amélioration du modèle de données** : Nous avons récemment étendu le modèle `PhoneNumber` pour inclure des champs supplémentaires (civilité et prénom) afin d'enrichir les informations stockées pour chaque numéro de téléphone. Cette extension permettra une meilleure gestion des contacts et facilitera l'intégration avec d'autres systèmes.
 
-- Set up the project structure with src/, public/, and tests/ directories
-- Created the database schema and migration scripts
-- Implemented the core models (PhoneNumber, Segment, CustomSegment)
-- Implemented the repositories for data access
-- Implemented the PhoneSegmentationService for phone number segmentation
-- Created the PhoneController for handling HTTP requests
-- Implemented the API endpoints for phone number operations
-- Created a simple web interface using HTMX and Alpine.js
-- Added batch processing functionality for multiple phone numbers
-- Created a dedicated batch processing interface
-- Improved navigation between different pages
-- Added comprehensive unit tests for all components
-- Enhanced the database schema to support business-oriented segmentation
-- Added support for custom segments (e.g., by sector, company, etc.)
-- Implemented API endpoints for managing custom segments
-- Added sample custom segments for common business categories
-- Implemented SMS functionality using the Orange API
-- Created SMSService for sending SMS messages to individuals and segments
-- Added SMSController with endpoints for SMS operations
-- Created a user interface for sending SMS messages to segments
-- Tested SMS functionality with the Orange API
-- Set the sender name to "Qualitas CI" for all SMS messages
+2. **Finalisation des fonctionnalités d'import/export** : La fonctionnalité d'**import** a été implémentée avec succès, permettant aux utilisateurs d'importer des numéros depuis des fichiers CSV ou du texte brut. Le focus se déplace maintenant vers le développement de la fonctionnalité d'**export** qui permettra d'exporter les résultats de segmentation dans différents formats (CSV, Excel).
 
-## Current Status
+3. **Intégration GraphQL** : Nous avons récemment implémenté une API GraphQL complète pour l'application, offrant une alternative moderne et flexible à l'API REST existante. Cette API permet aux clients de demander exactement les données dont ils ont besoin et facilite l'intégration avec d'autres systèmes.
 
-- Project structure and core components are implemented
-- Technical segmentation functionality for phone numbers is working
-- Business-oriented segmentation for SMS campaigns is implemented
-- Batch processing functionality for multiple phone numbers is implemented
-- Web interface for both individual and batch segmentation is available
-- SMS functionality for sending messages to segments is implemented and tested
-- API endpoints for CRUD, batch operations, segment management, and SMS operations are implemented
-- GitHub repository is available at: https://github.com/workmusicalflow/phone-numbers-seg.git
-- Dependencies installed and database initialized with sample segments
-- Unit tests for models and services are passing
+4. **Migration vers Vue.js** : Nous avons décidé de moderniser l'interface utilisateur en migrant progressivement de HTMX et Alpine.js vers Vue.js, couplé à Quasar pour les composants UI. Cette migration permettra d'améliorer l'expérience utilisateur, d'optimiser les performances et d'exploiter pleinement l'API GraphQL.
 
-## Next Steps
+### Problématiques Identifiées et Résolues
 
-### Immediate Tasks
+#### 1. Extension du modèle de données PhoneNumber
 
-1. **Expand Test Coverage**
+Nous avons identifié le besoin d'enrichir le modèle de données pour stocker plus d'informations sur les contacts :
 
-   - Update unit tests for the new models and repositories
-   - Write integration tests for repositories
-   - Create end-to-end tests for the complete application flow
-   - Add tests for edge cases and error handling
-   - Add tests for SMS functionality (completed)
+1. **Problème identifié** : Le modèle `PhoneNumber` ne stockait que le nom complet, sans distinction entre civilité, prénom et nom.
+2. **Solution implémentée** :
+   - Ajout des champs `civility` et `firstName` au modèle `PhoneNumber`
+   - Création d'une migration SQL pour mettre à jour la structure de la base de données
+   - Mise à jour du repository pour prendre en compte ces nouveaux champs
+   - Adaptation des tests unitaires pour valider les nouvelles fonctionnalités
 
-2. **Documentation**
+#### 2. Problème de formatage JSON dans l'interface de traitement par lot
 
-   - Add PHPDoc comments to the code
-   - Create API documentation
-   - Create a user guide with examples of business segmentation and SMS campaigns
+Nous avons récemment résolu un problème critique dans l'interface de traitement par lot (`batch.html`) où les données n'étaient pas correctement formatées lors de l'envoi à l'API. Le problème était lié à la façon dont les données étaient sérialisées et envoyées au serveur :
 
-3. **Additional Features**
-   - Implement a user interface for managing custom segments (completed)
-   - Enhance SMS campaign functionality with scheduling and templates
-   - Implement user authentication for managing phone numbers and SMS campaigns
-   - Add export functionality for segmentation results
-   - Add SMS delivery tracking and reporting
-   - Implement SMS campaign analytics and reporting
+1. **Problème initial** : Les numéros de téléphone étaient envoyés comme une chaîne de caractères séparée par des virgules, alors que l'API attendait un tableau JSON.
+2. **Solution implémentée** : Modification de l'interface pour utiliser des requêtes AJAX directes avec le bon format JSON, en remplaçant l'approche basée sur les formulaires HTMX.
 
-### Short-term Goals
+#### 3. Problème d'erreurs Alpine.js dans l'interface d'envoi de SMS
 
-1. **Additional Features**
+Un problème similaire a été identifié dans l'interface d'envoi de SMS (`sms.html`). Des erreurs apparaissent dans la console du navigateur lorsque la page est chargée :
 
-   - Implement batch processing for multiple phone numbers
-   - Add more detailed segmentation (e.g., region codes)
-   - Implement user authentication for managing phone numbers
+1. **Problème identifié** : Alpine.js tente d'accéder à des propriétés d'un objet `result` qui est initialement `null`, générant plusieurs erreurs dans la console.
+2. **Solution implémentée** : Ajout d'une fonction helper `getNestedProp` pour accéder de manière sécurisée aux propriétés imbriquées et modification des conditions d'affichage pour éviter les erreurs.
 
-2. **Performance Optimization**
+#### 4. Implémentation de l'import CSV et intégration dans la navigation
 
-   - Optimize database queries
-   - Implement caching for frequently accessed data
-   - Improve error handling and validation
+Nous avons implémenté une nouvelle fonctionnalité d'import de numéros de téléphone depuis des fichiers CSV ou du texte brut :
 
-3. **Deployment**
-   - Prepare the application for production deployment
-   - Set up a CI/CD pipeline
-   - Deploy the application to a production server
+1. **Fonctionnalité** : Création d'un service `CSVImportService` pour gérer l'import de numéros depuis différentes sources.
+2. **Interface utilisateur** : Développement d'une page `import.html` avec des options de configuration pour l'import.
+3. **API** : Ajout de nouveaux endpoints pour l'import de numéros depuis un fichier CSV ou du texte brut.
+4. **Navigation** : Intégration de la fonctionnalité d'import/export dans la navigation principale de l'application.
 
-## Active Decisions
+#### 5. Correction des erreurs Alpine.js dans l'interface d'import
 
-- **Database Choice**: SQLite was chosen for its simplicity and file-based nature, making it easy to set up and use for this project.
-- **Frontend Approach**: Using HTMX and Alpine.js to minimize JavaScript while still providing a dynamic user experience.
-- **Architecture**: Three-layer architecture with clear separation of concerns to ensure maintainability and testability.
+Nous avons résolu des problèmes d'erreurs Alpine.js dans l'interface d'import (`import.html`) :
 
-## Open Questions
+1. **Problème identifié** : Des erreurs apparaissaient dans la console du navigateur lorsque la page était chargée, car Alpine.js tentait d'accéder à des propriétés d'objets qui étaient initialement `null`.
+2. **Solution implémentée** : Ajout de vérifications supplémentaires dans les expressions Alpine.js pour éviter les erreurs lorsque les objets sont `null` ou `undefined`.
 
-- What specific phone number segments will be extracted from Côte d'Ivoire numbers (e.g., operator identification, region codes)?
-- Will there be any batch processing capabilities in the first version?
-- Are there any specific performance requirements for the segmentation process?
-- Are there any specific Ivorian telecom regulations that need to be considered?
+#### 6. Implémentation de l'API GraphQL
 
-## Current Challenges
+Nous avons implémenté une API GraphQL complète pour l'application :
 
-- Ensuring comprehensive test coverage for all components
-- Handling edge cases in phone number formats and validation
-- Keeping the operator mapping up-to-date with changes in the Ivorian telecom industry
-- Optimizing the application for performance and scalability
+1. **Fonctionnalité** : Création d'une API GraphQL avec GraphQLite pour exposer les fonctionnalités de l'application.
+2. **Interface utilisateur** : Développement d'une interface GraphiQL pour explorer et tester l'API interactivement.
+3. **Types GraphQL** : Création de types pour les modèles principaux (PhoneNumber, Segment, CustomSegment).
+4. **Contrôleurs GraphQL** : Implémentation de contrôleurs pour exposer les requêtes et mutations.
+5. **Navigation** : Intégration de l'interface GraphiQL dans la navigation principale de l'application.
+
+### Changements Techniques Récents
+
+1. **Développement de nouvelles fonctionnalités d'import** :
+
+   - Création d'un service `CSVImportService` pour l'import de numéros depuis des fichiers CSV
+   - Implémentation d'une interface utilisateur intuitive avec prévisualisation des données
+   - Support pour l'import depuis du texte brut avec différents séparateurs
+
+2. **Amélioration de l'interface utilisateur** :
+
+   - Utilisation d'Alpine.js pour gérer l'état de l'interface et les interactions
+   - Ajout de fonctionnalités de glisser-déposer pour les fichiers CSV
+   - Amélioration de la gestion des erreurs côté client
+
+3. **Extension de l'API REST** :
+
+   - Nouveaux endpoints pour l'import de numéros
+   - Validation robuste des données d'entrée
+   - Normalisation des numéros de téléphone importés
+
+4. **Implémentation de l'API GraphQL** :
+   - Configuration de GraphQLite pour la création du schéma GraphQL
+   - Création de types GraphQL pour les modèles principaux
+   - Implémentation de contrôleurs GraphQL pour exposer les requêtes et mutations
+   - Développement d'une interface GraphiQL pour explorer et tester l'API
+   - Intégration de l'API GraphQL dans l'architecture existante
+
+## Décisions Actives
+
+1. **Extension du modèle de données** : Nous avons décidé d'enrichir le modèle `PhoneNumber` avec des champs supplémentaires (civilité, prénom) pour améliorer la gestion des contacts et faciliter l'intégration avec d'autres systèmes.
+
+2. **Architecture d'import/export** : Nous avons choisi de créer un service dédié pour l'import/export, séparé des autres services, afin de maintenir une séparation claire des responsabilités.
+
+3. **Traitement par lots** : Pour les imports volumineux, nous avons implémenté un traitement par lots pour éviter de surcharger la mémoire et améliorer les performances.
+
+4. **Normalisation des numéros** : Tous les numéros importés sont normalisés selon un format standard (+225XXXXXXXXXX) pour assurer la cohérence des données.
+
+5. **Validation des données** : Nous avons mis en place une validation stricte des numéros importés pour éviter l'insertion de données invalides dans la base de données.
+
+6. **API GraphQL** : Nous avons décidé d'implémenter une API GraphQL en parallèle de l'API REST existante pour offrir plus de flexibilité aux clients et faciliter l'intégration avec d'autres systèmes. Cette approche permet une évolution progressive de l'API sans perturber les fonctionnalités existantes.
+
+7. **Conteneur d'injection de dépendances** : Pour l'API GraphQL, nous avons implémenté un conteneur simple pour l'injection de dépendances, ce qui facilite la gestion des services et repositories.
+
+8. **Migration vers Vue.js** : Nous avons décidé de migrer progressivement l'interface utilisateur de HTMX et Alpine.js vers Vue.js pour améliorer l'expérience utilisateur et exploiter pleinement l'API GraphQL.
+
+9. **Adoption de Quasar** : Après évaluation des frameworks UI disponibles, nous avons choisi Quasar pour sa performance, sa légèreté et son support natif des applications mobiles.
+
+10. **Utilisation de Pinia** : Pour la gestion d'état dans Vue.js, nous avons opté pour Pinia plutôt que Vuex, en raison de sa simplicité, son support TypeScript et sa meilleure intégration avec Vue 3.
+
+## Prochaines Étapes
+
+### Court Terme (1-2 semaines)
+
+1. **Préparation de la migration Vue.js**
+
+   - Mise en place de l'environnement de développement Vue.js
+   - Configuration de Vite, ESLint, Prettier
+   - Installation et configuration de Quasar
+   - Mise en place d'Apollo Client pour GraphQL
+
+2. **Adapter l'interface utilisateur pour les nouveaux champs**
+
+   - Mettre à jour les formulaires d'ajout et de modification de numéros
+   - Adapter l'affichage des détails d'un numéro
+   - Mettre à jour l'interface d'import CSV pour prendre en compte les nouveaux champs
+
+3. **Développer la fonctionnalité d'export**
+
+   - Implémenter l'export des données en format CSV
+   - Ajouter le support pour l'export en Excel
+   - Développer des options de filtrage pour l'export
+
+4. **Amélioration de l'interface d'import existante**
+
+   - Résoudre les erreurs Alpine.js restantes
+   - Optimiser le traitement des fichiers volumineux
+   - Améliorer la gestion des erreurs lors de l'import
+
+5. **Documentation**
+   - Documenter les formats de fichiers supportés
+   - Créer des exemples de fichiers CSV pour les utilisateurs
+   - Mettre à jour la documentation de l'API REST et GraphQL
+   - Créer des exemples de requêtes GraphQL pour les développeurs
+   - Documenter les standards et conventions pour Vue.js
+
+### Moyen Terme (1-3 mois)
+
+1. **Développement des composants Vue.js de base**
+
+   - Création d'une bibliothèque de composants réutilisables
+   - Développement des composants spécifiques à l'application
+   - Mise en place de Pinia pour la gestion d'état
+   - Intégration avec Apollo Client pour GraphQL
+
+2. **Migration des interfaces principales**
+
+   - Recréation de l'interface de segmentation individuelle
+   - Développement de la nouvelle interface de traitement par lot
+   - Migration de l'interface de gestion des segments
+   - Implémentation de l'interface d'envoi de SMS
+
+3. **Compléter la fonctionnalité d'export**
+
+   - Améliorer l'export des résultats de segmentation en CSV ou Excel
+   - Ajouter des options avancées de filtrage avant export
+   - Implémenter l'export programmé pour les grands volumes de données
+
+4. **Intégration avec d'autres systèmes**
+
+   - Développer des webhooks pour notifier d'autres systèmes après le traitement
+   - Créer des connecteurs pour les CRM populaires
+   - Étendre l'API GraphQL avec des fonctionnalités supplémentaires
+
+5. **Amélioration des performances**
+   - Optimiser le traitement par lot pour gérer encore plus de numéros
+   - Implémenter un système de mise en cache pour les résultats fréquemment demandés
+   - Optimiser le traitement des fichiers CSV volumineux
+   - Améliorer les performances de l'API GraphQL pour les requêtes complexes
+   - Optimiser les performances de Vue.js (lazy loading, code splitting)
+
+## Considérations Importantes
+
+1. **Compatibilité des navigateurs** : Nous devons nous assurer que les modifications récentes fonctionnent correctement sur tous les navigateurs cibles (Chrome, Firefox, Safari, Edge).
+
+2. **Performance** : Le traitement par lot doit rester performant même avec un grand nombre de numéros (plusieurs milliers).
+
+3. **Sécurité** : Nous devons maintenir une validation stricte des entrées pour éviter les injections et autres vulnérabilités.
+
+4. **Expérience utilisateur** : L'interface doit rester intuitive et réactive, même pendant le traitement de grandes quantités de données.
+
+5. **Évolution de l'API** : Nous devons maintenir la compatibilité avec l'API REST existante tout en développant l'API GraphQL, pour permettre une migration progressive des clients.
+
+6. **Coexistence des frameworks** : Pendant la phase de migration, HTMX/Alpine.js et Vue.js coexisteront. Nous devons gérer cette coexistence de manière à éviter les conflits et assurer une expérience utilisateur cohérente.
+
+7. **Formation de l'équipe** : La migration vers Vue.js nécessitera une formation de l'équipe aux nouvelles technologies et aux bonnes pratiques.
+
+## Questions Ouvertes
+
+1. Devrions-nous implémenter un système de traitement asynchrone pour les très grands lots (>10 000 numéros) ?
+2. Faut-il ajouter une fonctionnalité de sauvegarde des résultats pour une consultation ultérieure ?
+3. Comment pouvons-nous améliorer la détection des opérateurs pour les numéros internationaux moins courants ?
+4. Devrions-nous implémenter un système d'authentification pour l'API GraphQL ?
+5. Comment gérer la transition des utilisateurs existants vers la nouvelle interface Vue.js ?
+6. Faut-il envisager une version mobile de l'application en utilisant les capacités de Quasar ?
+7. Comment optimiser les performances de l'application Vue.js pour les appareils à faible puissance ?
+
+## Métriques de Suivi
+
+- **Taux de réussite** de la segmentation des numéros
+- **Temps de traitement** moyen par numéro
+- **Utilisation** de la fonctionnalité de traitement par lot vs traitement individuel
+- **Erreurs rencontrées** lors du traitement
+- **Utilisation de l'API GraphQL** vs API REST
+- **Performance des requêtes GraphQL** par type de requête
+- **Temps de chargement** des interfaces Vue.js
+- **Taux de satisfaction utilisateur** avec la nouvelle interface
+- **Couverture de tests** pour les composants Vue.js
