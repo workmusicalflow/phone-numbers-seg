@@ -177,8 +177,8 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
    - ✅ Créer des exemples de fichiers CSV pour les utilisateurs
    - ✅ Documenter les options de filtrage pour l'export
    - ✅ Documenter l'API GraphQL pour l'import/export
+   - ✅ Documenter les standards et conventions pour Vue.js
    - Mettre à jour la documentation de l'API REST
-   - Documenter les standards et conventions pour Vue.js
 
 ### Moyen Terme (1-3 mois)
 
