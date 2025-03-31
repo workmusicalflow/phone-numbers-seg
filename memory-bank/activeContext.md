@@ -165,15 +165,19 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
 
 4. **Amélioration de l'interface d'import existante**
 
-   - Résoudre les erreurs Alpine.js restantes
-   - Optimiser le traitement des fichiers volumineux
-   - Améliorer la gestion des erreurs lors de l'import
+   - ✅ Résoudre les erreurs Alpine.js restantes avec la fonction getNestedProp
+   - ✅ Optimiser le traitement des fichiers volumineux avec détection de taille et délimiteur
+   - ✅ Améliorer la gestion des erreurs lors de l'import avec validation côté client
+   - ✅ Ajouter la détection automatique des colonnes basée sur les en-têtes
+   - ✅ Implémenter un suivi de progression réel pour l'upload des fichiers
 
 5. **Documentation**
-   - Documenter les formats de fichiers supportés
-   - Créer des exemples de fichiers CSV pour les utilisateurs
-   - Mettre à jour la documentation de l'API REST et GraphQL
-   - Créer des exemples de requêtes GraphQL pour les développeurs
+   - ✅ Documenter les formats de fichiers supportés pour l'import
+   - ✅ Documenter les formats d'export disponibles
+   - ✅ Créer des exemples de fichiers CSV pour les utilisateurs
+   - ✅ Documenter les options de filtrage pour l'export
+   - ✅ Documenter l'API GraphQL pour l'import/export
+   - Mettre à jour la documentation de l'API REST
    - Documenter les standards et conventions pour Vue.js
 
 ### Moyen Terme (1-3 mois)
