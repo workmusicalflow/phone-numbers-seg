@@ -385,6 +385,9 @@ const onSubmitSingle = async () => {
   loading.value = true;
   smsResult.value = null;
 
+  // Prétraiter le numéro de téléphone pour s'assurer qu'il est au bon format
+  const phoneNumber = singleSmsData.value.phoneNumber.trim();
+
   try {
     const { data } = await apolloClient.mutate({
       mutation: gql`
@@ -399,7 +402,7 @@ const onSubmitSingle = async () => {
         }
       `,
       variables: {
-        phoneNumber: singleSmsData.value.phoneNumber,
+        phoneNumber: phoneNumber,
         message: singleSmsData.value.message,
       },
       refetchQueries: [
