@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Import de Numéros de Téléphone</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://unpkg.com/alpinejs@3.12.3" defer></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="text"],
+      input[type="file"],
+      textarea,
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #2980b9;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+      }
+      .success {
+        color: #27ae60;
+        font-weight: bold;
+      }
+      .error {
+        color: #e74c3c;
+        font-weight: bold;
+      }
+      .nav {
+        margin-bottom: 20px;
+      }
+      .nav a {
+        color: #3498db;
+        text-decoration: none;
+        margin-right: 15px;
+      }
+      .nav a:hover {
+        text-decoration: underline;
+      }
+      .tabs {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+      }
+      .tab {
+        padding: 10px 15px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        margin-right: 5px;
+      }
+      .tab.active {
+        background-color: #f9f9f9;
+        border-color: #ddd;
+        border-bottom-color: #f9f9f9;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .preview-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+      .preview-table th,
+      .preview-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      .preview-table th {
+        background-color: #f2f2f2;
+      }
+      .preview-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+      .drop-zone {
+        border: 2px dashed #ccc;
+        border-radius: 5px;
+        padding: 25px;
+        text-align: center;
+        margin-bottom: 15px;
+        transition: border-color 0.3s ease;
+      }
+      .drop-zone:hover {
+        border-color: #3498db;
+      }
+      .drop-zone.active {
+        border-color: #27ae60;
+        background-color: #f0f9f0;
+      }
+      .progress-container {
+        width: 100%;
+        height: 20px;
+        background-color: #f0f0f0;
+        border-radius: 10px;
+        margin-top: 15px;
+      }
+      .progress-bar {
+        height: 100%;
+        border-radius: 10px;
+        background-color: #3498db;
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+      .summary {
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #f0f0f0;
+        border-radius: 4px;
+      }
+      .options-container {
+        padding: 15px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+        margin-top: 15px;
+      }
+      .checkbox-group {
+        margin-bottom: 10px;
+      }
+      .checkbox-group label {
+        display: inline;
+        font-weight: normal;
+        margin-left: 5px;
+      }
+      .mapping-container {
+        margin-top: 15px;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        padding: 10px;
+        background-color: #f5f5f5;
+      }
+      .mapping-row {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+      }
+      .mapping-row:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      .help-text {
+        font-size: 0.9em;
+        color: #666;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="container"
+      x-data="{
+        activeTab: 'csv',
+        csvFile: null,
+        csvFileName: '',
+        textNumbers: '',
+        hasHeader: true,
+        phoneColumn: 0,
+        civilityColumn: -1,
+        firstNameColumn: -1,
+        nameColumn: -1,
+        companyColumn: -1,
+        sectorColumn: -1,
+        notesColumn: -1,
+        skipInvalid: true,
+        segmentImmediately: true,
+        previewData: null,
+        result: null,
+        error: null,
+        loading: false,
+        uploadProgress: 0,
+        
+        // Helper function to safely access nested properties
+        getNestedProp(obj, path, defaultValue = '') {
+          if (!obj) return defaultValue;
+          const keys = path.split('.');
+          let result = obj;
+          for (const key of keys) {
+            result = result[key];
+            if (result === undefined || result === null) return defaultValue;
+          }
+          return result;
+        },
+        
+        // Handle file selection
+        handleFileSelect(event) {
+          const file = event.target.files[0];
+          if (file) {
+            this.csvFile = file;
+            this.csvFileName = file.name;
+            this.previewCSV();
+          }
+        },
+        
+        // Handle drag and drop
+        handleDrop(event) {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          const dropZone = event.target;
+          dropZone.classList.remove('active');
+          
+          const file = event.dataTransfer.files[0];
+          if (file) {
+            this.csvFile = file;
+            this.csvFileName = file.name;
+            document.getElementById('csv-file').files = event.dataTransfer.files;
+            this.previewCSV();
+          }
+        },
+        
+        // Handle drag over
+        handleDragOver(event) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.target.classList.add('active');
+        },
+        
+        // Handle drag leave
+        handleDragLeave(event) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.target.classList.remove('active');
+        },
+        
+        // Preview CSV file with optimized handling for large files
+        previewCSV() {
+          if (!this.csvFile) return;
+          
+          // Check file size
+          if (this.csvFile.size > 10 * 1024 * 1024) { // 10MB
+            this.error = 'Attention: Le fichier est volumineux (>10MB). Le traitement peut prendre du temps.';
+          }
+          
+          const reader = new FileReader();
+          
+          reader.onload = (e) => {
+            try {
+              const content = e.target.result;
+              const lines = content.split(/\\r?\\n/); // Handle both CRLF and LF line endings
+              
+              if (lines.length === 0) {
+                this.error = 'Le fichier CSV est vide';
+                return;
+              }
+              
+              // Detect delimiter (simple heuristic)
+              let delimiter = ',';
+              if (lines[0].includes(';')) delimiter = ';';
+              else if (lines[0].includes('\\t')) delimiter = '\\t';
+              
+              // Parse CSV with detected delimiter
+              const data = lines
+                .filter(line => line.trim() !== '') // Skip empty lines
+                .map(line => line.split(delimiter).map(cell => cell.trim()));
+              
+              // Store preview data
+              this.previewData = data.slice(0, 5); // Show first 5 rows
+              
+              // Show file stats
+              const totalRows = lines.filter(line => line.trim() !== '').length;
+              console.log(`Fichier CSV: ${totalRows} lignes, délimiteur détecté: "${delimiter}"`);
+              
+              // Auto-detect columns if headers are present
+              if (this.hasHeader && data.length > 0) {
+                const headers = data[0].map(h => h.toLowerCase());
+                
+                // Try to find phone number column
+                const phoneHeaders = ['numero', 'numéro', 'téléphone', 'telephone', 'phone', 'mobile', 'number'];
+                const phoneIndex = headers.findIndex(h => phoneHeaders.some(ph => h.includes(ph)));
+                if (phoneIndex !== -1) this.phoneColumn = phoneIndex;
+                
+                // Try to find civility column
+                const civilityHeaders = ['civilite', 'civilité', 'titre', 'title', 'salutation'];
+                const civilityIndex = headers.findIndex(h => civilityHeaders.some(ch => h.includes(ch)));
+                if (civilityIndex !== -1) this.civilityColumn = civilityIndex;
+                
+                // Try to find first name column
+                const firstNameHeaders = ['prenom', 'prénom', 'firstname', 'first name', 'first_name'];
+                const firstNameIndex = headers.findIndex(h => firstNameHeaders.some(fh => h.includes(fh)));
+                if (firstNameIndex !== -1) this.firstNameColumn = firstNameIndex;
+                
+                // Try to find name column
+                const nameHeaders = ['nom', 'name', 'lastname', 'last name', 'last_name', 'surname'];
+                const nameIndex = headers.findIndex(h => nameHeaders.some(nh => h.includes(nh)));
+                if (nameIndex !== -1) this.nameColumn = nameIndex;
+                
+                // Try to find company column
+                const companyHeaders = ['entreprise', 'societe', 'société', 'company', 'organization', 'organisation'];
+                const companyIndex = headers.findIndex(h => companyHeaders.some(ch => h.includes(ch)));
+                if (companyIndex !== -1) this.companyColumn = companyIndex;
+                
+                // Try to find sector column
+                const sectorHeaders = ['secteur', 'sector', 'industry', 'industrie', 'domaine', 'domain'];
+                const sectorIndex = headers.findIndex(h => sectorHeaders.some(sh => h.includes(sh)));
+                if (sectorIndex !== -1) this.sectorColumn = sectorIndex;
+                
+                // Try to find notes column
+                const notesHeaders = ['notes', 'note', 'commentaire', 'commentaires', 'comments', 'comment', 'remarque', 'remarques'];
+                const notesIndex = headers.findIndex(h => notesHeaders.some(nh => h.includes(nh)));
+                if (notesIndex !== -1) this.notesColumn = notesIndex;
+              }
+            } catch (error) {
+              this.error = `Erreur lors de l'analyse du fichier CSV: ${error.message}`;
+              console.error('CSV parsing error:', error);
+            }
+          };
+          
+          reader.onerror = (error) => {
+            this.error = `Erreur lors de la lecture du fichier: ${error.message || 'Erreur inconnue'}`;
+            console.error('File reading error:', error);
+          };
+          
+          reader.readAsText(this.csvFile);
+        },
+        
+        // Validate phone number format
+        validatePhoneNumber(number) {
+          // Basic validation: at least 8 digits, can start with + or 00
+          const cleanNumber = number.replace(/[^0-9+]/g, '');
+          if (cleanNumber.length < 8) return false;
+          
+          // Check if it starts with + or 00 followed by digits, or just digits
+          return /^(\+|00)?[0-9]{8,15}$/.test(cleanNumber);
+        },
+        
+        // Import from CSV with real progress tracking and validation
+        async importCSV() {
+          if (!this.csvFile) {
+            this.error = 'Veuillez sélectionner un fichier CSV';
+            return;
+          }
+          
+          this.loading = true;
+          this.error = null;
+          this.result = null;
+          this.uploadProgress = 0;
+          
+          try {
+            // Validate data before sending (if we have preview data)
+            if (this.previewData && this.previewData.length > 0) {
+              const startRow = this.hasHeader ? 1 : 0;
+              if (this.previewData.length > startRow) {
+                const phoneColIndex = parseInt(this.phoneColumn);
+                
+                // Check a sample of phone numbers
+                const sampleRows = this.previewData.slice(startRow);
+                const invalidNumbers = [];
+                
+                for (let i = 0; i < sampleRows.length; i++) {
+                  const row = sampleRows[i];
+                  if (row.length > phoneColIndex) {
+                    const phoneNumber = row[phoneColIndex];
+                    if (!this.validatePhoneNumber(phoneNumber)) {
+                      invalidNumbers.push(`Ligne ${startRow + i + 1}: ${phoneNumber}`);
+                      if (invalidNumbers.length >= 3) break; // Show max 3 examples
+                    }
+                  }
+                }
+                
+                if (invalidNumbers.length > 0 && !this.skipInvalid) {
+                  this.error = `Le fichier contient des numéros potentiellement invalides. Activez l'option "Ignorer les numéros invalides" ou corrigez les numéros suivants:\n${invalidNumbers.join('\n')}`;
+                  this.loading = false;
+                  return;
+                } else if (invalidNumbers.length > 0) {
+                  console.warn(`${invalidNumbers.length} numéros potentiellement invalides détectés. Ils seront ignorés.`);
+                }
+              }
+            }
+            
+            const formData = new FormData();
+            formData.append('csv_file', this.csvFile);
+            formData.append('has_header', this.hasHeader ? '1' : '0');
+            formData.append('phone_column', this.phoneColumn);
+            formData.append('civility_column', this.civilityColumn);
+            formData.append('first_name_column', this.firstNameColumn);
+            formData.append('name_column', this.nameColumn);
+            formData.append('company_column', this.companyColumn);
+            formData.append('sector_column', this.sectorColumn);
+            formData.append('notes_column', this.notesColumn);
+            formData.append('skip_invalid', this.skipInvalid ? '1' : '0');
+            formData.append('segment_immediately', this.segmentImmediately ? '1' : '0');
+            
+            // Use XMLHttpRequest for real progress tracking
+            const xhr = new XMLHttpRequest();
+            
+            // Set up progress tracking
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                this.uploadProgress = Math.round((event.loaded / event.total) * 100);
+              }
+            };
+            
+            // Set up promise to handle response
+            const uploadPromise = new Promise((resolve, reject) => {
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  try {
+                    const data = JSON.parse(xhr.responseText);
+                    resolve(data);
+                  } catch (e) {
+                    reject(new Error('Erreur lors de l\'analyse de la réponse'));
+                  }
+                } else {
+                  reject(new Error(`Erreur ${xhr.status}: ${xhr.statusText}`));
+                }
+              };
+              
+              xhr.onerror = () => reject(new Error('Erreur réseau lors de l\'upload'));
+              xhr.onabort = () => reject(new Error('Upload annulé'));
+            });
+            
+            // Send the request
+            xhr.open('POST', '/api.php?endpoint=import-csv');
+            xhr.send(formData);
+            
+            // Wait for response
+            const data = await uploadPromise;
+            this.uploadProgress = 100;
+            this.result = data;
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+            console.error('Import error:', error);
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        // Import from text with validation
+        async importFromText() {
+          if (!this.textNumbers) {
+            this.error = 'Veuillez saisir des numéros de téléphone';
+            return;
+          }
+          
+          this.loading = true;
+          this.error = null;
+          this.result = null;
+          
+          try {
+            // Parse and validate numbers
+            const numbersText = this.textNumbers.trim();
+            let numbers = [];
+            
+            // Try to detect the separator (comma, semicolon, newline, or space)
+            if (numbersText.includes(',')) {
+              numbers = numbersText.split(',');
+            } else if (numbersText.includes(';')) {
+              numbers = numbersText.split(';');
+            } else if (numbersText.includes('\n')) {
+              numbers = numbersText.split(/\r?\n/);
+            } else {
+              numbers = numbersText.split(/\s+/);
+            }
+            
+            // Clean up and validate
+            numbers = numbers
+              .map(n => n.trim())
+              .filter(n => n.length > 0);
+            
+            if (numbers.length === 0) {
+              this.error = 'Aucun numéro valide trouvé';
+              this.loading = false;
+              return;
+            }
+            
+            // Validate numbers if not skipping invalid
+            if (!this.skipInvalid) {
+              const invalidNumbers = [];
+              
+              for (let i = 0; i < numbers.length; i++) {
+                if (!this.validatePhoneNumber(numbers[i])) {
+                  invalidNumbers.push(numbers[i]);
+                  if (invalidNumbers.length >= 3) break; // Show max 3 examples
+                }
+              }
+              
+              if (invalidNumbers.length > 0) {
+                this.error = `Certains numéros semblent invalides. Activez l'option "Ignorer les numéros invalides" ou corrigez les numéros suivants:\n${invalidNumbers.join('\n')}`;
+                this.loading = false;
+                return;
+              }
+            }
+            
+            // Show stats
+            console.log(`Import de texte: ${numbers.length} numéros détectés`);
+            
+            // Send to server
+            const response = await fetch('/api.php?endpoint=import-text', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                numbers: numbers.join(','), // Join with comma for server
+                skip_invalid: this.skipInvalid,
+                segment_immediately: this.segmentImmediately
+              })
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Erreur serveur: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            this.result = data;
+          } catch (error) {
+            this.error = `Erreur: ${error.message}`;
+            console.error('Import text error:', error);
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        // Download CSV template
+        downloadTemplate() {
+          const content = 'Numéro,Civilité,Prénom,Nom,Entreprise,Secteur,Notes\n+2250777104936,M.,Jean,Dupont,ABC Corp,Technologie,Client depuis 2020\n002250141399354,Mme,Marie,Martin,XYZ SA,Finance,Nouveau client\n0546560953,Mlle,Sophie,Traoré,Indépendant,Santé,Contact prioritaire';
+          const blob = new Blob([content], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'modele_numeros.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }"
+      x-init="previewData = null; result = null;"
+    >
+      <div class="nav">
+        <a href="index.php">Accueil</a>
+        <a href="segment.html">Segmentation Individuelle</a>
+        <a href="batch.html">Traitement par Lot</a>
+        <a href="sms.html">Envoi de SMS</a>
+        <a href="segments.html">Gestion des Segments</a>
+        <a href="import.html">Import/Export</a>
+        <a href="graphiql.html">API GraphQL</a>
+      </div>
+
+      <h1>Import de Numéros de Téléphone</h1>
+
+      <div class="tabs">
+        <div
+          class="tab"
+          :class="{ 'active': activeTab === 'csv' }"
+          @click="activeTab = 'csv'"
+        >
+          Import CSV
+        </div>
+        <div
+          class="tab"
+          :class="{ 'active': activeTab === 'text' }"
+          @click="activeTab = 'text'"
+        >
+          Import Texte
+        </div>
+      </div>
+
+      <!-- Tab content for CSV import -->
+      <div class="tab-content" :class="{ 'active': activeTab === 'csv' }">
+        <div class="form-group">
+          <div
+            class="drop-zone"
+            @dragover="handleDragOver"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop"
+          >
+            <p>Glissez-déposez votre fichier CSV ici ou</p>
+            <input
+              type="file"
+              id="csv-file"
+              accept=".csv,text/csv"
+              @change="handleFileSelect"
+            />
+            <p x-show="csvFileName">
+              Fichier sélectionné: <span x-text="csvFileName"></span>
+            </p>
+          </div>
+
+          <button @click="downloadTemplate" type="button">
+            Télécharger un modèle CSV
+          </button>
+        </div>
+
+        <div class="options-container">
+          <h3>Options d'import</h3>
+
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input type="checkbox" id="has-header" x-model="hasHeader" />
+              <label for="has-header"
+                >Le fichier contient une ligne d'en-tête</label
+              >
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="phone-column"
+              >Colonne contenant les numéros de téléphone</label
+            >
+            <select id="phone-column" x-model="phoneColumn">
+              <option value="0">Colonne 1</option>
+              <option value="1">Colonne 2</option>
+              <option value="2">Colonne 3</option>
+              <option value="3">Colonne 4</option>
+              <option value="4">Colonne 5</option>
+              <option value="5">Colonne 6</option>
+              <option value="6">Colonne 7</option>
+              <option value="7">Colonne 8</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <h4>Mappage des colonnes additionnelles</h4>
+            <p class="help-text">
+              Sélectionnez les colonnes correspondant à chaque champ (optionnel)
+            </p>
+
+            <div class="mapping-container">
+              <div class="mapping-row">
+                <label for="civility-column">Civilité (M., Mme, Mlle)</label>
+                <select id="civility-column" x-model="civilityColumn">
+                  <option value="-1">Non spécifié</option>
+                  <option value="0">Colonne 1</option>
+                  <option value="1">Colonne 2</option>
+                  <option value="2">Colonne 3</option>
+                  <option value="3">Colonne 4</option>
+                  <option value="4">Colonne 5</option>
+                  <option value="5">Colonne 6</option>
+                  <option value="6">Colonne 7</option>
+                  <option value="7">Colonne 8</option>
+                </select>
+              </div>
+
+              <div class="mapping-row">
+                <label for="first-name-column">Prénom</label>
+                <select id="first-name-column" x-model="firstNameColumn">
+                  <option value="-1">Non spécifié</option>
+                  <option value="0">Colonne 1</option>
+                  <option value="1">Colonne 2</option>
+                  <option value="2">Colonne 3</option>
+                  <option value="3">Colonne 4</option>
+                  <option value="4">Colonne 5</option>
+                  <option value="5">Colonne 6</option>
+                  <option value="6">Colonne 7</option>
+                  <option value="7">Colonne 8</option>
+                </select>
+              </div>
+
+              <div class="mapping-row">
+                <label for="name-column">Nom</label>
+                <select id="name-column" x-model="nameColumn">
+                  <option value="-1">Non spécifié</option>
+                  <option value="0">Colonne 1</option>
+                  <option value="1">Colonne 2</option>
+                  <option value="2">Colonne 3</option>
+                  <option value="3">Colonne 4</option>
+                  <option value="4">Colonne 5</option>
+                  <option value="5">Colonne 6</option>
+                  <option value="6">Colonne 7</option>
+                  <option value="7">Colonne 8</option>
+                </select>
+              </div>
+
+              <div class="mapping-row">
+                <label for="company-column">Entreprise</label>
+                <select id="company-column" x-model="companyColumn">
+                  <option value="-1">Non spécifié</option>
+                  <option value="0">Colonne 1</option>
+                  <option value="1">Colonne 2</option>
+                  <option value="2">Colonne 3</option>
+                  <option value="3">Colonne 4</option>
+                  <option value="4">Colonne 5</option>
+                  <option value="5">Colonne 6</option>
+                  <option value="6">Colonne 7</option>
+                  <option value="7">Colonne 8</option>
+                </select>
+              </div>
+
+              <div class="mapping-row">
+                <label for="sector-column">Secteur</label>
+                <select id="sector-column" x-model="sectorColumn">
+                  <option value="-1">Non spécifié</option>
+                  <option value="0">Colonne 1</option>
+                  <option value="1">Colonne 2</option>
+                  <option value="2">Colonne 3</option>
+                  <option value="3">Colonne 4</option>
+                  <option value="4">Colonne 5</option>
+                  <option value="5">Colonne 6</option>
+                  <option value="6">Colonne 7</option>
+                  <option value="7">Colonne 8</option>
+                </select>
+              </div>
+
+              <div class="mapping-row">
+                <label for="notes-column">Notes</label>
+                <select id="notes-column" x-model="notesColumn">
+                  <option value="-1">Non spécifié</option>
+                  <option value="0">Colonne 1</option>
+                  <option value="1">Colonne 2</option>
+                  <option value="2">Colonne 3</option>
+                  <option value="3">Colonne 4</option>
+                  <option value="4">Colonne 5</option>
+                  <option value="5">Colonne 6</option>
+                  <option value="6">Colonne 7</option>
+                  <option value="7">Colonne 8</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input type="checkbox" id="skip-invalid" x-model="skipInvalid" />
+              <label for="skip-invalid">Ignorer les numéros invalides</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input
+                type="checkbox"
+                id="segment-immediately"
+                x-model="segmentImmediately"
+              />
+              <label for="segment-immediately"
+                >Segmenter immédiatement les numéros</label
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview section -->
+        <div class="form-group" x-show="previewData !== null">
+          <h3>Aperçu</h3>
+          <div class="preview-container">
+            <div x-show="!previewData || previewData.length === 0">
+              Aucune donnée à afficher
+            </div>
+            <table
+              class="preview-table"
+              x-show="previewData && previewData.length > 0"
+            >
+              <thead>
+                <tr>
+                  <template x-if="previewData && previewData[0]">
+                    <template x-for="(_, index) in previewData[0]" :key="index">
+                      <th
+                        x-text="hasHeader && previewData[0] ? previewData[0][index] : `Colonne ${index + 1}`"
+                      ></th>
+                    </template>
+                  </template>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-if="previewData && previewData.length > 0">
+                  <template
+                    x-for="(row, rowIndex) in (hasHeader && previewData.length > 1 ? previewData.slice(1) : previewData)"
+                    :key="rowIndex"
+                  >
+                    <tr>
+                      <template
+                        x-for="(cell, cellIndex) in row"
+                        :key="cellIndex"
+                      >
+                        <td x-text="cell"></td>
+                      </template>
+                    </tr>
+                  </template>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <button @click="importCSV()" :disabled="loading || !csvFile">
+          <span x-show="!loading">Importer</span>
+          <span x-show="loading">Importation en cours...</span>
+        </button>
+
+        <!-- Progress bar -->
+        <div class="progress-container" x-show="loading">
+          <div
+            class="progress-bar"
+            :style="{ width: uploadProgress + '%' }"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Tab content for text import -->
+      <div class="tab-content" :class="{ 'active': activeTab === 'text' }">
+        <div class="form-group">
+          <label for="text-numbers">Numéros de téléphone</label>
+          <textarea
+            id="text-numbers"
+            x-model="textNumbers"
+            placeholder="Entrez les numéros de téléphone séparés par des virgules, des espaces ou des sauts de ligne"
+          ></textarea>
+        </div>
+
+        <div class="options-container">
+          <h3>Options d'import</h3>
+
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input
+                type="checkbox"
+                id="skip-invalid-text"
+                x-model="skipInvalid"
+              />
+              <label for="skip-invalid-text"
+                >Ignorer les numéros invalides</label
+              >
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input
+                type="checkbox"
+                id="segment-immediately-text"
+                x-model="segmentImmediately"
+              />
+              <label for="segment-immediately-text"
+                >Segmenter immédiatement les numéros</label
+              >
+            </div>
+          </div>
+        </div>
+
+        <button @click="importFromText()" :disabled="loading || !textNumbers">
+          <span x-show="!loading">Importer</span>
+          <span x-show="loading">Importation en cours...</span>
+        </button>
+      </div>
+
+      <!-- Error display -->
+      <div
+        class="error"
+        x-show="error"
+        x-text="error"
+        style="
+          margin-top: 20px;
+          padding: 10px;
+          border: 1px solid #e74c3c;
+          border-radius: 4px;
+          background-color: #fadbd8;
+        "
+      ></div>
+
+      <!-- Result display -->
+      <div class="result" x-show="result !== null">
+        <div x-show="result && result.status === 'success'" class="success">
+          <p>Import réussi!</p>
+
+          <!-- Summary -->
+          <div class="summary" x-show="result && result.stats">
+            <p>
+              <strong>Total:</strong>
+              <span
+                x-text="result && result.stats ? result.stats.total : 0"
+              ></span>
+              numéros
+            </p>
+            <p>
+              <strong>Valides:</strong>
+              <span
+                x-text="result && result.stats ? result.stats.valid : 0"
+              ></span>
+            </p>
+            <p>
+              <strong>Invalides:</strong>
+              <span
+                x-text="result && result.stats ? result.stats.invalid : 0"
+              ></span>
+            </p>
+            <p>
+              <strong>Doublons:</strong>
+              <span
+                x-text="result && result.stats ? result.stats.duplicates : 0"
+              ></span>
+            </p>
+            <p>
+              <strong>Traités:</strong>
+              <span
+                x-text="result && result.stats ? result.stats.processed : 0"
+              ></span>
+            </p>
+          </div>
+
+          <!-- Errors list if any -->
+          <div x-show="result && result.errors && result.errors.length > 0">
+            <h3>Avertissements:</h3>
+            <ul>
+              <template x-for="(error, index) in result.errors" :key="index">
+                <li x-text="error"></li>
+              </template>
+            </ul>
+          </div>
+        </div>
+
+        <div x-show="result && result.status === 'error'" class="error">
+          <p>
+            Erreur:
+            <span
+              x-text="result && result.message ? result.message : 'Une erreur est survenue'"
+            ></span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
