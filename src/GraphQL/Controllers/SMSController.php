@@ -63,20 +63,26 @@ class SMSController
      */
     public function segmentsForSMS(): array
     {
-        $segments = $this->customSegmentRepository->findAll();
-        $result = [];
+        try {
+            $segments = $this->customSegmentRepository->findAll();
+            $result = [];
 
-        foreach ($segments as $segment) {
-            $phoneNumbers = $this->phoneNumberRepository->findByCustomSegment($segment->getId());
-            $result[] = [
-                'id' => $segment->getId(),
-                'name' => $segment->getName(),
-                'description' => $segment->getDescription(),
-                'phoneNumberCount' => count($phoneNumbers)
-            ];
+            foreach ($segments as $segment) {
+                $phoneNumbers = $this->phoneNumberRepository->findByCustomSegment($segment->getId());
+                $result[] = [
+                    'id' => $segment->getId(),
+                    'name' => $segment->getName(),
+                    'description' => $segment->getDescription(),
+                    'phoneNumberCount' => count($phoneNumbers)
+                ];
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            // En cas d'erreur, retourner un tableau vide plutôt que de laisser l'exception se propager
+            error_log('Error in segmentsForSMS: ' . $e->getMessage());
+            return [];
         }
-
-        return $result;
     }
 
     /**
@@ -87,24 +93,30 @@ class SMSController
      */
     public function smsHistory(int $limit = 100, int $offset = 0): array
     {
-        $history = $this->smsHistoryRepository->findAll($limit, $offset);
-        $result = [];
+        try {
+            $history = $this->smsHistoryRepository->findAll($limit, $offset);
+            $result = [];
 
-        foreach ($history as $item) {
-            $result[] = [
-                'id' => $item->getId(),
-                'phoneNumber' => $item->getPhoneNumber(),
-                'message' => $item->getMessage(),
-                'status' => $item->getStatus(),
-                'messageId' => $item->getMessageId(),
-                'errorMessage' => $item->getErrorMessage(),
-                'senderAddress' => $item->getSenderAddress(),
-                'senderName' => $item->getSenderName(),
-                'createdAt' => $item->getCreatedAt()
-            ];
+            foreach ($history as $item) {
+                $result[] = [
+                    'id' => $item->getId(),
+                    'phoneNumber' => $item->getPhoneNumber(),
+                    'message' => $item->getMessage(),
+                    'status' => $item->getStatus(),
+                    'messageId' => $item->getMessageId(),
+                    'errorMessage' => $item->getErrorMessage(),
+                    'senderAddress' => $item->getSenderAddress(),
+                    'senderName' => $item->getSenderName(),
+                    'createdAt' => $item->getCreatedAt()
+                ];
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            // En cas d'erreur, retourner un tableau vide plutôt que de laisser l'exception se propager
+            error_log('Error in smsHistory: ' . $e->getMessage());
+            return [];
         }
-
-        return $result;
     }
 
     /**
@@ -129,6 +141,7 @@ class SMSController
                 'createdAt' => date('c')
             ];
         } catch (\Exception $e) {
+            error_log('Error in sendSms: ' . $e->getMessage());
             return [
                 'id' => uniqid(),
                 'phoneNumber' => $phoneNumber,
@@ -150,7 +163,20 @@ class SMSController
     public function sendBulkSms(array $phoneNumbers, string $message): array
     {
         try {
-            $results = $this->smsService->sendBulkSMS($phoneNumbers, $message);
+            // Ensure each phone number is processed individually
+            $processedNumbers = [];
+            foreach ($phoneNumbers as $number) {
+                // Trim and validate each number
+                $trimmedNumber = trim($number);
+                if (!empty($trimmedNumber)) {
+                    $processedNumbers[] = $trimmedNumber;
+                }
+            }
+
+            // Log the processed numbers for debugging
+            error_log('Processing bulk SMS for numbers: ' . implode(', ', $processedNumbers));
+
+            $results = $this->smsService->sendBulkSMS($processedNumbers, $message);
 
             // Count successful and failed sends
             $successful = 0;
@@ -182,6 +208,7 @@ class SMSController
                 'results' => $formattedResults
             ];
         } catch (\Exception $e) {
+            error_log('Error in sendBulkSms: ' . $e->getMessage());
             return [
                 'status' => 'error',
                 'message' => 'Erreur lors de l\'envoi en masse: ' . $e->getMessage(),
@@ -259,6 +286,7 @@ class SMSController
                 'results' => $formattedResults
             ];
         } catch (\Exception $e) {
+            error_log('Error in sendSmsToSegment: ' . $e->getMessage());
             return [
                 'status' => 'error',
                 'message' => 'Erreur lors de l\'envoi au segment: ' . $e->getMessage(),
