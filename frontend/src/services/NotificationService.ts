@@ -77,11 +77,16 @@ class NotificationService {
 
     // Clean up when the notification is closed
     const cleanup = () => {
-      setTimeout(() => {
-        app.unmount();
-        document.body.removeChild(container);
-        this.activeNotifications = this.activeNotifications.filter(n => n !== container);
-      }, 500); // Give time for the animation to complete
+      try {
+        // Check if the app is still mounted and container still exists
+        if (container && document.body.contains(container)) {
+          app.unmount();
+          document.body.removeChild(container);
+          this.activeNotifications = this.activeNotifications.filter(n => n !== container);
+        }
+      } catch (error) {
+        console.error('Error during notification cleanup:', error);
+      }
     };
 
     // Add event listener for when the notification is closed

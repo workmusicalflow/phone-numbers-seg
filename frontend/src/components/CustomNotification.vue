@@ -80,7 +80,10 @@ const hide = () => {
 
 // Lifecycle
 onMounted(() => {
-  show();
+  // Use nextTick to ensure the component is fully mounted before showing
+  setTimeout(() => {
+    show();
+  }, 0);
 });
 
 onBeforeUnmount(() => {
