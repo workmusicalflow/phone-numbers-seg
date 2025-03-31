@@ -10,6 +10,7 @@ use App\Repositories\PhoneNumberRepository;
 use App\Repositories\SegmentRepository;
 use App\Repositories\TechnicalSegmentRepository;
 use App\Repositories\CustomSegmentRepository;
+use App\Repositories\SMSHistoryRepository;
 use App\Services\PhoneSegmentationService;
 use App\Services\BatchSegmentationService;
 use App\Services\CSVImportService;
@@ -44,6 +45,7 @@ class GraphQLiteConfiguration
         $segmentRepository = new SegmentRepository($pdo);
         $technicalSegmentRepository = new TechnicalSegmentRepository($pdo);
         $customSegmentRepository = new CustomSegmentRepository($pdo);
+        $smsHistoryRepository = new SMSHistoryRepository($pdo);
 
         // Create services
         $phoneSegmentationService = new PhoneSegmentationService();
@@ -74,6 +76,7 @@ class GraphQLiteConfiguration
         $container->set(SegmentRepository::class, $segmentRepository);
         $container->set(TechnicalSegmentRepository::class, $technicalSegmentRepository);
         $container->set(CustomSegmentRepository::class, $customSegmentRepository);
+        $container->set(SMSHistoryRepository::class, $smsHistoryRepository);
         $container->set(PhoneSegmentationService::class, $phoneSegmentationService);
         $container->set(BatchSegmentationService::class, $batchSegmentationService);
         $container->set(CSVImportService::class, $csvImportService);
