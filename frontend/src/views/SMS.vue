@@ -27,14 +27,14 @@
                 <q-input
                   v-model="singleSmsData.phoneNumber"
                   label="Numéro de téléphone"
-                  :rules="[(val) => !!val || 'Le numéro est requis']"
+                  :rules="[val => val === '' || !!val || 'Le numéro est requis']"
                 />
 
                 <q-input
                   v-model="singleSmsData.message"
                   type="textarea"
                   label="Message"
-                  :rules="[(val) => !!val || 'Le message est requis']"
+                  :rules="[val => val === '' || !!val || 'Le message est requis']"
                   rows="5"
                 />
 
@@ -64,7 +64,7 @@
                   v-model="bulkSmsData.phoneNumbers"
                   type="textarea"
                   label="Numéros de téléphone (séparés par des virgules, espaces ou sauts de ligne)"
-                  :rules="[(val) => !!val || 'Les numéros sont requis']"
+                  :rules="[val => val === '' || !!val || 'Les numéros sont requis']"
                   rows="5"
                   hint="Exemple: +2250777104936, +2250141399354, +2250546560953"
                 />
@@ -73,7 +73,7 @@
                   v-model="bulkSmsData.message"
                   type="textarea"
                   label="Message"
-                  :rules="[(val) => !!val || 'Le message est requis']"
+                  :rules="[val => val === '' || !!val || 'Le message est requis']"
                   rows="5"
                 />
 
@@ -139,7 +139,7 @@
                   v-model="segmentSmsData.message"
                   type="textarea"
                   label="Message"
-                  :rules="[(val) => !!val || 'Le message est requis']"
+                  :rules="[val => val === '' || !!val || 'Le message est requis']"
                   rows="5"
                 />
 
@@ -221,42 +221,50 @@
           </q-card>
         </div>
 
-        <!-- Historique des SMS -->
-        <div class="col-12" :class="{ 'col-md-6': smsResult }">
-          <q-card>
-            <q-card-section>
-              <div class="text-h6">Historique des SMS</div>
-            </q-card-section>
+      <!-- Historique des SMS -->
+      <div class="col-12" :class="{ 'col-md-6': smsResult }">
+        <q-card>
+          <q-card-section class="row items-center">
+            <div class="text-h6">Historique des SMS</div>
+            <q-space />
+            <q-btn
+              color="primary"
+              icon="history"
+              label="Voir tout l'historique"
+              flat
+              :to="{ name: 'SMSHistory' }"
+            />
+          </q-card-section>
 
-            <q-card-section>
-              <q-table
-                :rows="smsHistory"
-                :columns="columns"
-                row-key="id"
-                :loading="loadingHistory"
-                :pagination="{ rowsPerPage: 10 }"
-              >
-                <template v-slot:body-cell-status="props">
-                  <q-td :props="props">
-                    <q-chip
-                      :color="
-                        props.row.status === 'SENT'
-                          ? 'positive'
-                          : props.row.status === 'FAILED'
-                            ? 'negative'
-                            : 'warning'
-                      "
-                      text-color="white"
-                      dense
-                    >
-                      {{ props.row.status }}
-                    </q-chip>
-                  </q-td>
-                </template>
-              </q-table>
-            </q-card-section>
-          </q-card>
-        </div>
+          <q-card-section>
+            <q-table
+              :rows="smsHistory"
+              :columns="columns"
+              row-key="id"
+              :loading="loadingHistory"
+              :pagination="{ rowsPerPage: 5 }"
+            >
+              <template v-slot:body-cell-status="props">
+                <q-td :props="props">
+                  <q-chip
+                    :color="
+                      props.row.status === 'SENT'
+                        ? 'positive'
+                        : props.row.status === 'FAILED'
+                          ? 'negative'
+                          : 'warning'
+                    "
+                    text-color="white"
+                    dense
+                  >
+                    {{ props.row.status }}
+                  </q-chip>
+                </q-td>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+      </div>
       </div>
     </div>
   </q-page>
@@ -264,12 +272,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { useApolloClient } from "@vue/apollo-composable";
 import { gql } from "@apollo/client/core";
 import { useQuasar } from "quasar";
+import { useApolloClient } from "@vue/apollo-composable";
+import NotificationService from "../services/NotificationService";
 
-const apolloClient = useApolloClient();
 const $q = useQuasar();
+// Utiliser le client Apollo global
+const { client: apolloClient } = useApolloClient();
 
 // État de l'interface
 const activeTab = ref("single");
@@ -319,7 +329,7 @@ const columns = [
 const fetchSmsHistory = async () => {
   loadingHistory.value = true;
   try {
-    const { data } = await apolloClient.default.query({
+    const { data } = await apolloClient.query({
       query: gql`
         query GetSmsHistory {
           smsHistory {
@@ -337,11 +347,7 @@ const fetchSmsHistory = async () => {
     smsHistory.value = data.smsHistory;
   } catch (error) {
     console.error("Error fetching SMS history:", error);
-    $q.notify({
-      color: "negative",
-      message: "Erreur lors du chargement de l'historique",
-      icon: "error",
-    });
+    NotificationService.error("Erreur lors du chargement de l'historique");
   } finally {
     loadingHistory.value = false;
   }
@@ -351,7 +357,7 @@ const fetchSmsHistory = async () => {
 const fetchSegments = async () => {
   loadingSegments.value = true;
   try {
-    const { data } = await apolloClient.default.query({
+    const { data } = await apolloClient.query({
       query: gql`
         query GetSegmentsForSMS {
           segmentsForSMS {
@@ -368,11 +374,7 @@ const fetchSegments = async () => {
     segments.value = data.segmentsForSMS;
   } catch (error) {
     console.error("Error fetching segments:", error);
-    $q.notify({
-      color: "negative",
-      message: "Erreur lors du chargement des segments",
-      icon: "error",
-    });
+    NotificationService.error("Erreur lors du chargement des segments");
   } finally {
     loadingSegments.value = false;
   }
@@ -384,7 +386,7 @@ const onSubmitSingle = async () => {
   smsResult.value = null;
 
   try {
-    const { data } = await apolloClient.default.mutate({
+    const { data } = await apolloClient.mutate({
       mutation: gql`
         mutation SendSms($phoneNumber: String!, $message: String!) {
           sendSms(phoneNumber: $phoneNumber, message: $message) {
@@ -400,6 +402,23 @@ const onSubmitSingle = async () => {
         phoneNumber: singleSmsData.value.phoneNumber,
         message: singleSmsData.value.message,
       },
+      refetchQueries: [
+        {
+          query: gql`
+            query GetSmsHistory {
+              smsHistory {
+                id
+                phoneNumber
+                message
+                status
+                createdAt
+              }
+            }
+          `,
+          fetchPolicy: "network-only"
+        }
+      ],
+      awaitRefetchQueries: true
     });
 
     // Afficher le résultat
@@ -412,11 +431,7 @@ const onSubmitSingle = async () => {
     };
 
     // Notification
-    $q.notify({
-      color: data.sendSms.status === "SENT" ? "positive" : "negative",
-      message: smsResult.value.message,
-      icon: data.sendSms.status === "SENT" ? "check_circle" : "error",
-    });
+    NotificationService.success(smsResult.value.message);
 
     // Réinitialiser le formulaire en cas de succès
     if (data.sendSms.status === "SENT") {
@@ -434,11 +449,7 @@ const onSubmitSingle = async () => {
       status: "error",
       message: "Erreur lors de l'envoi du SMS",
     };
-    $q.notify({
-      color: "negative",
-      message: "Erreur lors de l'envoi du SMS",
-      icon: "error",
-    });
+    NotificationService.error("Erreur lors de l'envoi du SMS");
   } finally {
     loading.value = false;
   }
@@ -455,18 +466,14 @@ const onSubmitBulk = async () => {
     .map((num) => num.trim())
     .filter((num) => num.length > 0);
 
-  if (phoneNumbers.length === 0) {
-    $q.notify({
-      color: "negative",
-      message: "Aucun numéro valide trouvé",
-      icon: "error",
-    });
-    loading.value = false;
-    return;
-  }
+    if (phoneNumbers.length === 0) {
+      NotificationService.warning("Aucun numéro valide trouvé");
+      loading.value = false;
+      return;
+    }
 
   try {
-    const { data } = await apolloClient.default.mutate({
+    const { data } = await apolloClient.mutate({
       mutation: gql`
         mutation SendBulkSms($phoneNumbers: [String!]!, $message: String!) {
           sendBulkSms(phoneNumbers: $phoneNumbers, message: $message) {
@@ -489,20 +496,34 @@ const onSubmitBulk = async () => {
         phoneNumbers,
         message: bulkSmsData.value.message,
       },
+      refetchQueries: [
+        {
+          query: gql`
+            query GetSmsHistory {
+              smsHistory {
+                id
+                phoneNumber
+                message
+                status
+                createdAt
+              }
+            }
+          `,
+          fetchPolicy: "network-only"
+        }
+      ],
+      awaitRefetchQueries: true
     });
 
     // Afficher le résultat
     smsResult.value = data.sendBulkSms;
 
     // Notification
-    $q.notify({
-      color: data.sendBulkSms.status === "success" ? "positive" : "negative",
-      message:
-        data.sendBulkSms.status === "success"
-          ? `SMS envoyés avec succès (${data.sendBulkSms.summary.successful}/${data.sendBulkSms.summary.total})`
-          : data.sendBulkSms.message,
-      icon: data.sendBulkSms.status === "success" ? "check_circle" : "error",
-    });
+    if (data.sendBulkSms.status === "success") {
+      NotificationService.success(`SMS envoyés avec succès (${data.sendBulkSms.summary.successful}/${data.sendBulkSms.summary.total})`);
+    } else {
+      NotificationService.error(data.sendBulkSms.message);
+    }
 
     // Réinitialiser le formulaire en cas de succès
     if (data.sendBulkSms.status === "success") {
@@ -520,11 +541,7 @@ const onSubmitBulk = async () => {
       status: "error",
       message: "Erreur lors de l'envoi des SMS en masse",
     };
-    $q.notify({
-      color: "negative",
-      message: "Erreur lors de l'envoi des SMS en masse",
-      icon: "error",
-    });
+    NotificationService.error("Erreur lors de l'envoi des SMS en masse");
   } finally {
     loading.value = false;
   }
@@ -532,20 +549,16 @@ const onSubmitBulk = async () => {
 
 // Envoi de SMS à un segment
 const onSubmitSegment = async () => {
-  if (!segmentSmsData.value.segmentId) {
-    $q.notify({
-      color: "negative",
-      message: "Veuillez sélectionner un segment",
-      icon: "error",
-    });
-    return;
-  }
+    if (!segmentSmsData.value.segmentId) {
+      NotificationService.warning("Veuillez sélectionner un segment");
+      return;
+    }
 
   loading.value = true;
   smsResult.value = null;
 
   try {
-    const { data } = await apolloClient.default.mutate({
+    const { data } = await apolloClient.mutate({
       mutation: gql`
         mutation SendSmsToSegment($segmentId: ID!, $message: String!) {
           sendSmsToSegment(segmentId: $segmentId, message: $message) {
@@ -572,22 +585,34 @@ const onSubmitSegment = async () => {
         segmentId: segmentSmsData.value.segmentId,
         message: segmentSmsData.value.message,
       },
+      refetchQueries: [
+        {
+          query: gql`
+            query GetSmsHistory {
+              smsHistory {
+                id
+                phoneNumber
+                message
+                status
+                createdAt
+              }
+            }
+          `,
+          fetchPolicy: "network-only"
+        }
+      ],
+      awaitRefetchQueries: true
     });
 
     // Afficher le résultat
     smsResult.value = data.sendSmsToSegment;
 
     // Notification
-    $q.notify({
-      color:
-        data.sendSmsToSegment.status === "success" ? "positive" : "negative",
-      message:
-        data.sendSmsToSegment.status === "success"
-          ? `SMS envoyés avec succès au segment ${data.sendSmsToSegment.segment.name} (${data.sendSmsToSegment.summary.successful}/${data.sendSmsToSegment.summary.total})`
-          : data.sendSmsToSegment.message,
-      icon:
-        data.sendSmsToSegment.status === "success" ? "check_circle" : "error",
-    });
+    if (data.sendSmsToSegment.status === "success") {
+      NotificationService.success(`SMS envoyés avec succès au segment ${data.sendSmsToSegment.segment.name} (${data.sendSmsToSegment.summary.successful}/${data.sendSmsToSegment.summary.total})`);
+    } else {
+      NotificationService.error(data.sendSmsToSegment.message);
+    }
 
     // Réinitialiser le formulaire en cas de succès
     if (data.sendSmsToSegment.status === "success") {
@@ -605,11 +630,7 @@ const onSubmitSegment = async () => {
       status: "error",
       message: "Erreur lors de l'envoi des SMS au segment",
     };
-    $q.notify({
-      color: "negative",
-      message: "Erreur lors de l'envoi des SMS au segment",
-      icon: "error",
-    });
+    NotificationService.error("Erreur lors de l'envoi des SMS au segment");
   } finally {
     loading.value = false;
   }
