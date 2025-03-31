@@ -1,5 +1,6 @@
 type Query {
-  smsHistory: [SMSHistory!]!
+  smsHistory(limit: Int, offset: Int): [SMSHistory!]!
+  smsHistoryCount: Int!
   test: String!
   hello: String!
   segmentsForSMS: [Segment!]!
@@ -16,6 +17,7 @@ type Mutation {
   sendSms(phoneNumber: String!, message: String!): SMSResult!
   sendBulkSms(phoneNumbers: [String!]!, message: String!): BulkSMSResult!
   sendSmsToSegment(segmentId: ID!, message: String!): SegmentSMSResult!
+  retrySms(id: ID!): SMSResult!
 }
 
 type SMSHistory {
@@ -28,6 +30,7 @@ type SMSHistory {
   senderAddress: String
   senderName: String
   createdAt: String!
+  segment: SegmentInfo
 }
 
 type SMSResult {

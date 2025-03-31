@@ -119,12 +119,66 @@ try {
 
     // Define resolvers
     $rootValue = [
-        'smsHistory' => function () use ($smsHistoryRepository) {
-            $history = $smsHistoryRepository->findAll(100, 0);
+        'retrySms' => function ($rootValue, $args) use ($smsService, $smsHistoryRepository) {
+            $id = $args['id'];
+
+            try {
+                // Get the SMS history record
+                $smsHistory = $smsHistoryRepository->findById((int)$id);
+                if (!$smsHistory) {
+                    return [
+                        'id' => $id,
+                        'phoneNumber' => '',
+                        'message' => '',
+                        'status' => 'FAILED',
+                        'createdAt' => date('Y-m-d H:i:s')
+                    ];
+                }
+
+                // Retry sending the SMS
+                $result = $smsService->sendSMS($smsHistory->getPhoneNumber(), $smsHistory->getMessage());
+
+                // Create a new SMS history record for the retry
+                $status = isset($result['outboundSMSMessageRequest']) ? 'SENT' : 'FAILED';
+                $newSmsHistory = $smsHistoryRepository->create(
+                    $smsHistory->getPhoneNumber(),
+                    $smsHistory->getMessage(),
+                    $status,
+                    isset($result['outboundSMSMessageRequest']['resourceURL']) ? basename($result['outboundSMSMessageRequest']['resourceURL']) : null,
+                    $status === 'FAILED' ? 'Retry failed: ' . json_encode($result) : null,
+                    $smsHistory->getSenderAddress(),
+                    $smsHistory->getSenderName(),
+                    $smsHistory->getSegmentId()
+                );
+
+                return [
+                    'id' => $newSmsHistory->getId(),
+                    'phoneNumber' => $newSmsHistory->getPhoneNumber(),
+                    'message' => $newSmsHistory->getMessage(),
+                    'status' => $newSmsHistory->getStatus(),
+                    'createdAt' => $newSmsHistory->getCreatedAt()
+                ];
+            } catch (\Exception $e) {
+                error_log('Error in retrySms: ' . $e->getMessage());
+                return [
+                    'id' => $id,
+                    'phoneNumber' => '',
+                    'message' => '',
+                    'status' => 'FAILED',
+                    'createdAt' => date('Y-m-d H:i:s')
+                ];
+            }
+        },
+
+        'smsHistory' => function ($rootValue, $args) use ($smsHistoryRepository, $customSegmentRepository) {
+            $limit = isset($args['limit']) ? $args['limit'] : 100;
+            $offset = isset($args['offset']) ? $args['offset'] : 0;
+
+            $history = $smsHistoryRepository->findAll($limit, $offset);
             $result = [];
 
             foreach ($history as $item) {
-                $result[] = [
+                $smsData = [
                     'id' => $item->getId(),
                     'phoneNumber' => $item->getPhoneNumber(),
                     'message' => $item->getMessage(),
@@ -135,9 +189,30 @@ try {
                     'senderName' => $item->getSenderName(),
                     'createdAt' => $item->getCreatedAt()
                 ];
+
+                // Add segment information if available
+                if ($item->getSegmentId()) {
+                    try {
+                        $segment = $customSegmentRepository->findById($item->getSegmentId());
+                        if ($segment) {
+                            $smsData['segment'] = [
+                                'id' => $segment->getId(),
+                                'name' => $segment->getName()
+                            ];
+                        }
+                    } catch (\Exception $e) {
+                        // Ignore segment errors
+                    }
+                }
+
+                $result[] = $smsData;
             }
 
             return $result;
+        },
+
+        'smsHistoryCount' => function () use ($smsHistoryRepository) {
+            return $smsHistoryRepository->count();
         },
         'segmentsForSMS' => function () use ($customSegmentRepository) {
             $segments = $customSegmentRepository->findAll();

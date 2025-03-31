@@ -97,6 +97,47 @@ class SMSHistoryRepository
     }
 
     /**
+     * Créer un nouvel enregistrement d'historique SMS
+     *
+     * @param string $phoneNumber Numéro de téléphone
+     * @param string $message Message envoyé
+     * @param string $status Statut de l'envoi
+     * @param string|null $messageId ID du message retourné par l'API
+     * @param string|null $errorMessage Message d'erreur en cas d'échec
+     * @param string $senderAddress Adresse de l'expéditeur
+     * @param string $senderName Nom de l'expéditeur
+     * @param int|null $segmentId ID du segment associé
+     * @param int|null $phoneNumberId ID du numéro de téléphone associé
+     * @return SMSHistory
+     */
+    public function create(
+        string $phoneNumber,
+        string $message,
+        string $status,
+        ?string $messageId = null,
+        ?string $errorMessage = null,
+        string $senderAddress = 'tel:+2250595016840',
+        string $senderName = 'Qualitas CI',
+        ?int $segmentId = null,
+        ?int $phoneNumberId = null
+    ): SMSHistory {
+        $smsHistory = new SMSHistory(
+            null,
+            $phoneNumber,
+            $message,
+            $status,
+            $senderAddress,
+            $senderName,
+            $phoneNumberId,
+            $messageId,
+            $errorMessage,
+            $segmentId
+        );
+
+        return $this->save($smsHistory);
+    }
+
+    /**
      * Trouver un enregistrement d'historique SMS par son ID
      *
      * @param int $id
