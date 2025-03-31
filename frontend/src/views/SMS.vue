@@ -461,16 +461,24 @@ const onSubmitBulk = async () => {
   smsResult.value = null;
 
   // Traiter les numéros (séparés par virgules, espaces ou sauts de ligne)
-  const phoneNumbers = bulkSmsData.value.phoneNumbers
-    .split(/[\s,;]+/)
+  // Prétraitement pour éviter la concaténation des numéros
+  const preprocessedInput = bulkSmsData.value.phoneNumbers
+    .replace(/[\s,;]+/g, ',') // Remplacer tous les séparateurs par des virgules
+    .replace(/,+/g, ',')      // Supprimer les virgules multiples
+    .replace(/^,|,$/g, '');   // Supprimer les virgules au début et à la fin
+
+  const phoneNumbers = preprocessedInput
+    .split(',')
     .map((num) => num.trim())
     .filter((num) => num.length > 0);
 
-    if (phoneNumbers.length === 0) {
-      NotificationService.warning("Aucun numéro valide trouvé");
-      loading.value = false;
-      return;
-    }
+  console.log("Numéros traités:", phoneNumbers);
+
+  if (phoneNumbers.length === 0) {
+    NotificationService.warning("Aucun numéro valide trouvé");
+    loading.value = false;
+    return;
+  }
 
   try {
     const { data } = await apolloClient.mutate({
