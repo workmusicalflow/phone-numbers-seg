@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Repositories\CustomSegmentRepository;
 use App\Repositories\PhoneNumberRepository;
+use App\Repositories\SMSHistoryRepository;
+use App\Models\SMSHistory;
 
 /**
  * SMSService
@@ -43,6 +45,11 @@ class SMSService
     private ?CustomSegmentRepository $customSegmentRepository;
 
     /**
+     * @var SMSHistoryRepository|null
+     */
+    private ?SMSHistoryRepository $smsHistoryRepository;
+
+    /**
      * Constructor
      * 
      * @param string $clientId Orange API client ID
@@ -51,6 +58,7 @@ class SMSService
      * @param string $senderName Sender name
      * @param PhoneNumberRepository|null $phoneNumberRepository
      * @param CustomSegmentRepository|null $customSegmentRepository
+     * @param SMSHistoryRepository|null $smsHistoryRepository
      */
     public function __construct(
         string $clientId,
@@ -58,7 +66,8 @@ class SMSService
         string $senderAddress,
         string $senderName,
         ?PhoneNumberRepository $phoneNumberRepository = null,
-        ?CustomSegmentRepository $customSegmentRepository = null
+        ?CustomSegmentRepository $customSegmentRepository = null,
+        ?SMSHistoryRepository $smsHistoryRepository = null
     ) {
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
@@ -66,6 +75,7 @@ class SMSService
         $this->senderName = $senderName;
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->customSegmentRepository = $customSegmentRepository;
+        $this->smsHistoryRepository = $smsHistoryRepository;
     }
 
     /**
@@ -114,9 +124,29 @@ class SMSService
     {
         // Normalize the receiver number to international format with tel: prefix
         $receiverNumber = $this->normalizePhoneNumber($receiverNumber);
+        $originalNumber = preg_replace('/^tel:/', '', $receiverNumber);
 
         // Get an access token
-        $accessToken = $this->getAccessToken();
+        try {
+            $accessToken = $this->getAccessToken();
+        } catch (\RuntimeException $e) {
+            // Log the error to SMS history if repository is available
+            if ($this->smsHistoryRepository !== null) {
+                $smsHistory = new SMSHistory(
+                    null,
+                    $originalNumber,
+                    $message,
+                    'FAILED',
+                    $this->senderAddress,
+                    $this->senderName,
+                    null,
+                    null,
+                    'Failed to obtain access token: ' . $e->getMessage()
+                );
+                $this->smsHistoryRepository->save($smsHistory);
+            }
+            throw $e;
+        }
 
         // Prepare the URL and data
         $url = 'https://api.orange.com/smsmessaging/v1/outbound/' . urlencode($this->senderAddress) . '/requests';
@@ -142,12 +172,71 @@ class SMSService
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($smsData));
 
         $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
         if (curl_errno($ch)) {
-            throw new \RuntimeException('cURL Error: ' . curl_error($ch));
+            $errorMessage = 'cURL Error: ' . curl_error($ch);
+            curl_close($ch);
+
+            // Log the error to SMS history if repository is available
+            if ($this->smsHistoryRepository !== null) {
+                $smsHistory = new SMSHistory(
+                    null,
+                    $originalNumber,
+                    $message,
+                    'FAILED',
+                    $this->senderAddress,
+                    $this->senderName,
+                    null,
+                    null,
+                    $errorMessage
+                );
+                $this->smsHistoryRepository->save($smsHistory);
+            }
+
+            throw new \RuntimeException($errorMessage);
         }
         curl_close($ch);
 
-        return json_decode($response, true);
+        $responseData = json_decode($response, true);
+
+        // Check if the response indicates success
+        $isSuccess = $httpCode >= 200 && $httpCode < 300 && isset($responseData['outboundSMSMessageRequest']);
+
+        // Get message ID if available
+        $messageId = null;
+        if ($isSuccess && isset($responseData['outboundSMSMessageRequest']['resourceURL'])) {
+            // Extract message ID from resourceURL if possible
+            $resourceUrl = $responseData['outboundSMSMessageRequest']['resourceURL'];
+            $messageId = substr($resourceUrl, strrpos($resourceUrl, '/') + 1);
+        }
+
+        // Log to SMS history if repository is available
+        if ($this->smsHistoryRepository !== null) {
+            // Find phone number ID if possible
+            $phoneNumberId = null;
+            if ($this->phoneNumberRepository !== null) {
+                $phoneNumber = $this->phoneNumberRepository->findByNumber($originalNumber);
+                if ($phoneNumber !== null) {
+                    $phoneNumberId = $phoneNumber->getId();
+                }
+            }
+
+            $smsHistory = new SMSHistory(
+                null,
+                $originalNumber,
+                $message,
+                $isSuccess ? 'SENT' : 'FAILED',
+                $this->senderAddress,
+                $this->senderName,
+                $phoneNumberId,
+                $messageId,
+                $isSuccess ? null : 'API Error: ' . ($httpCode . ' - ' . json_encode($responseData))
+            );
+            $this->smsHistoryRepository->save($smsHistory);
+        }
+
+        return $responseData;
     }
 
     /**
@@ -160,6 +249,7 @@ class SMSService
     public function sendBulkSMS(array $receiverNumbers, string $message): array
     {
         $results = [];
+        $segmentId = null;
 
         foreach ($receiverNumbers as $number) {
             try {
@@ -192,6 +282,12 @@ class SMSService
             throw new \RuntimeException('Phone number and custom segment repositories are required for sending to a segment');
         }
 
+        // Get the segment
+        $segment = $this->customSegmentRepository->findById($segmentId);
+        if ($segment === null) {
+            throw new \RuntimeException('Segment not found: ' . $segmentId);
+        }
+
         // Get all phone numbers in the segment
         $phoneNumbers = $this->phoneNumberRepository->findByCustomSegment($segmentId);
 
@@ -201,7 +297,24 @@ class SMSService
         }, $phoneNumbers);
 
         // Send the SMS to all numbers
-        return $this->sendBulkSMS($numbers, $message);
+        $results = $this->sendBulkSMS($numbers, $message);
+
+        // Update segment ID in SMS history records if repository is available
+        if ($this->smsHistoryRepository !== null) {
+            // This would be more efficient with a batch update query
+            // but we'll use the repository interface for now
+            foreach ($numbers as $number) {
+                $originalNumber = preg_replace('/^tel:/', '', $this->normalizePhoneNumber($number));
+                $history = $this->smsHistoryRepository->findByPhoneNumber($originalNumber, 1);
+                if (!empty($history)) {
+                    $latestHistory = $history[0];
+                    $latestHistory->setSegmentId($segmentId);
+                    $this->smsHistoryRepository->save($latestHistory);
+                }
+            }
+        }
+
+        return $results;
     }
 
     /**
