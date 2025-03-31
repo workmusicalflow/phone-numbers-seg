@@ -208,16 +208,16 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
 
 ## Métriques de Progression
 
-| Catégorie               | Progression | Commentaire                                 |
-| ----------------------- | ----------- | ------------------------------------------- |
-| Fonctionnalités de base | 100%        | Toutes les fonctionnalités implémentées     |
-| Interface utilisateur   | 90%         | Interfaces complètes et adaptées            |
-| API REST                | 85%         | Endpoints principaux fonctionnels           |
-| API GraphQL             | 100%        | Implémentation complète                     |
-| Migration Vue.js        | 75%         | Composants, interfaces et tests implémentés |
-| Tests                   | 70%         | Couverture améliorée, tests Vue.js corrigés |
-| Documentation           | 70%         | Documentation utilisateur à compléter       |
-| Déploiement             | 70%         | Configuration de base en place              |
+| Catégorie               | Progression | Commentaire                                      |
+| ----------------------- | ----------- | ------------------------------------------------ |
+| Fonctionnalités de base | 100%        | Toutes les fonctionnalités implémentées          |
+| Interface utilisateur   | 90%         | Interfaces complètes et adaptées                 |
+| API REST                | 100%        | Endpoints principaux fonctionnels et documentés  |
+| API GraphQL             | 100%        | Implémentation complète                          |
+| Migration Vue.js        | 75%         | Composants, interfaces et tests implémentés      |
+| Tests                   | 70%         | Couverture améliorée, tests Vue.js corrigés      |
+| Documentation           | 100%        | Documentation complète (formats, API, standards) |
+| Déploiement             | 70%         | Configuration de base en place                   |
 
 ## Jalons
 
