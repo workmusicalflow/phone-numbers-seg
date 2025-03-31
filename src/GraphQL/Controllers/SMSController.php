@@ -4,6 +4,7 @@ namespace App\GraphQL\Controllers;
 
 use App\Repositories\PhoneNumberRepository;
 use App\Repositories\CustomSegmentRepository;
+use App\Repositories\SMSHistoryRepository;
 use App\Services\SMSService;
 use TheCodingMachine\GraphQLite\Annotations\Query;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
@@ -30,20 +31,28 @@ class SMSController
     private CustomSegmentRepository $customSegmentRepository;
 
     /**
+     * @var SMSHistoryRepository
+     */
+    private SMSHistoryRepository $smsHistoryRepository;
+
+    /**
      * Constructor
      * 
      * @param SMSService $smsService
      * @param PhoneNumberRepository $phoneNumberRepository
      * @param CustomSegmentRepository $customSegmentRepository
+     * @param SMSHistoryRepository $smsHistoryRepository
      */
     public function __construct(
         SMSService $smsService,
         PhoneNumberRepository $phoneNumberRepository,
-        CustomSegmentRepository $customSegmentRepository
+        CustomSegmentRepository $customSegmentRepository,
+        SMSHistoryRepository $smsHistoryRepository
     ) {
         $this->smsService = $smsService;
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->customSegmentRepository = $customSegmentRepository;
+        $this->smsHistoryRepository = $smsHistoryRepository;
     }
 
     /**
@@ -76,33 +85,26 @@ class SMSController
      * @Query
      * @return array
      */
-    public function smsHistory(): array
+    public function smsHistory(int $limit = 100, int $offset = 0): array
     {
-        // This is a placeholder - in a real implementation, you would fetch from a database
-        // For now, we'll return a static array for demonstration purposes
-        return [
-            [
-                'id' => 1,
-                'phoneNumber' => '+2250777104936',
-                'message' => 'Bonjour, ceci est un message de test.',
-                'status' => 'SENT',
-                'createdAt' => '2025-03-30T10:30:00Z'
-            ],
-            [
-                'id' => 2,
-                'phoneNumber' => '+2250141399354',
-                'message' => 'Rappel: Votre rendez-vous est demain à 14h.',
-                'status' => 'SENT',
-                'createdAt' => '2025-03-30T11:15:00Z'
-            ],
-            [
-                'id' => 3,
-                'phoneNumber' => '+2250546560953',
-                'message' => 'Votre commande a été expédiée.',
-                'status' => 'FAILED',
-                'createdAt' => '2025-03-30T12:00:00Z'
-            ]
-        ];
+        $history = $this->smsHistoryRepository->findAll($limit, $offset);
+        $result = [];
+
+        foreach ($history as $item) {
+            $result[] = [
+                'id' => $item->getId(),
+                'phoneNumber' => $item->getPhoneNumber(),
+                'message' => $item->getMessage(),
+                'status' => $item->getStatus(),
+                'messageId' => $item->getMessageId(),
+                'errorMessage' => $item->getErrorMessage(),
+                'senderAddress' => $item->getSenderAddress(),
+                'senderName' => $item->getSenderName(),
+                'createdAt' => $item->getCreatedAt()
+            ];
+        }
+
+        return $result;
     }
 
     /**
