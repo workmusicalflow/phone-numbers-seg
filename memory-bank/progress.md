@@ -1,10 +1,10 @@
-# Suivi de Progression - Application de Segmentation de Numéros de Téléphone
+# Suivi de Progression - Oracle (propulsé par Thalamus)
 
 ## État Général du Projet
 
 L'application est actuellement en phase de développement actif, avec plusieurs fonctionnalités clés déjà implémentées et opérationnelles. Le développement suit une approche incrémentale, avec des améliorations continues et l'ajout progressif de nouvelles fonctionnalités.
 
-**État global** : ~85% complété
+**État global** : ~87% complété
 
 ## Fonctionnalités Implémentées
 
@@ -99,15 +99,19 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
   - ✅ Adaptation de l'affichage des détails d'un numéro
   - ✅ Mise à jour de l'interface d'import CSV pour prendre en compte les nouveaux champs
 
-### ⚠️ Envoi de SMS (70%)
+### ⚠️ Envoi de SMS (90%)
 
-- Intégration avec l'API Orange SMS
-- Interface utilisateur pour l'envoi de SMS individuels
-- Validation des entrées et gestion des erreurs
+- ✅ Intégration avec l'API Orange SMS
+- ✅ Interface utilisateur pour l'envoi de SMS individuels
+- ✅ Validation des entrées et gestion des erreurs
+- ✅ Système d'historique des SMS
+- ✅ Gestion des erreurs améliorée
+- ✅ Intégration avec l'API GraphQL
+- ✅ Système de notifications modernes pour remplacer les alertes JavaScript
 - **Reste à faire** :
-  - Améliorer la gestion des erreurs d'API
-  - Ajouter le support pour d'autres opérateurs
-  - Implémenter l'envoi de SMS par lot
+  - Développer une interface utilisateur pour consulter l'historique des SMS
+  - Ajouter des fonctionnalités de filtrage et de recherche pour l'historique
+  - Implémenter des fonctionnalités de réessai automatique pour les SMS échoués
 
 ### ⚠️ Segments Personnalisés (60%)
 
@@ -175,11 +179,11 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
 
 ## Prochaines Étapes Prioritaires
 
-1. **Finaliser l'envoi de SMS par lot**
+1. **Finaliser l'interface d'historique des SMS**
 
-   - Implémenter l'interface utilisateur
-   - Ajouter la validation et la gestion des erreurs
-   - Tester avec différents opérateurs
+   - Développer une interface utilisateur pour consulter l'historique des SMS
+   - Ajouter des fonctionnalités de filtrage et de recherche pour l'historique
+   - Implémenter des fonctionnalités de réessai automatique pour les SMS échoués
 
 2. **Améliorer les segments personnalisés**
 
@@ -201,10 +205,19 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
    - Amélioration des performances de développement
 
 2. **Correction des tests unitaires Vue.js**
+
    - Résolution des problèmes avec les mocks des composants Quasar
    - Amélioration des tests pour les stores Pinia
    - Implémentation de stubs appropriés pour les composants Vue.js
    - Tous les tests passent maintenant avec succès
+
+3. **Amélioration du système d'envoi de SMS**
+   - Création d'un modèle `SMSHistory` pour représenter les enregistrements d'historique SMS
+   - Développement d'un repository `SMSHistoryRepository` pour gérer les opérations CRUD
+   - Création d'une migration SQL pour créer la table `sms_history` avec les index appropriés
+   - Amélioration du service `SMSService` pour enregistrer automatiquement tous les SMS envoyés
+   - Mise à jour du contrôleur GraphQL pour exposer l'historique des SMS via une requête
+   - Amélioration de la gestion des erreurs à chaque étape du processus d'envoi
 
 ## Métriques de Progression
 
@@ -218,6 +231,7 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
 | Tests                   | 70%         | Couverture améliorée, tests Vue.js corrigés      |
 | Documentation           | 100%        | Documentation complète (formats, API, standards) |
 | Déploiement             | 70%         | Configuration de base en place                   |
+| Système d'envoi de SMS  | 85%         | Historique et gestion des erreurs implémentés    |
 
 ## Jalons
 
@@ -229,6 +243,7 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
 | API GraphQL                | 30/03/2025 | ✅ Complété     |
 | Plan Migration Vue.js      | 30/03/2025 | ✅ Complété     |
 | Tests Vue.js               | 30/03/2025 | ✅ Complété     |
+| Historique SMS             | 31/03/2025 | ✅ Complété     |
 | Segments personnalisés     | 01/04/2025 | ⚠️ En cours     |
 | Export et intégrations     | 15/04/2025 | ❌ Non commencé |
 | Composants Vue.js de base  | 30/04/2025 | ✅ Complété     |

@@ -1,4 +1,4 @@
-# Contexte Actif - Application de Segmentation de Numéros de Téléphone
+# Contexte Actif - Oracle Gestionnaire de contacts(propulsé par Thalamus)
 
 ## Focus de Travail Actuel
 
@@ -11,6 +11,22 @@ Le développement se concentre actuellement sur quatre axes principaux :
 3. **Intégration GraphQL** : Nous avons récemment implémenté une API GraphQL complète pour l'application, offrant une alternative moderne et flexible à l'API REST existante. Cette API permet aux clients de demander exactement les données dont ils ont besoin et facilite l'intégration avec d'autres systèmes.
 
 4. **Migration vers Vue.js** : Nous avons fait des progrès significatifs dans la migration de l'interface utilisateur de HTMX et Alpine.js vers Vue.js, couplé à Quasar pour les composants UI. Nous avons résolu les problèmes de configuration de Quasar et amélioré l'interface de segmentation individuelle pour prendre en compte les nouveaux champs et offrir une meilleure expérience utilisateur.
+
+5. **Amélioration du système d'envoi de SMS** : Nous avons récemment amélioré le système d'envoi de SMS avec une gestion des erreurs plus robuste et un système d'historique complet. Ces améliorations permettent de suivre tous les SMS envoyés, de diagnostiquer les problèmes d'envoi et d'analyser les taux de réussite et d'échec.
+
+## Préparation pour le Second Test Utilisateur
+
+Pour préparer le second test utilisateur, nous devons nous concentrer sur les aspects suivants :
+
+1. **Finalisation de l'interface d'historique SMS** : Développer une interface utilisateur intuitive pour consulter l'historique des SMS, avec des fonctionnalités de filtrage et de recherche. Cette interface permettra aux utilisateurs de suivre facilement les SMS envoyés et d'identifier les problèmes éventuels.
+
+2. **Amélioration de l'expérience utilisateur Vue.js** : Optimiser les performances des interfaces Vue.js, en particulier pour les opérations de chargement initial et les interactions utilisateur. Mettre en place le lazy loading et le code splitting pour améliorer les temps de chargement.
+
+3. **Consolidation des fonctionnalités existantes** : S'assurer que toutes les fonctionnalités existantes fonctionnent correctement et de manière cohérente, en particulier les fonctionnalités récemment implémentées comme l'historique SMS et l'export de données.
+
+4. **Documentation utilisateur** : Créer une documentation utilisateur complète pour les fonctionnalités principales, avec des guides étape par étape et des captures d'écran. Cette documentation aidera les utilisateurs à comprendre comment utiliser efficacement l'application.
+
+5. **Tests de compatibilité navigateur** : Vérifier que l'application fonctionne correctement sur tous les navigateurs cibles (Chrome, Firefox, Safari, Edge) et résoudre les problèmes de compatibilité éventuels.
 
 ### Problématiques Identifiées et Résolues
 
@@ -71,10 +87,24 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
 
 1. **Problème identifié** : Les tests unitaires échouaient en raison de problèmes avec les mocks des composants Quasar et des services.
 2. **Solution implémentée** :
+
    - Mise à jour de Node.js vers la dernière version LTS (v22.14.0) pour résoudre des problèmes de compatibilité
    - Correction des mocks pour les composants Quasar dans les tests
    - Amélioration des tests pour les stores Pinia
    - Implémentation de stubs appropriés pour les composants Vue.js
+
+#### 8. Amélioration du système d'envoi de SMS
+
+Nous avons amélioré le système d'envoi de SMS avec une gestion des erreurs plus robuste et un système d'historique complet :
+
+1. **Problème identifié** : Le système d'envoi de SMS ne gérait pas correctement les erreurs et ne conservait pas d'historique des SMS envoyés.
+2. **Solution implémentée** :
+   - Création d'un modèle `SMSHistory` pour représenter les enregistrements d'historique SMS
+   - Développement d'un repository `SMSHistoryRepository` pour gérer les opérations CRUD sur les enregistrements d'historique
+   - Création d'une migration SQL pour créer la table `sms_history` avec les index appropriés
+   - Amélioration du service `SMSService` pour enregistrer automatiquement tous les SMS envoyés dans l'historique
+   - Mise à jour du contrôleur GraphQL pour exposer l'historique des SMS via une requête
+   - Amélioration de la gestion des erreurs à chaque étape du processus d'envoi
 
 ### Changements Techniques Récents
 
@@ -105,10 +135,17 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
    - Intégration de l'API GraphQL dans l'architecture existante
 
 5. **Amélioration des tests unitaires du frontend Vue.js** :
+
    - Mise à jour de Node.js vers la dernière version LTS (v22.14.0)
    - Correction des mocks pour les composants Quasar
    - Amélioration des tests pour les stores Pinia
    - Implémentation de stubs appropriés pour les composants Vue.js
+
+6. **Amélioration du système d'envoi de SMS** :
+   - Création d'un système d'historique complet pour les SMS
+   - Amélioration de la gestion des erreurs dans le service SMS
+   - Extraction des informations de diagnostic à partir des réponses de l'API Orange
+   - Intégration de l'historique SMS dans l'API GraphQL
 
 ## Décisions Actives
 
@@ -134,89 +171,87 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
 
 11. **Mise à jour de Node.js** : Nous avons décidé de mettre à jour Node.js vers la dernière version LTS (v22.14.0) pour résoudre des problèmes de compatibilité avec les dépendances du projet et améliorer les performances.
 
-## Prochaines Étapes
+12. **Système d'historique SMS** : Nous avons décidé d'implémenter un système d'historique complet pour les SMS, avec une table dédiée dans la base de données et un repository pour gérer les opérations CRUD. Cette approche permet de suivre tous les SMS envoyés, de diagnostiquer les problèmes d'envoi et d'analyser les taux de réussite et d'échec.
 
-### Court Terme (1-2 semaines)
+## Prochaines Étapes pour le Second Test Utilisateur
 
-1. **Finalisation de la migration Vue.js**
+### Priorité 1 : Interface d'Historique SMS (1 semaine)
 
-   - ✅ Mise en place de l'environnement de développement Vue.js
-   - ✅ Configuration de Vite, ESLint, Prettier
-   - ✅ Installation et configuration de Quasar
-   - ✅ Mise en place d'Apollo Client pour GraphQL
-   - ✅ Développement des composants réutilisables (BasePagination, ConfirmDialog, LoadingOverlay, SearchBar)
-   - ✅ Tests unitaires pour les composants et les stores
-   - ✅ Tests d'intégration avec le backend GraphQL
+1. **Développer l'interface utilisateur pour l'historique SMS**
 
-2. **Adapter l'interface utilisateur pour les nouveaux champs**
+   - Créer un composant Vue.js pour afficher l'historique des SMS
+   - Implémenter des filtres par statut (envoyé, échoué)
+   - Ajouter une recherche par numéro de téléphone
+   - Permettre le tri par date d'envoi
+   - Afficher les détails des erreurs pour les SMS échoués
 
-   - ✅ Mettre à jour les formulaires d'ajout et de modification de numéros
-   - ✅ Adapter l'affichage des détails d'un numéro
-   - ✅ Mettre à jour l'interface d'import CSV pour prendre en compte les nouveaux champs
+2. **Intégrer l'historique SMS dans la navigation**
 
-3. **Développer la fonctionnalité d'export**
+   - Ajouter un onglet "Historique" dans l'interface SMS
+   - Mettre à jour la navigation principale pour inclure l'accès à l'historique
+   - Créer des liens contextuels depuis les autres parties de l'application
 
-   - ✅ Implémenter l'export des données en format CSV
-   - ✅ Ajouter le support pour l'export en Excel
-   - ✅ Développer des options de filtrage de base pour l'export (recherche, limite, offset)
-   - ✅ Ajouter des options de filtrage avancées pour l'export (par opérateur, pays, date, segment)
-   - ✅ Améliorer l'interface utilisateur pour l'export avec options avancées
-   - ✅ Intégrer la fonctionnalité d'export dans l'API GraphQL
+3. **Implémenter des fonctionnalités de réessai**
+   - Ajouter un bouton "Réessayer" pour les SMS échoués
+   - Implémenter la logique de réessai dans le service SMS
+   - Mettre à jour l'historique après un réessai
 
-4. **Amélioration de l'interface d'import existante**
+### Priorité 2 : Optimisation des Performances (3-4 jours)
 
-   - ✅ Résoudre les erreurs Alpine.js restantes avec la fonction getNestedProp
-   - ✅ Optimiser le traitement des fichiers volumineux avec détection de taille et délimiteur
-   - ✅ Améliorer la gestion des erreurs lors de l'import avec validation côté client
-   - ✅ Ajouter la détection automatique des colonnes basée sur les en-têtes
-   - ✅ Implémenter un suivi de progression réel pour l'upload des fichiers
+1. **Optimiser le chargement initial**
 
-5. **Documentation**
-   - ✅ Documenter les formats de fichiers supportés pour l'import
-   - ✅ Documenter les formats d'export disponibles
-   - ✅ Créer des exemples de fichiers CSV pour les utilisateurs
-   - ✅ Documenter les options de filtrage pour l'export
-   - ✅ Documenter l'API GraphQL pour l'import/export
-   - ✅ Documenter les standards et conventions pour Vue.js
-   - ✅ Mettre à jour la documentation de l'API REST
+   - Implémenter le lazy loading pour les composants Vue.js
+   - Mettre en place le code splitting pour réduire la taille du bundle initial
+   - Optimiser les requêtes GraphQL pour charger uniquement les données nécessaires
 
-### Moyen Terme (1-3 mois)
+2. **Améliorer les temps de réponse**
 
-1. **Développement des composants Vue.js de base**
+   - Mettre en cache les résultats fréquemment demandés
+   - Optimiser les requêtes à la base de données
+   - Implémenter des indicateurs de chargement pour les opérations longues
 
-   - ✅ Création d'une bibliothèque de composants réutilisables (PhoneNumberCard, CustomSegmentForm)
-   - ✅ Développement des composants spécifiques à l'application (vues principales)
-   - ✅ Mise en place de Pinia pour la gestion d'état (phoneStore, segmentStore)
-   - ✅ Intégration avec Apollo Client pour GraphQL
-   - Amélioration continue des composants existants
+3. **Optimiser pour les appareils mobiles**
+   - Tester et optimiser les performances sur les appareils à faible puissance
+   - Améliorer la réactivité de l'interface utilisateur sur les écrans tactiles
+   - Réduire la consommation de ressources pour les opérations courantes
 
-2. **Migration des interfaces principales**
+### Priorité 3 : Documentation Utilisateur (2-3 jours)
 
-   - ✅ Recréation de l'interface de segmentation individuelle (Segment.vue)
-   - ✅ Développement de la nouvelle interface de traitement par lot (Batch.vue)
-   - ✅ Migration de l'interface de gestion des segments (Segments.vue)
-   - ✅ Implémentation de l'interface d'envoi de SMS (SMS.vue)
-   - ✅ Développement de l'interface d'import/export (Import.vue)
-   - Amélioration de l'expérience utilisateur et des interactions
+1. **Créer des guides utilisateur**
 
-3. **Compléter la fonctionnalité d'export**
+   - Rédiger un guide d'utilisation pour chaque fonctionnalité principale
+   - Créer des tutoriels étape par étape avec des captures d'écran
+   - Documenter les cas d'utilisation courants et les bonnes pratiques
 
-   - Améliorer l'export des résultats de segmentation en CSV ou Excel
-   - Ajouter des options avancées de filtrage avant export
-   - Implémenter l'export programmé pour les grands volumes de données
+2. **Intégrer l'aide contextuelle**
 
-4. **Intégration avec d'autres systèmes**
+   - Ajouter des infobulles et des messages d'aide dans l'interface
+   - Créer des liens vers la documentation pertinente depuis chaque écran
+   - Implémenter un système de conseils pour guider les nouveaux utilisateurs
 
-   - Développer des webhooks pour notifier d'autres systèmes après le traitement
-   - Créer des connecteurs pour les CRM populaires
-   - Étendre l'API GraphQL avec des fonctionnalités supplémentaires
+3. **Préparer des exemples**
+   - Créer des exemples de fichiers CSV pour l'import
+   - Préparer des exemples de segments personnalisés
+   - Documenter des scénarios d'envoi de SMS typiques
 
-5. **Amélioration des performances**
-   - Optimiser le traitement par lot pour gérer encore plus de numéros
-   - Implémenter un système de mise en cache pour les résultats fréquemment demandés
-   - Optimiser le traitement des fichiers CSV volumineux
-   - Améliorer les performances de l'API GraphQL pour les requêtes complexes
-   - Optimiser les performances de Vue.js (lazy loading, code splitting)
+### Priorité 4 : Tests et Corrections de Bugs (2-3 jours)
+
+1. **Tests de compatibilité navigateur**
+
+   - Tester l'application sur Chrome, Firefox, Safari et Edge
+   - Identifier et corriger les problèmes spécifiques à certains navigateurs
+   - Vérifier la réactivité sur différentes tailles d'écran
+
+2. **Tests fonctionnels**
+
+   - Vérifier que toutes les fonctionnalités principales fonctionnent correctement
+   - Tester les cas limites et les scénarios d'erreur
+   - Valider les flux de travail complets de bout en bout
+
+3. **Correction des bugs identifiés**
+   - Prioriser et corriger les bugs critiques
+   - Résoudre les problèmes d'interface utilisateur
+   - Améliorer les messages d'erreur pour qu'ils soient plus informatifs
 
 ## Considérations Importantes
 
@@ -236,6 +271,8 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
 
 8. **Gestion des dépendances** : Nous devons maintenir les dépendances à jour pour éviter les problèmes de compatibilité et de sécurité. La récente mise à jour de Node.js vers la version LTS (v22.14.0) est un exemple de cette approche.
 
+9. **Gestion des erreurs SMS** : Nous devons continuer à améliorer la gestion des erreurs dans le système d'envoi de SMS, en particulier pour les cas d'erreur spécifiques à l'API Orange et pour les envois en masse.
+
 ## Questions Ouvertes
 
 1. Devrions-nous implémenter un système de traitement asynchrone pour les très grands lots (>10 000 numéros) ?
@@ -245,6 +282,8 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
 5. Comment gérer la transition des utilisateurs existants vers la nouvelle interface Vue.js ?
 6. Faut-il envisager une version mobile de l'application en utilisant les capacités de Quasar ?
 7. Comment optimiser les performances de l'application Vue.js pour les appareils à faible puissance ?
+8. ✅ Devrions-nous implémenter un système de notification pour les erreurs d'envoi de SMS ? (Implémenté avec CustomNotification et NotificationService)
+9. Faut-il ajouter des fonctionnalités de réessai automatique pour les SMS échoués ?
 
 ## Métriques de Suivi
 
@@ -257,3 +296,6 @@ Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
 - **Temps de chargement** des interfaces Vue.js
 - **Taux de satisfaction utilisateur** avec la nouvelle interface
 - **Couverture de tests** pour les composants Vue.js
+- **Taux de réussite d'envoi de SMS** global et par opérateur
+- **Temps moyen d'envoi** des SMS
+- **Types d'erreurs** rencontrées lors de l'envoi de SMS
