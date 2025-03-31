@@ -67,37 +67,37 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
 - Capture et enregistrement des erreurs
 - Interface de débogage pour les développeurs
 
-### ⚠️ Migration Vue.js (5%)
+### ⚠️ Migration Vue.js (75%)
 
 - ✅ Plan détaillé pour la migration vers Vue.js
 - ✅ Évaluation des frameworks UI (Quasar sélectionné)
 - ✅ Choix de la stratégie de gestion d'état (Pinia)
-- ❌ Environnement de développement Vue.js
-- ❌ Composants de base
-- ❌ Intégration avec GraphQL via Apollo Client
-- ❌ Migration des interfaces existantes
+- ✅ Environnement de développement Vue.js
+- ✅ Configuration de Vite, ESLint, Prettier et TypeScript
+- ✅ Composants de base (PhoneNumberCard, CustomSegmentForm)
+- ✅ Intégration avec GraphQL via Apollo Client
+- ✅ Stores Pinia pour la gestion d'état (phoneStore, segmentStore)
+- ✅ Migration des interfaces principales (Home, Segment, Batch, Segments, SMS, Import)
+- ✅ Tests des composants Vue.js (corrigés et fonctionnels)
+- ✅ Résolution des problèmes de configuration Quasar (importation des variables Sass)
+- ✅ Amélioration de l'interface de segmentation individuelle (Segment.vue)
 - **Reste à faire** :
-  - Mettre en place l'environnement de développement
-  - Développer les composants de base
-  - Intégrer Apollo Client pour GraphQL
-  - Migrer progressivement les interfaces existantes
-  - Optimiser les performances
-  - Mettre en place les tests
+  - Optimiser les performances (lazy loading, code splitting)
+  - Ajouter des fonctionnalités avancées (filtrage, tri, recherche)
 
 ## Fonctionnalités Partiellement Implémentées
 
-### ⚠️ Modèle de Données Enrichi (95%)
+### ✅ Modèle de Données Enrichi (100%)
 
 - ✅ Extension du modèle PhoneNumber avec les champs civilité et prénom
 - ✅ Migration SQL pour mettre à jour la structure de la base de données
 - ✅ Mise à jour du repository pour prendre en compte les nouveaux champs
 - ✅ Tests unitaires pour valider les nouvelles fonctionnalités
 - ✅ Exposition des nouveaux champs dans l'API GraphQL
-- ❌ Adaptation de l'interface utilisateur pour les nouveaux champs
-- **Reste à faire** :
-  - Mettre à jour les formulaires d'ajout et de modification de numéros
-  - Adapter l'affichage des détails d'un numéro
-  - Mettre à jour l'interface d'import CSV pour prendre en compte les nouveaux champs
+- ✅ Adaptation de l'interface utilisateur pour les nouveaux champs
+  - ✅ Mise à jour des formulaires d'ajout et de modification de numéros
+  - ✅ Adaptation de l'affichage des détails d'un numéro
+  - ✅ Mise à jour de l'interface d'import CSV pour prendre en compte les nouveaux champs
 
 ### ⚠️ Envoi de SMS (70%)
 
@@ -118,11 +118,12 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
   - Ajouter la validation des expressions régulières
   - Implémenter la gestion complète (modification, suppression)
 
-### ⚠️ Tests Automatisés (55%)
+### ⚠️ Tests Automatisés (70%)
 
 - Tests unitaires pour les modèles et services principaux
 - Configuration de PHPUnit
 - Tests pour les nouveaux champs du modèle PhoneNumber
+- Tests unitaires pour les composants Vue.js (corrigés et fonctionnels)
 - **Reste à faire** :
   - Augmenter la couverture des tests
   - Ajouter des tests d'intégration
@@ -130,18 +131,19 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
 
 ## Fonctionnalités à Implémenter
 
-### ⚠️ Import/Export de Données (70%)
+### ✅ Import/Export de Données (100%)
 
 - ✅ Import de numéros de téléphone depuis un fichier CSV
 - ✅ Import de numéros de téléphone depuis un texte brut
 - ✅ Interface utilisateur pour l'import avec options de configuration
 - ✅ Validation et normalisation des numéros importés
 - ✅ Intégration de l'import dans la navigation principale
-- ❌ Export des résultats de segmentation en CSV ou Excel
-- ❌ Options de filtrage avant export
-- **Reste à faire** :
-  - Implémenter l'export des données en CSV et Excel
-  - Ajouter des options de filtrage pour l'export
+- ✅ Export des résultats de segmentation en CSV
+- ✅ Export des résultats de segmentation en Excel
+- ✅ Options de filtrage de base pour l'export (recherche, limite, offset)
+- ✅ Options de filtrage avancées pour l'export (par opérateur, pays, date, segment)
+- ✅ Interface utilisateur améliorée pour l'export avec options avancées
+- ✅ Intégration de l'export dans l'API GraphQL
 
 ### ❌ Intégration avec d'Autres Systèmes (0%)
 
@@ -190,18 +192,32 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
    - Mettre en place des tests d'intégration
    - Automatiser les tests dans le processus de développement
 
+## Améliorations Récentes
+
+1. **Mise à jour de Node.js**
+
+   - Mise à jour vers la dernière version LTS (v22.14.0)
+   - Résolution des problèmes de compatibilité avec les dépendances
+   - Amélioration des performances de développement
+
+2. **Correction des tests unitaires Vue.js**
+   - Résolution des problèmes avec les mocks des composants Quasar
+   - Amélioration des tests pour les stores Pinia
+   - Implémentation de stubs appropriés pour les composants Vue.js
+   - Tous les tests passent maintenant avec succès
+
 ## Métriques de Progression
 
-| Catégorie               | Progression | Commentaire                             |
-| ----------------------- | ----------- | --------------------------------------- |
-| Fonctionnalités de base | 95%         | Presque toutes implémentées             |
-| Interface utilisateur   | 85%         | Principales interfaces complètes        |
-| API REST                | 85%         | Endpoints principaux fonctionnels       |
-| API GraphQL             | 100%        | Implémentation complète                 |
-| Migration Vue.js        | 5%          | Plan établi, implémentation à commencer |
-| Tests                   | 60%         | Couverture à améliorer                  |
-| Documentation           | 70%         | Documentation utilisateur à compléter   |
-| Déploiement             | 70%         | Configuration de base en place          |
+| Catégorie               | Progression | Commentaire                                 |
+| ----------------------- | ----------- | ------------------------------------------- |
+| Fonctionnalités de base | 100%        | Toutes les fonctionnalités implémentées     |
+| Interface utilisateur   | 90%         | Interfaces complètes et adaptées            |
+| API REST                | 85%         | Endpoints principaux fonctionnels           |
+| API GraphQL             | 100%        | Implémentation complète                     |
+| Migration Vue.js        | 75%         | Composants, interfaces et tests implémentés |
+| Tests                   | 70%         | Couverture améliorée, tests Vue.js corrigés |
+| Documentation           | 70%         | Documentation utilisateur à compléter       |
+| Déploiement             | 70%         | Configuration de base en place              |
 
 ## Jalons
 
@@ -212,8 +228,9 @@ L'application est actuellement en phase de développement actif, avec plusieurs 
 | Envoi de SMS               | 15/03/2025 | ⚠️ En cours     |
 | API GraphQL                | 30/03/2025 | ✅ Complété     |
 | Plan Migration Vue.js      | 30/03/2025 | ✅ Complété     |
+| Tests Vue.js               | 30/03/2025 | ✅ Complété     |
 | Segments personnalisés     | 01/04/2025 | ⚠️ En cours     |
 | Export et intégrations     | 15/04/2025 | ❌ Non commencé |
-| Composants Vue.js de base  | 30/04/2025 | ❌ Non commencé |
-| Interfaces Vue.js          | 15/06/2025 | ❌ Non commencé |
+| Composants Vue.js de base  | 30/04/2025 | ✅ Complété     |
+| Interfaces Vue.js          | 15/06/2025 | ✅ Complété     |
 | Version 1.0                | 01/07/2025 | ❌ Non commencé |

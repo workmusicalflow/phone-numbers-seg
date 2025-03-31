@@ -4,13 +4,13 @@
 
 Le développement se concentre actuellement sur quatre axes principaux :
 
-1. **Amélioration du modèle de données** : Nous avons récemment étendu le modèle `PhoneNumber` pour inclure des champs supplémentaires (civilité et prénom) afin d'enrichir les informations stockées pour chaque numéro de téléphone. Cette extension permettra une meilleure gestion des contacts et facilitera l'intégration avec d'autres systèmes.
+1. **Amélioration du modèle de données** : Nous avons récemment étendu le modèle `PhoneNumber` pour inclure des champs supplémentaires (civilité, prénom, nom et entreprise) afin d'enrichir les informations stockées pour chaque numéro de téléphone. Cette extension permet une meilleure gestion des contacts et facilite l'intégration avec d'autres systèmes. L'API et les interfaces utilisateur ont été mises à jour pour prendre en compte ces nouveaux champs.
 
 2. **Finalisation des fonctionnalités d'import/export** : La fonctionnalité d'**import** a été implémentée avec succès, permettant aux utilisateurs d'importer des numéros depuis des fichiers CSV ou du texte brut. Le focus se déplace maintenant vers le développement de la fonctionnalité d'**export** qui permettra d'exporter les résultats de segmentation dans différents formats (CSV, Excel).
 
 3. **Intégration GraphQL** : Nous avons récemment implémenté une API GraphQL complète pour l'application, offrant une alternative moderne et flexible à l'API REST existante. Cette API permet aux clients de demander exactement les données dont ils ont besoin et facilite l'intégration avec d'autres systèmes.
 
-4. **Migration vers Vue.js** : Nous avons décidé de moderniser l'interface utilisateur en migrant progressivement de HTMX et Alpine.js vers Vue.js, couplé à Quasar pour les composants UI. Cette migration permettra d'améliorer l'expérience utilisateur, d'optimiser les performances et d'exploiter pleinement l'API GraphQL.
+4. **Migration vers Vue.js** : Nous avons fait des progrès significatifs dans la migration de l'interface utilisateur de HTMX et Alpine.js vers Vue.js, couplé à Quasar pour les composants UI. Nous avons résolu les problèmes de configuration de Quasar et amélioré l'interface de segmentation individuelle pour prendre en compte les nouveaux champs et offrir une meilleure expérience utilisateur.
 
 ### Problématiques Identifiées et Résolues
 
@@ -65,6 +65,17 @@ Nous avons implémenté une API GraphQL complète pour l'application :
 4. **Contrôleurs GraphQL** : Implémentation de contrôleurs pour exposer les requêtes et mutations.
 5. **Navigation** : Intégration de l'interface GraphiQL dans la navigation principale de l'application.
 
+#### 7. Correction des tests unitaires du frontend Vue.js
+
+Nous avons résolu des problèmes avec les tests unitaires du frontend Vue.js :
+
+1. **Problème identifié** : Les tests unitaires échouaient en raison de problèmes avec les mocks des composants Quasar et des services.
+2. **Solution implémentée** :
+   - Mise à jour de Node.js vers la dernière version LTS (v22.14.0) pour résoudre des problèmes de compatibilité
+   - Correction des mocks pour les composants Quasar dans les tests
+   - Amélioration des tests pour les stores Pinia
+   - Implémentation de stubs appropriés pour les composants Vue.js
+
 ### Changements Techniques Récents
 
 1. **Développement de nouvelles fonctionnalités d'import** :
@@ -86,11 +97,18 @@ Nous avons implémenté une API GraphQL complète pour l'application :
    - Normalisation des numéros de téléphone importés
 
 4. **Implémentation de l'API GraphQL** :
+
    - Configuration de GraphQLite pour la création du schéma GraphQL
    - Création de types GraphQL pour les modèles principaux
    - Implémentation de contrôleurs GraphQL pour exposer les requêtes et mutations
    - Développement d'une interface GraphiQL pour explorer et tester l'API
    - Intégration de l'API GraphQL dans l'architecture existante
+
+5. **Amélioration des tests unitaires du frontend Vue.js** :
+   - Mise à jour de Node.js vers la dernière version LTS (v22.14.0)
+   - Correction des mocks pour les composants Quasar
+   - Amélioration des tests pour les stores Pinia
+   - Implémentation de stubs appropriés pour les composants Vue.js
 
 ## Décisions Actives
 
@@ -114,28 +132,36 @@ Nous avons implémenté une API GraphQL complète pour l'application :
 
 10. **Utilisation de Pinia** : Pour la gestion d'état dans Vue.js, nous avons opté pour Pinia plutôt que Vuex, en raison de sa simplicité, son support TypeScript et sa meilleure intégration avec Vue 3.
 
+11. **Mise à jour de Node.js** : Nous avons décidé de mettre à jour Node.js vers la dernière version LTS (v22.14.0) pour résoudre des problèmes de compatibilité avec les dépendances du projet et améliorer les performances.
+
 ## Prochaines Étapes
 
 ### Court Terme (1-2 semaines)
 
-1. **Préparation de la migration Vue.js**
+1. **Finalisation de la migration Vue.js**
 
-   - Mise en place de l'environnement de développement Vue.js
-   - Configuration de Vite, ESLint, Prettier
-   - Installation et configuration de Quasar
-   - Mise en place d'Apollo Client pour GraphQL
+   - ✅ Mise en place de l'environnement de développement Vue.js
+   - ✅ Configuration de Vite, ESLint, Prettier
+   - ✅ Installation et configuration de Quasar
+   - ✅ Mise en place d'Apollo Client pour GraphQL
+   - ✅ Développement des composants réutilisables (BasePagination, ConfirmDialog, LoadingOverlay, SearchBar)
+   - ✅ Tests unitaires pour les composants et les stores
+   - ✅ Tests d'intégration avec le backend GraphQL
 
 2. **Adapter l'interface utilisateur pour les nouveaux champs**
 
-   - Mettre à jour les formulaires d'ajout et de modification de numéros
-   - Adapter l'affichage des détails d'un numéro
-   - Mettre à jour l'interface d'import CSV pour prendre en compte les nouveaux champs
+   - ✅ Mettre à jour les formulaires d'ajout et de modification de numéros
+   - ✅ Adapter l'affichage des détails d'un numéro
+   - ✅ Mettre à jour l'interface d'import CSV pour prendre en compte les nouveaux champs
 
 3. **Développer la fonctionnalité d'export**
 
-   - Implémenter l'export des données en format CSV
-   - Ajouter le support pour l'export en Excel
-   - Développer des options de filtrage pour l'export
+   - ✅ Implémenter l'export des données en format CSV
+   - ✅ Ajouter le support pour l'export en Excel
+   - ✅ Développer des options de filtrage de base pour l'export (recherche, limite, offset)
+   - ✅ Ajouter des options de filtrage avancées pour l'export (par opérateur, pays, date, segment)
+   - ✅ Améliorer l'interface utilisateur pour l'export avec options avancées
+   - ✅ Intégrer la fonctionnalité d'export dans l'API GraphQL
 
 4. **Amélioration de l'interface d'import existante**
 
@@ -154,17 +180,20 @@ Nous avons implémenté une API GraphQL complète pour l'application :
 
 1. **Développement des composants Vue.js de base**
 
-   - Création d'une bibliothèque de composants réutilisables
-   - Développement des composants spécifiques à l'application
-   - Mise en place de Pinia pour la gestion d'état
-   - Intégration avec Apollo Client pour GraphQL
+   - ✅ Création d'une bibliothèque de composants réutilisables (PhoneNumberCard, CustomSegmentForm)
+   - ✅ Développement des composants spécifiques à l'application (vues principales)
+   - ✅ Mise en place de Pinia pour la gestion d'état (phoneStore, segmentStore)
+   - ✅ Intégration avec Apollo Client pour GraphQL
+   - Amélioration continue des composants existants
 
 2. **Migration des interfaces principales**
 
-   - Recréation de l'interface de segmentation individuelle
-   - Développement de la nouvelle interface de traitement par lot
-   - Migration de l'interface de gestion des segments
-   - Implémentation de l'interface d'envoi de SMS
+   - ✅ Recréation de l'interface de segmentation individuelle (Segment.vue)
+   - ✅ Développement de la nouvelle interface de traitement par lot (Batch.vue)
+   - ✅ Migration de l'interface de gestion des segments (Segments.vue)
+   - ✅ Implémentation de l'interface d'envoi de SMS (SMS.vue)
+   - ✅ Développement de l'interface d'import/export (Import.vue)
+   - Amélioration de l'expérience utilisateur et des interactions
 
 3. **Compléter la fonctionnalité d'export**
 
@@ -200,6 +229,8 @@ Nous avons implémenté une API GraphQL complète pour l'application :
 6. **Coexistence des frameworks** : Pendant la phase de migration, HTMX/Alpine.js et Vue.js coexisteront. Nous devons gérer cette coexistence de manière à éviter les conflits et assurer une expérience utilisateur cohérente.
 
 7. **Formation de l'équipe** : La migration vers Vue.js nécessitera une formation de l'équipe aux nouvelles technologies et aux bonnes pratiques.
+
+8. **Gestion des dépendances** : Nous devons maintenir les dépendances à jour pour éviter les problèmes de compatibilité et de sécurité. La récente mise à jour de Node.js vers la version LTS (v22.14.0) est un exemple de cette approche.
 
 ## Questions Ouvertes
 

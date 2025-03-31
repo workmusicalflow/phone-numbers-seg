@@ -247,6 +247,8 @@ class PhoneNumberRepository
         $stmt = $this->db->prepare('
             SELECT * FROM phone_numbers 
             WHERE number LIKE :query 
+               OR civility LIKE :query
+               OR firstName LIKE :query
                OR name LIKE :query 
                OR company LIKE :query 
                OR sector LIKE :query
@@ -283,6 +285,108 @@ class PhoneNumberRepository
     }
 
     /**
+     * Find phone numbers by advanced filters
+     * 
+     * @param array $filters Filters to apply (operator, country, dateFrom, dateTo, segment)
+     * @param int $limit Maximum number of records to return
+     * @param int $offset Offset for pagination
+     * @return array Array of PhoneNumber objects
+     */
+    public function findByFilters(array $filters, int $limit = 100, int $offset = 0): array
+    {
+        // Start building the query
+        $sql = 'SELECT DISTINCT p.* FROM phone_numbers p';
+        $params = [];
+        $whereConditions = [];
+
+        // Join with technical_segments if filtering by operator or country
+        if (isset($filters['operator']) || isset($filters['country'])) {
+            $sql .= ' LEFT JOIN technical_segments ts ON p.id = ts.phone_number_id';
+        }
+
+        // Join with phone_number_segments and custom_segments if filtering by segment
+        if (isset($filters['segment'])) {
+            $sql .= ' LEFT JOIN phone_number_segments pns ON p.id = pns.phone_number_id';
+            $sql .= ' LEFT JOIN custom_segments cs ON pns.custom_segment_id = cs.id';
+        }
+
+        // Filter by operator
+        if (isset($filters['operator'])) {
+            $whereConditions[] = '(ts.type = "operator" AND ts.value = :operator)';
+            $params[':operator'] = $filters['operator'];
+        }
+
+        // Filter by country
+        if (isset($filters['country'])) {
+            $whereConditions[] = '(ts.type = "country" AND ts.value = :country)';
+            $params[':country'] = $filters['country'];
+        }
+
+        // Filter by date range
+        if (isset($filters['dateFrom'])) {
+            $whereConditions[] = 'p.date_added >= :dateFrom';
+            $params[':dateFrom'] = $filters['dateFrom'];
+        }
+
+        if (isset($filters['dateTo'])) {
+            $whereConditions[] = 'p.date_added <= :dateTo';
+            $params[':dateTo'] = $filters['dateTo'];
+        }
+
+        // Filter by segment (custom segment)
+        if (isset($filters['segment'])) {
+            $whereConditions[] = 'cs.id = :segment';
+            $params[':segment'] = $filters['segment'];
+        }
+
+        // Add WHERE clause if there are conditions
+        if (!empty($whereConditions)) {
+            $sql .= ' WHERE ' . implode(' AND ', $whereConditions);
+        }
+
+        // Add ORDER BY, LIMIT and OFFSET
+        $sql .= ' ORDER BY p.date_added DESC LIMIT :limit OFFSET :offset';
+        $params[':limit'] = $limit;
+        $params[':offset'] = $offset;
+
+        // Prepare and execute the query
+        $stmt = $this->db->prepare($sql);
+
+        // Bind parameters
+        foreach ($params as $param => $value) {
+            if (is_int($value)) {
+                $stmt->bindValue($param, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($param, $value, PDO::PARAM_STR);
+            }
+        }
+
+        $stmt->execute();
+
+        $phoneNumbers = [];
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $phoneNumber = $this->createFromRow($row);
+
+            // Load technical segments if repository is available
+            if ($this->technicalSegmentRepository !== null) {
+                $segments = $this->technicalSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setTechnicalSegments($segments);
+            }
+
+            // Load custom segments if repository is available
+            if ($this->customSegmentRepository !== null) {
+                $segments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
+                $phoneNumber->setCustomSegments($segments);
+            }
+
+            $phoneNumbers[] = $phoneNumber;
+        }
+
+        return $phoneNumbers;
+    }
+
+    /**
      * Save a phone number
      * 
      * @param PhoneNumber $phoneNumber
@@ -293,16 +397,20 @@ class PhoneNumberRepository
         if ($phoneNumber->getId() === null) {
             // Insert new phone number
             $stmt = $this->db->prepare('
-                INSERT INTO phone_numbers (number, name, company, sector, notes)
-                VALUES (:number, :name, :company, :sector, :notes)
+                INSERT INTO phone_numbers (number, civility, firstName, name, company, sector, notes)
+                VALUES (:number, :civility, :firstName, :name, :company, :sector, :notes)
             ');
             $number = $phoneNumber->getNumber();
+            $civility = $phoneNumber->getCivility();
+            $firstName = $phoneNumber->getFirstName();
             $name = $phoneNumber->getName();
             $company = $phoneNumber->getCompany();
             $sector = $phoneNumber->getSector();
             $notes = $phoneNumber->getNotes();
 
             $stmt->bindParam(':number', $number, PDO::PARAM_STR);
+            $stmt->bindParam(':civility', $civility, PDO::PARAM_STR);
+            $stmt->bindParam(':firstName', $firstName, PDO::PARAM_STR);
             $stmt->bindParam(':name', $name, PDO::PARAM_STR);
             $stmt->bindParam(':company', $company, PDO::PARAM_STR);
             $stmt->bindParam(':sector', $sector, PDO::PARAM_STR);
@@ -315,11 +423,13 @@ class PhoneNumberRepository
             // Update existing phone number
             $stmt = $this->db->prepare('
                 UPDATE phone_numbers 
-                SET number = :number, name = :name, company = :company, sector = :sector, notes = :notes
+                SET number = :number, civility = :civility, firstName = :firstName, name = :name, company = :company, sector = :sector, notes = :notes
                 WHERE id = :id
             ');
             $id = $phoneNumber->getId();
             $number = $phoneNumber->getNumber();
+            $civility = $phoneNumber->getCivility();
+            $firstName = $phoneNumber->getFirstName();
             $name = $phoneNumber->getName();
             $company = $phoneNumber->getCompany();
             $sector = $phoneNumber->getSector();
@@ -327,6 +437,8 @@ class PhoneNumberRepository
 
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
             $stmt->bindParam(':number', $number, PDO::PARAM_STR);
+            $stmt->bindParam(':civility', $civility, PDO::PARAM_STR);
+            $stmt->bindParam(':firstName', $firstName, PDO::PARAM_STR);
             $stmt->bindParam(':name', $name, PDO::PARAM_STR);
             $stmt->bindParam(':company', $company, PDO::PARAM_STR);
             $stmt->bindParam(':sector', $sector, PDO::PARAM_STR);
@@ -403,6 +515,8 @@ class PhoneNumberRepository
         return new PhoneNumber(
             $row['number'],
             $row['id'],
+            $row['civility'] ?? null,
+            $row['firstName'] ?? null,
             $row['name'] ?? null,
             $row['company'] ?? null,
             $row['sector'] ?? null,
