@@ -67,7 +67,8 @@ class GraphQLiteConfiguration
             'tel:+2250595016840',  // Sender address
             'Qualitas CI',  // Sender name
             $phoneNumberRepository,
-            $customSegmentRepository
+            $customSegmentRepository,
+            $smsHistoryRepository
         );
 
         // Register all services in the container
