@@ -14,6 +14,7 @@ use App\Services\PhoneSegmentationService;
 use App\Services\BatchSegmentationService;
 use App\Services\CSVImportService;
 use App\Services\ExportService;
+use App\Services\SMSService;
 
 /**
  * Configuration class for GraphQLite
@@ -57,6 +58,16 @@ class GraphQLiteConfiguration
         );
         $exportService = new ExportService($phoneNumberRepository);
 
+        // Create SMS service with Orange API credentials
+        $smsService = new SMSService(
+            'DGxbQKd9JHXLdFaWGtv0FfqFFI7Gu03a',  // Client ID
+            'S4ywfdZUjNvOXErMr5NyQwgliBCdXIAYp1DcibKThBXs',  // Client Secret
+            'tel:+2250595016840',  // Sender address
+            'Qualitas CI',  // Sender name
+            $phoneNumberRepository,
+            $customSegmentRepository
+        );
+
         // Register all services in the container
         $container->set(\PDO::class, $pdo);
         $container->set(PhoneNumberRepository::class, $phoneNumberRepository);
@@ -67,6 +78,7 @@ class GraphQLiteConfiguration
         $container->set(BatchSegmentationService::class, $batchSegmentationService);
         $container->set(CSVImportService::class, $csvImportService);
         $container->set(ExportService::class, $exportService);
+        $container->set(SMSService::class, $smsService);
 
         // Create a schema factory with cache and container
         $schemaFactory = new SchemaFactory($cache, $container);
