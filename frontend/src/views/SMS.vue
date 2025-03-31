@@ -470,11 +470,13 @@ const onSubmitBulk = async () => {
     .replace(/,+/g, ',')      // Supprimer les virgules multiples
     .replace(/^,|,$/g, '');   // Supprimer les virgules au début et à la fin
 
+  // Séparer les numéros et les traiter individuellement
   const phoneNumbers = preprocessedInput
     .split(',')
     .map((num) => num.trim())
     .filter((num) => num.length > 0);
 
+  // Vérifier que chaque numéro est traité séparément
   console.log("Numéros traités:", phoneNumbers);
 
   if (phoneNumbers.length === 0) {
