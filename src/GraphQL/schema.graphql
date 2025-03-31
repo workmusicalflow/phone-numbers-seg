@@ -1,0 +1,71 @@
+type Query {
+  smsHistory: [SMSHistory!]!
+  test: String!
+  hello: String!
+  segmentsForSMS: [Segment!]!
+}
+
+type Segment {
+  id: ID!
+  name: String!
+  description: String
+  phoneNumberCount: Int!
+}
+
+type Mutation {
+  sendSms(phoneNumber: String!, message: String!): SMSResult!
+  sendBulkSms(phoneNumbers: [String!]!, message: String!): BulkSMSResult!
+  sendSmsToSegment(segmentId: ID!, message: String!): SegmentSMSResult!
+}
+
+type SMSHistory {
+  id: ID!
+  phoneNumber: String!
+  message: String!
+  status: String!
+  messageId: String
+  errorMessage: String
+  senderAddress: String
+  senderName: String
+  createdAt: String!
+}
+
+type SMSResult {
+  id: ID!
+  phoneNumber: String!
+  message: String!
+  status: String!
+  createdAt: String!
+}
+
+type BulkSMSResult {
+  status: String!
+  message: String!
+  summary: SMSSummary!
+  results: [SMSDetailResult!]!
+}
+
+type SegmentSMSResult {
+  status: String!
+  message: String!
+  segment: SegmentInfo
+  summary: SMSSummary!
+  results: [SMSDetailResult!]!
+}
+
+type SegmentInfo {
+  id: ID!
+  name: String!
+}
+
+type SMSSummary {
+  total: Int!
+  successful: Int!
+  failed: Int!
+}
+
+type SMSDetailResult {
+  phoneNumber: String!
+  status: String!
+  message: String!
+}
