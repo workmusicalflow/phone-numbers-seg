@@ -2,47 +2,60 @@
 
 namespace App\Services;
 
+use App\Exceptions\BatchProcessingException;
+use App\Exceptions\RepositoryException;
 use App\Models\PhoneNumber;
 use App\Repositories\PhoneNumberRepository;
 use App\Repositories\TechnicalSegmentRepository;
+use App\Services\Formatters\BatchResultFormatterInterface;
+use App\Services\Interfaces\BatchSegmentationServiceInterface;
+use App\Services\Interfaces\PhoneSegmentationServiceInterface;
 
 /**
  * BatchSegmentationService
  * 
  * Service for batch processing of phone numbers
  */
-class BatchSegmentationService
+class BatchSegmentationService implements BatchSegmentationServiceInterface
 {
     /**
-     * @var PhoneSegmentationService
+     * @var PhoneSegmentationServiceInterface
      */
-    private PhoneSegmentationService $segmentationService;
+    private PhoneSegmentationServiceInterface $segmentationService;
 
     /**
-     * @var PhoneNumberRepository|null
+     * @var PhoneNumberRepository
      */
-    private ?PhoneNumberRepository $phoneNumberRepository;
+    private PhoneNumberRepository $phoneNumberRepository;
 
     /**
-     * @var TechnicalSegmentRepository|null
+     * @var TechnicalSegmentRepository
      */
-    private ?TechnicalSegmentRepository $technicalSegmentRepository;
+    private TechnicalSegmentRepository $technicalSegmentRepository;
+
+    /**
+     * @var BatchResultFormatterInterface
+     */
+    private BatchResultFormatterInterface $resultFormatter;
 
     /**
      * Constructor
      * 
-     * @param PhoneSegmentationService $segmentationService
-     * @param PhoneNumberRepository|null $phoneNumberRepository
-     * @param TechnicalSegmentRepository|null $technicalSegmentRepository
+     * @param PhoneSegmentationServiceInterface $segmentationService
+     * @param PhoneNumberRepository $phoneNumberRepository
+     * @param TechnicalSegmentRepository $technicalSegmentRepository
+     * @param BatchResultFormatterInterface $resultFormatter
      */
     public function __construct(
-        PhoneSegmentationService $segmentationService,
-        ?PhoneNumberRepository $phoneNumberRepository = null,
-        ?TechnicalSegmentRepository $technicalSegmentRepository = null
+        PhoneSegmentationServiceInterface $segmentationService,
+        PhoneNumberRepository $phoneNumberRepository,
+        TechnicalSegmentRepository $technicalSegmentRepository,
+        BatchResultFormatterInterface $resultFormatter
     ) {
         $this->segmentationService = $segmentationService;
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->technicalSegmentRepository = $technicalSegmentRepository;
+        $this->resultFormatter = $resultFormatter;
     }
 
     /**
@@ -50,6 +63,7 @@ class BatchSegmentationService
      * 
      * @param array $phoneNumbers Array of phone number strings
      * @return array Array of segmented PhoneNumber objects
+     * @throws BatchProcessingException If there are errors during processing
      */
     public function processPhoneNumbers(array $phoneNumbers): array
     {
@@ -78,10 +92,20 @@ class BatchSegmentationService
             }
         }
 
-        return [
+        $processResults = [
             'results' => $results,
             'errors' => $errors
         ];
+
+        // If all numbers failed, throw an exception
+        if (empty($results) && !empty($errors)) {
+            throw new BatchProcessingException(
+                'All phone numbers failed to process',
+                $errors
+            );
+        }
+
+        return $processResults;
     }
 
     /**
@@ -89,14 +113,11 @@ class BatchSegmentationService
      * 
      * @param array $phoneNumbers Array of phone number strings
      * @return array Array of results and errors
-     * @throws \RuntimeException If repositories are not provided
+     * @throws BatchProcessingException If there are errors during processing
+     * @throws RepositoryException If there are errors during database operations
      */
     public function processAndSavePhoneNumbers(array $phoneNumbers): array
     {
-        if ($this->phoneNumberRepository === null || $this->technicalSegmentRepository === null) {
-            throw new \RuntimeException('Phone number and technical segment repositories are required for saving to database');
-        }
-
         $results = [];
         $errors = [];
 
@@ -126,9 +147,19 @@ class BatchSegmentationService
                 $segmentedPhoneNumber = $this->segmentationService->segmentPhoneNumber($phoneNumber);
 
                 // Save the phone number with segments
-                $savedPhoneNumber = $this->phoneNumberRepository->save($segmentedPhoneNumber);
-
-                $results[$index] = $savedPhoneNumber;
+                try {
+                    $savedPhoneNumber = $this->phoneNumberRepository->save($segmentedPhoneNumber);
+                    $results[$index] = $savedPhoneNumber;
+                } catch (\Exception $e) {
+                    throw new RepositoryException(
+                        'Failed to save phone number: ' . $e->getMessage(),
+                        $e->getCode(),
+                        $e
+                    );
+                }
+            } catch (RepositoryException $e) {
+                // Re-throw repository exceptions
+                throw $e;
             } catch (\Exception $e) {
                 $errors[$index] = [
                     'number' => $number,
@@ -137,39 +168,19 @@ class BatchSegmentationService
             }
         }
 
-        return [
+        $processResults = [
             'results' => $results,
             'errors' => $errors
         ];
-    }
 
-    /**
-     * Format the results for API response
-     * 
-     * @param array $processResults Results from processPhoneNumbers or processAndSavePhoneNumbers
-     * @return array Formatted results for API response
-     */
-    public function formatResults(array $processResults): array
-    {
-        $formattedResults = [];
-        $formattedErrors = [];
-
-        foreach ($processResults['results'] as $index => $phoneNumber) {
-            $formattedResults[$index] = $phoneNumber->toArray();
+        // If all numbers failed, throw an exception
+        if (empty($results) && !empty($errors)) {
+            throw new BatchProcessingException(
+                'All phone numbers failed to process and save',
+                $errors
+            );
         }
 
-        foreach ($processResults['errors'] as $index => $error) {
-            $formattedErrors[$index] = $error;
-        }
-
-        return [
-            'results' => $formattedResults,
-            'errors' => $formattedErrors,
-            'summary' => [
-                'total' => count($processResults['results']) + count($processResults['errors']),
-                'successful' => count($processResults['results']),
-                'failed' => count($processResults['errors'])
-            ]
-        ];
+        return $processResults;
     }
 }

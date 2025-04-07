@@ -110,4 +110,23 @@ class NotificationService {
   }
 }
 
-export default NotificationService.getInstance();
+// Export the singleton instance
+const notificationService = NotificationService.getInstance();
+
+// Export a hook function for Vue components
+export function useNotification() {
+  return {
+    showSuccess: (message: string, options?: Partial<NotificationOptions>) => 
+      notificationService.success(message, options),
+    showError: (message: string, options?: Partial<NotificationOptions>) => 
+      notificationService.error(message, options),
+    showInfo: (message: string, options?: Partial<NotificationOptions>) => 
+      notificationService.info(message, options),
+    showWarning: (message: string, options?: Partial<NotificationOptions>) => 
+      notificationService.warning(message, options),
+    clearAll: () => notificationService.clearAll()
+  };
+}
+
+// Export the singleton instance as default
+export default notificationService;

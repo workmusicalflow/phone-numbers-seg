@@ -19,6 +19,44 @@ require APP_ROOT . '/vendor/autoload.php';
 // Set content type to JSON
 header('Content-Type: application/json');
 
+// Debug logging function
+function logDebug($message, $data = null)
+{
+    $logFile = APP_ROOT . '/logs/debug.log';
+    $logDir = dirname($logFile);
+
+    // Create logs directory if it doesn't exist
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0755, true);
+    }
+
+    $timestamp = date('Y-m-d H:i:s');
+    $logMessage = "[$timestamp] $message";
+
+    if ($data !== null) {
+        $logMessage .= " - Data: " . print_r($data, true);
+    }
+
+    file_put_contents($logFile, $logMessage . PHP_EOL, FILE_APPEND);
+}
+
+// Ensure proper JSON encoding
+function jsonEncode($data)
+{
+    // Ensure the data is properly encoded as JSON
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+    // Check for JSON encoding errors
+    if ($json === false) {
+        $errorMsg = 'JSON encoding error: ' . json_last_error_msg();
+        error_log($errorMsg);
+        logDebug($errorMsg, $data);
+        return '{"error":"JSON encoding failed"}';
+    }
+
+    return $json;
+}
+
 // Connect to the database
 try {
     $dbFile = APP_ROOT . '/src/database/database.sqlite';
@@ -30,13 +68,21 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
+    echo jsonEncode(['error' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
 }
 
 // Initialize the controllers
 $phoneController = new App\Controllers\PhoneController($pdo);
 $smsController = new App\Controllers\SMSController($pdo);
+
+// Initialize the import/export controller
+$phoneNumberRepository = new App\Repositories\PhoneNumberRepository($pdo);
+$segmentRepository = new App\Repositories\SegmentRepository($pdo);
+$phoneSegmentationService = new App\Services\PhoneSegmentationService();
+$csvImportService = new App\Services\CSVImportService($phoneNumberRepository, $phoneSegmentationService);
+$exportService = new App\Services\ExportService($phoneNumberRepository);
+$importExportController = new App\Controllers\ImportExportController($csvImportService, $exportService);
 
 // Get the request method and endpoint
 $method = $_SERVER['REQUEST_METHOD'];
@@ -51,6 +97,13 @@ if (isset($_GET['endpoint'])) {
     $endpoint = $pathParts[count($pathParts) - 1];
 }
 
+// Log the request
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+$requestEndpoint = isset($_GET['endpoint']) ? $_GET['endpoint'] : 'unknown';
+$requestBody = file_get_contents('php://input');
+
+logDebug("Received $requestMethod request to endpoint: $requestEndpoint", $requestBody);
+
 // Handle the request
 try {
     // Segment a phone number without saving it
@@ -62,8 +115,14 @@ try {
             throw new InvalidArgumentException('Phone number is required');
         }
 
-        $result = $phoneController->segment($requestBody['number']);
-        echo json_encode($result);
+        $result = $phoneController->segment(
+            $requestBody['number'],
+            $requestBody['civility'] ?? null,
+            $requestBody['firstName'] ?? null,
+            $requestBody['name'] ?? null,
+            $requestBody['company'] ?? null
+        );
+        echo jsonEncode($result);
     }
     // Batch segment multiple phone numbers without saving them
     elseif ($method === 'POST' && $endpoint === 'batch-segment') {
@@ -75,7 +134,7 @@ try {
         }
 
         $result = $phoneController->batchSegment($requestBody['numbers']);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Batch create multiple phone numbers
     elseif ($method === 'POST' && $endpoint === 'batch-phones') {
@@ -88,12 +147,12 @@ try {
 
         $result = $phoneController->batchCreate($requestBody['numbers']);
         http_response_code(201);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Get all custom segments
     elseif ($method === 'GET' && $endpoint === 'segments') {
         $result = $phoneController->getCustomSegments();
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Get a specific custom segment
     elseif ($method === 'GET' && preg_match('/^segments\/(\d+)$/', $endpoint, $matches)) {
@@ -102,9 +161,9 @@ try {
 
         if ($result === null) {
             http_response_code(404);
-            echo json_encode(['error' => 'Segment not found']);
+            echo jsonEncode(['error' => 'Segment not found']);
         } else {
-            echo json_encode($result);
+            echo jsonEncode($result);
         }
     }
     // Create a custom segment
@@ -121,7 +180,7 @@ try {
             $requestBody['description'] ?? null
         );
         http_response_code(201);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Update a custom segment
     elseif ($method === 'PUT' && preg_match('/^segments\/(\d+)$/', $endpoint, $matches)) {
@@ -142,9 +201,9 @@ try {
 
         if ($result === null) {
             http_response_code(404);
-            echo json_encode(['error' => 'Segment not found']);
+            echo jsonEncode(['error' => 'Segment not found']);
         } else {
-            echo json_encode($result);
+            echo jsonEncode($result);
         }
     }
     // Delete a custom segment
@@ -154,7 +213,7 @@ try {
 
         if (!$result) {
             http_response_code(404);
-            echo json_encode(['error' => 'Segment not found']);
+            echo jsonEncode(['error' => 'Segment not found']);
         } else {
             http_response_code(204);
         }
@@ -182,7 +241,7 @@ try {
         $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
 
         $result = $phoneController->findPhoneNumbersBySegment($segmentId, $limit, $offset);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Search phone numbers
     elseif ($method === 'GET' && $endpoint === 'phones/search') {
@@ -195,12 +254,12 @@ try {
         $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
 
         $result = $phoneController->searchPhoneNumbers($query, $limit, $offset);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Get segments for SMS
     elseif ($method === 'GET' && $endpoint === 'sms/segments') {
         $result = $smsController->getSegmentsForSMS();
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Send SMS to a single number
     elseif ($method === 'POST' && $endpoint === 'sms/send') {
@@ -215,7 +274,7 @@ try {
         }
 
         $result = $smsController->sendSMS($requestBody['number'], $requestBody['message']);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Send SMS to multiple numbers
     elseif ($method === 'POST' && $endpoint === 'sms/bulk') {
@@ -230,7 +289,7 @@ try {
         }
 
         $result = $smsController->sendBulkSMS($requestBody['numbers'], $requestBody['message']);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Send SMS to a segment
     elseif ($method === 'POST' && preg_match('/^sms\/segments\/(\d+)\/send$/', $endpoint, $matches)) {
@@ -244,7 +303,45 @@ try {
         }
 
         $result = $smsController->sendSMSToSegment($segmentId, $requestBody['message']);
-        echo json_encode($result);
+        echo jsonEncode($result);
+    }
+    // Import phone numbers from CSV file
+    elseif ($method === 'POST' && $endpoint === 'import-csv') {
+        $result = $importExportController->importCSV($_POST);
+        echo jsonEncode($result);
+    }
+    // Import phone numbers from text
+    elseif ($method === 'POST' && $endpoint === 'import-text') {
+        // Get the request body
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $importExportController->importFromText($requestBody);
+        echo jsonEncode($result);
+    }
+    // Export phone numbers to CSV
+    elseif ($method === 'GET' && $endpoint === 'export-csv') {
+        $result = $importExportController->exportToCSV($_GET);
+
+        if (is_array($result) && isset($result['status']) && $result['status'] === 'error') {
+            echo jsonEncode($result);
+        } else {
+            // Set headers for CSV download
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="phone_numbers.csv"');
+            echo $result;
+        }
+    }
+    // Export phone numbers to Excel
+    elseif ($method === 'GET' && $endpoint === 'export-excel') {
+        $result = $importExportController->exportToExcel($_GET);
+
+        if (is_array($result) && isset($result['status']) && $result['status'] === 'error') {
+            echo jsonEncode($result);
+        } else {
+            // Set headers for Excel download
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="phone_numbers.xlsx"');
+            echo $result;
+        }
     }
     // List all phone numbers
     elseif ($method === 'GET' && $endpoint === 'phones') {
@@ -252,7 +349,7 @@ try {
         $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
 
         $result = $phoneController->index($limit, $offset);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Get a specific phone number
     elseif ($method === 'GET' && is_numeric($endpoint)) {
@@ -260,9 +357,9 @@ try {
 
         if ($result === null) {
             http_response_code(404);
-            echo json_encode(['error' => 'Phone number not found']);
+            echo jsonEncode(['error' => 'Phone number not found']);
         } else {
-            echo json_encode($result);
+            echo jsonEncode($result);
         }
     }
     // Create a new phone number
@@ -276,7 +373,7 @@ try {
 
         $result = $phoneController->create($requestBody);
         http_response_code(201);
-        echo json_encode($result);
+        echo jsonEncode($result);
     }
     // Update a phone number
     elseif ($method === 'PUT' && is_numeric($endpoint)) {
@@ -287,9 +384,9 @@ try {
 
         if ($result === null) {
             http_response_code(404);
-            echo json_encode(['error' => 'Phone number not found']);
+            echo jsonEncode(['error' => 'Phone number not found']);
         } else {
-            echo json_encode($result);
+            echo jsonEncode($result);
         }
     }
     // Delete a phone number
@@ -298,7 +395,7 @@ try {
 
         if (!$result) {
             http_response_code(404);
-            echo json_encode(['error' => 'Phone number not found']);
+            echo jsonEncode(['error' => 'Phone number not found']);
         } else {
             http_response_code(204);
         }
@@ -306,9 +403,26 @@ try {
     // Invalid endpoint
     else {
         http_response_code(404);
-        echo json_encode(['error' => 'Endpoint not found']);
+        echo jsonEncode(['error' => 'Endpoint not found']);
     }
 } catch (Exception $e) {
-    http_response_code(400);
-    echo json_encode(['error' => $e->getMessage()]);
+    $errorMsg = $e->getMessage();
+    $errorCode = 400;
+
+    // Log the error
+    logDebug("Error processing request: $errorMsg", [
+        'endpoint' => $requestEndpoint,
+        'method' => $requestMethod,
+        'code' => $errorCode,
+        'trace' => $e->getTraceAsString()
+    ]);
+
+    http_response_code($errorCode);
+    echo jsonEncode(['error' => $errorMsg]);
 }
+
+// Log the response
+logDebug("Completed request to $requestEndpoint", [
+    'status' => http_response_code(),
+    'method' => $requestMethod
+]);

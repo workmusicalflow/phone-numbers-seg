@@ -35,7 +35,8 @@ class SegmentRepository
      */
     public function findById(int $id): ?Segment
     {
-        $stmt = $this->db->prepare('SELECT * FROM segments WHERE id = :id');
+        // Corrected table name
+        $stmt = $this->db->prepare('SELECT * FROM technical_segments WHERE id = :id');
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
 
@@ -55,7 +56,8 @@ class SegmentRepository
      */
     public function findByPhoneNumberId(int $phoneNumberId): array
     {
-        $stmt = $this->db->prepare('SELECT * FROM segments WHERE phone_number_id = :phone_number_id');
+        // Corrected table name
+        $stmt = $this->db->prepare('SELECT * FROM technical_segments WHERE phone_number_id = :phone_number_id');
         $stmt->bindParam(':phone_number_id', $phoneNumberId, PDO::PARAM_INT);
         $stmt->execute();
 
@@ -79,8 +81,9 @@ class SegmentRepository
     {
         if ($segment->getId() === null) {
             // Insert new segment
+            // Corrected table name
             $stmt = $this->db->prepare('
-                INSERT INTO segments (phone_number_id, segment_type, value) 
+                INSERT INTO technical_segments (phone_number_id, segment_type, value) 
                 VALUES (:phone_number_id, :segment_type, :value)
             ');
             $phoneNumberId = $segment->getPhoneNumberId();
@@ -95,8 +98,9 @@ class SegmentRepository
             $segment->setId($id);
         } else {
             // Update existing segment
+            // Corrected table name
             $stmt = $this->db->prepare('
-                UPDATE segments 
+                UPDATE technical_segments 
                 SET phone_number_id = :phone_number_id, segment_type = :segment_type, value = :value 
                 WHERE id = :id
             ');
@@ -122,7 +126,8 @@ class SegmentRepository
      */
     public function delete(int $id): bool
     {
-        $stmt = $this->db->prepare('DELETE FROM segments WHERE id = :id');
+        // Corrected table name
+        $stmt = $this->db->prepare('DELETE FROM technical_segments WHERE id = :id');
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();
 
@@ -137,7 +142,8 @@ class SegmentRepository
      */
     public function deleteByPhoneNumberId(int $phoneNumberId): bool
     {
-        $stmt = $this->db->prepare('DELETE FROM segments WHERE phone_number_id = :phone_number_id');
+        // Corrected table name
+        $stmt = $this->db->prepare('DELETE FROM technical_segments WHERE phone_number_id = :phone_number_id');
         $stmt->bindParam(':phone_number_id', $phoneNumberId, PDO::PARAM_INT);
         $stmt->execute();
 

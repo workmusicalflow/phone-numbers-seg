@@ -1,81 +1,119 @@
-# Project Brief: Phone Numbers Segmentation Web Application
+# Projet Oracle - Gestionnaire de Numéros de Téléphone
 
-## Overview
+## Aperçu du Projet
 
-This project aims to create a web application for segmenting Côte d'Ivoire (Ivory Coast) phone numbers into meaningful components and grouping them by business criteria. The application allows users to input phone numbers and receive a breakdown of various technical segments (such as country code, operator, etc.) while also supporting custom business segmentation for SMS campaigns and customer management.
+Oracle est une application web complète pour la segmentation, l'analyse et la gestion des numéros de téléphone. Elle permet aux utilisateurs d'extraire des informations structurées à partir de numéros de téléphone, de les organiser en segments, d'envoyer des SMS et de suivre l'historique des communications.
 
-The application supports the following Côte d'Ivoire phone number formats:
+## Objectifs Principaux
 
-- International format with + prefix: +2250777104936
-- International format with 00 prefix: 002250777104936
-- Local format: 0777104936
+1. **Segmentation de numéros** : Analyser les numéros de téléphone pour extraire des informations comme le code pays, l'opérateur et le numéro d'abonné.
+2. **Traitement par lots** : Permettre la segmentation simultanée de grandes quantités de numéros.
+3. **Envoi de SMS** : Intégrer l'API Orange SMS pour l'envoi de messages individuels ou en masse.
+4. **Historique et traçabilité** : Suivre toutes les opérations effectuées sur les numéros, notamment les SMS envoyés.
+5. **Import/Export** : Faciliter l'échange de données avec d'autres systèmes via différents formats.
+6. **API flexible** : Exposer les fonctionnalités via des API REST et GraphQL pour l'intégration avec d'autres systèmes.
 
-## Core Requirements
+## Architecture Technique
 
-### Functional Requirements
+L'application est construite selon une architecture en couches clairement séparées :
 
-- Allow users to input phone numbers for technical segmentation
-- Process phone numbers to identify and extract meaningful technical segments
-- Create and manage custom business segments for grouping phone numbers
-- Assign phone numbers to business segments for SMS campaigns
-- Display segmented components in a clear, user-friendly interface
-- Store phone numbers, their technical segments, and business segment associations
-- Support CRUD operations for phone numbers and segments
-- Support batch processing for multiple phone numbers
+1. **Couche de présentation** : Interface utilisateur et API
 
-### Technical Requirements
+   - Frontend en Vue.js avec Quasar Framework (migration en cours depuis HTMX/Alpine.js)
+   - API REST pour la compatibilité avec les systèmes existants
+   - API GraphQL pour une flexibilité accrue
 
-- Develop a PHP-based web application with a modular architecture
-- Implement a three-layer architecture:
-  - Presentation layer using HTMX and Alpine.js
-  - Business logic layer with PHP services
-  - Data layer with SQLite database
-- Follow SOLID principles for maintainable, testable code
-- Implement test-driven development (TDD) using PHPUnit
-- Use Git for version control
+2. **Couche métier** : Services et contrôleurs
 
-## Project Structure
+   - Services encapsulant la logique métier complexe
+   - Contrôleurs pour la gestion des requêtes HTTP
 
-- `src/`: Code source (models, services, controllers)
-- `public/`: Publicly accessible files (HTML, CSS, JS)
-- `tests/`: Unit and integration tests
+3. **Couche de données** : Modèles et repositories
+   - Modèles représentant les entités du système
+   - Repositories pour l'accès aux données
+   - Base de données SQLite pour le stockage
 
-## Database Schema
+## Technologies Utilisées
 
-- `phone_numbers`: id, number, name, company, sector, notes, date_added
-- `technical_segments`: id, phone_number_id, segment_type, value
-- `custom_segments`: id, name, description
-- `phone_number_segments`: phone_number_id, custom_segment_id, date_added
+### Backend
 
-## Segmentation Types
+- **PHP 8.1** : Langage principal du backend
+- **SQLite** : Base de données légère et portable
+- **Composer** : Gestion des dépendances PHP
+- **GraphQLite** : Implémentation GraphQL pour PHP
 
-### Technical Segmentation
+### Frontend
 
-Technical segmentation extracts information embedded in the phone number structure:
+- **Vue.js 3** : Framework frontend progressif
+- **Quasar Framework** : Composants UI pour Vue.js
+- **TypeScript** : Typage statique pour JavaScript
+- **Pinia** : Gestion d'état pour Vue.js
+- **Vite** : Outil de build rapide
 
-- Country code (e.g., 225 for Côte d'Ivoire)
-- Operator code (e.g., 07 for MTN)
-- Subscriber number
-- Operator name (e.g., MTN, Orange, Moov)
+### Outils de Développement
 
-### Business Segmentation
+- **PHPUnit** : Tests unitaires pour PHP
+- **Vitest** : Tests unitaires pour Vue.js
+- **ESLint/Prettier** : Linting et formatage du code
+- **Git** : Contrôle de version
 
-Business segmentation groups phone numbers by business criteria:
+## Fonctionnalités Principales
 
-- Sector (e.g., healthcare, education, finance)
-- Company
-- Client type (e.g., VIP, business, individual)
-- Custom categories defined by the user
+### Segmentation de Numéros
 
-## Development Approach
+- Analyse des numéros pour identifier le code pays, l'opérateur, etc.
+- Segmentation individuelle ou par lot
+- Détection automatique de l'opérateur
+- Segments personnalisés définis par l'utilisateur
 
-The project follows an incremental, test-driven development approach, with each feature being developed in small, testable increments.
+### Gestion des Contacts
 
-## Success Criteria
+- Stockage des informations de contact (nom, prénom, civilité)
+- Organisation en segments personnalisés
+- Recherche et filtrage des contacts
 
-- A functional web application that accurately segments phone numbers
-- Support for both technical and business-oriented segmentation
-- Ability to manage custom segments for business purposes
-- Clean, maintainable code following SOLID principles
-- Comprehensive test coverage
-- Clear documentation for both users and developers
+### Envoi de SMS
+
+- Intégration avec l'API Orange SMS
+- Envoi individuel ou en masse
+- Suivi des statuts d'envoi
+- Historique complet des SMS envoyés
+
+### Import/Export
+
+- Import depuis CSV ou texte brut
+- Export vers différents formats (CSV, Excel)
+- Options de filtrage pour l'export
+- Validation et normalisation des données importées
+
+### API
+
+- API REST avec endpoints documentés
+- API GraphQL avec schéma auto-documenté
+- Validation des entrées et gestion des erreurs
+- Pagination pour les grandes collections
+
+## État Actuel du Projet
+
+Le projet est actuellement à environ 87% de complétion, avec plusieurs fonctionnalités clés déjà implémentées et opérationnelles. Les développements récents incluent :
+
+1. **Extension du modèle de données** : Ajout des champs civilité et prénom au modèle PhoneNumber
+2. **Finalisation de l'import/export** : Implémentation complète de l'import CSV et du texte brut
+3. **Intégration GraphQL** : API GraphQL complète en parallèle de l'API REST existante
+4. **Migration vers Vue.js** : Progression significative dans la migration de l'interface utilisateur
+5. **Amélioration du système SMS** : Gestion des erreurs robuste et système d'historique complet
+
+## Prochaines Étapes
+
+1. **Finalisation de l'interface d'historique SMS** : Développer une interface utilisateur intuitive pour consulter l'historique des SMS
+2. **Optimisation des performances** : Améliorer les temps de chargement et la réactivité de l'interface
+3. **Documentation utilisateur** : Créer des guides et tutoriels pour les utilisateurs
+4. **Tests et corrections de bugs** : Assurer la compatibilité avec tous les navigateurs cibles
+
+## Contraintes et Considérations
+
+1. **Performance** : Le traitement par lot doit rester performant même avec un grand nombre de numéros
+2. **Sécurité** : Validation stricte des entrées pour éviter les injections et autres vulnérabilités
+3. **Expérience utilisateur** : Interface intuitive et réactive, même pendant le traitement de grandes quantités de données
+4. **Évolution de l'API** : Maintenir la compatibilité avec l'API REST existante tout en développant l'API GraphQL
+5. **Coexistence des frameworks** : Gérer la transition progressive de HTMX/Alpine.js vers Vue.js

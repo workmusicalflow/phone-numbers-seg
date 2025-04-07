@@ -521,7 +521,7 @@ class PhoneNumberRepository
             $row['company'] ?? null,
             $row['sector'] ?? null,
             $row['notes'] ?? null,
-            $row['date_added']
+            $row['date_added'] // Assumes column name is 'date_added'
         );
     }
 }

@@ -30,13 +30,54 @@
                   :rules="[val => val === '' || !!val || 'Le numéro est requis']"
                 />
 
-                <q-input
-                  v-model="singleSmsData.message"
-                  type="textarea"
-                  label="Message"
-                  :rules="[val => val === '' || !!val || 'Le message est requis']"
-                  rows="5"
-                />
+                <div class="row q-col-gutter-sm">
+                  <div class="col-12">
+                    <q-select
+                      v-model="selectedTemplate"
+                      :options="smsTemplateStore.templates"
+                      option-label="title"
+                      label="Modèle de SMS (optionnel)"
+                      clearable
+                      emit-value
+                      map-options
+                      @update:model-value="onTemplateSelected"
+                    >
+                      <template v-slot:no-option>
+                        <q-item>
+                          <q-item-section class="text-grey">
+                            Aucun modèle disponible
+                          </q-item-section>
+                        </q-item>
+                      </template>
+                    </q-select>
+                  </div>
+                  
+                  <div class="col-12">
+                    <q-input
+                      v-model="singleSmsData.message"
+                      type="textarea"
+                      label="Message"
+                      :rules="[val => val === '' || !!val || 'Le message est requis']"
+                      rows="5"
+                    />
+                  </div>
+                  
+                  <!-- Champs pour les variables du modèle -->
+                  <template v-if="templateVariables.length > 0">
+                    <div class="col-12 q-my-sm">
+                      <div class="text-subtitle2">Variables du modèle:</div>
+                    </div>
+                    <div class="col-12 col-md-6" v-for="variable in templateVariables" :key="variable">
+                      <q-input
+                        v-model="templateVariableValues[variable]"
+                        :label="variable"
+                        outlined
+                        dense
+                        @update:model-value="applyTemplateVariables"
+                      />
+                    </div>
+                  </template>
+                </div>
 
                 <div>
                   <q-btn
@@ -271,15 +312,55 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { gql } from "@apollo/client/core";
 import { useQuasar } from "quasar";
 import { useApolloClient } from "@vue/apollo-composable";
 import NotificationService from "../services/NotificationService";
+import { useSMSTemplateStore } from "../stores/smsTemplateStore";
 
 const $q = useQuasar();
 // Utiliser le client Apollo global
 const { client: apolloClient } = useApolloClient();
+// Utiliser le store des modèles de SMS
+const smsTemplateStore = useSMSTemplateStore();
+
+// Variables pour les modèles de SMS
+const selectedTemplate = ref<any>(null);
+const templateVariableValues = ref<Record<string, string>>({});
+const templateVariables = computed(() => {
+  if (!selectedTemplate.value) return [];
+  return selectedTemplate.value.variables || [];
+});
+
+// Fonction appelée lorsqu'un modèle est sélectionné
+function onTemplateSelected(template: any) {
+  if (template) {
+    // Réinitialiser les valeurs des variables
+    templateVariableValues.value = {};
+    
+    // Remplir le message avec le contenu du modèle
+    singleSmsData.value.message = template.content;
+    
+    // Pré-remplir les variables avec des valeurs par défaut si nécessaire
+    if (template.variables && template.variables.length > 0) {
+      template.variables.forEach((variable: string) => {
+        templateVariableValues.value[variable] = '';
+      });
+    }
+  }
+}
+
+// Fonction pour appliquer les variables au modèle
+function applyTemplateVariables() {
+  if (!selectedTemplate.value) return;
+  
+  // Appliquer les variables au modèle
+  singleSmsData.value.message = smsTemplateStore.applyTemplate(
+    selectedTemplate.value,
+    templateVariableValues.value
+  );
+}
 
 // État de l'interface
 const activeTab = ref("single");
@@ -385,9 +466,6 @@ const onSubmitSingle = async () => {
   loading.value = true;
   smsResult.value = null;
 
-  // Prétraiter le numéro de téléphone pour s'assurer qu'il est au bon format
-  const phoneNumber = singleSmsData.value.phoneNumber.trim();
-
   try {
     const { data } = await apolloClient.mutate({
       mutation: gql`
@@ -402,7 +480,7 @@ const onSubmitSingle = async () => {
         }
       `,
       variables: {
-        phoneNumber: phoneNumber,
+        phoneNumber: singleSmsData.value.phoneNumber,
         message: singleSmsData.value.message,
       },
       refetchQueries: [
@@ -464,26 +542,16 @@ const onSubmitBulk = async () => {
   smsResult.value = null;
 
   // Traiter les numéros (séparés par virgules, espaces ou sauts de ligne)
-  // Prétraitement pour éviter la concaténation des numéros
-  const preprocessedInput = bulkSmsData.value.phoneNumbers
-    .replace(/[\s,;]+/g, ',') // Remplacer tous les séparateurs par des virgules
-    .replace(/,+/g, ',')      // Supprimer les virgules multiples
-    .replace(/^,|,$/g, '');   // Supprimer les virgules au début et à la fin
-
-  // Séparer les numéros et les traiter individuellement
-  const phoneNumbers = preprocessedInput
-    .split(',')
+  const phoneNumbers = bulkSmsData.value.phoneNumbers
+    .split(/[\s,;]+/)
     .map((num) => num.trim())
     .filter((num) => num.length > 0);
 
-  // Vérifier que chaque numéro est traité séparément
-  console.log("Numéros traités:", phoneNumbers);
-
-  if (phoneNumbers.length === 0) {
-    NotificationService.warning("Aucun numéro valide trouvé");
-    loading.value = false;
-    return;
-  }
+    if (phoneNumbers.length === 0) {
+      NotificationService.warning("Aucun numéro valide trouvé");
+      loading.value = false;
+      return;
+    }
 
   try {
     const { data } = await apolloClient.mutate({
@@ -653,5 +721,6 @@ const onSubmitSegment = async () => {
 onMounted(() => {
   fetchSmsHistory();
   fetchSegments();
+  smsTemplateStore.fetchTemplates(); // Charger les modèles de SMS
 });
 </script>

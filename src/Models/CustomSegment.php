@@ -25,6 +25,11 @@ class CustomSegment
     private ?string $description;
 
     /**
+     * @var string|null The regex pattern for automatic segmentation
+     */
+    private ?string $pattern;
+
+    /**
      * @var array Phone numbers associated with this segment
      */
     private array $phoneNumbers = [];
@@ -34,12 +39,14 @@ class CustomSegment
      * 
      * @param string $name The name of the segment
      * @param string|null $description The description of the segment
+     * @param string|null $pattern The regex pattern for automatic segmentation
      * @param int|null $id The ID (null for new records)
      */
-    public function __construct(string $name, ?string $description = null, ?int $id = null)
+    public function __construct(string $name, ?string $description = null, ?string $pattern = null, ?int $id = null)
     {
         $this->name = $name;
         $this->description = $description;
+        $this->pattern = $pattern;
         $this->id = $id;
     }
 
@@ -110,6 +117,28 @@ class CustomSegment
     }
 
     /**
+     * Get the pattern
+     * 
+     * @return string|null
+     */
+    public function getPattern(): ?string
+    {
+        return $this->pattern;
+    }
+
+    /**
+     * Set the pattern
+     * 
+     * @param string|null $pattern
+     * @return self
+     */
+    public function setPattern(?string $pattern): self
+    {
+        $this->pattern = $pattern;
+        return $this;
+    }
+
+    /**
      * Get the phone numbers
      * 
      * @return array
@@ -154,7 +183,8 @@ class CustomSegment
         $array = [
             'id' => $this->id,
             'name' => $this->name,
-            'description' => $this->description
+            'description' => $this->description,
+            'pattern' => $this->pattern
         ];
 
         if ($includePhoneNumbers) {

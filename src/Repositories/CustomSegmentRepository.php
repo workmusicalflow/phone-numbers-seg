@@ -154,13 +154,15 @@ class CustomSegmentRepository
         if ($segment->getId() === null) {
             // Insert new segment
             $stmt = $this->db->prepare('
-                INSERT INTO custom_segments (name, description)
-                VALUES (:name, :description)
+                INSERT INTO custom_segments (name, description, pattern)
+                VALUES (:name, :description, :pattern)
             ');
             $name = $segment->getName();
             $description = $segment->getDescription();
+            $pattern = $segment->getPattern();
             $stmt->bindParam(':name', $name, PDO::PARAM_STR);
             $stmt->bindParam(':description', $description, PDO::PARAM_STR);
+            $stmt->bindParam(':pattern', $pattern, PDO::PARAM_STR);
             $stmt->execute();
 
             $segment->setId((int) $this->db->lastInsertId());
@@ -168,15 +170,17 @@ class CustomSegmentRepository
             // Update existing segment
             $stmt = $this->db->prepare('
                 UPDATE custom_segments
-                SET name = :name, description = :description
+                SET name = :name, description = :description, pattern = :pattern
                 WHERE id = :id
             ');
             $id = $segment->getId();
             $name = $segment->getName();
             $description = $segment->getDescription();
+            $pattern = $segment->getPattern();
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
             $stmt->bindParam(':name', $name, PDO::PARAM_STR);
             $stmt->bindParam(':description', $description, PDO::PARAM_STR);
+            $stmt->bindParam(':pattern', $pattern, PDO::PARAM_STR);
             $stmt->execute();
         }
 
@@ -259,6 +263,7 @@ class CustomSegmentRepository
         return new CustomSegment(
             $row['name'],
             $row['description'],
+            $row['pattern'] ?? null,
             $row['id']
         );
     }

@@ -5,17 +5,41 @@ namespace App\GraphQL;
 use TheCodingMachine\GraphQLite\SchemaFactory;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Psr16Cache;
-use App\GraphQL\SimpleContainer;
+use App\GraphQL\DIContainer;
 use App\Repositories\PhoneNumberRepository;
 use App\Repositories\SegmentRepository;
 use App\Repositories\TechnicalSegmentRepository;
 use App\Repositories\CustomSegmentRepository;
 use App\Repositories\SMSHistoryRepository;
-use App\Services\PhoneSegmentationService;
+use App\Repositories\UserRepository;
+use App\Repositories\SenderNameRepository;
+use App\Repositories\SMSOrderRepository;
+use App\Repositories\OrangeAPIConfigRepository;
+use App\Repositories\AdminContactRepository;
 use App\Services\BatchSegmentationService;
 use App\Services\CSVImportService;
 use App\Services\ExportService;
+use App\Services\Factories\SegmentationStrategyFactory;
+use App\Services\Formatters\BatchResultFormatter;
+use App\Services\Formatters\BatchResultFormatterInterface;
+use App\Services\Interfaces\BatchSegmentationServiceInterface;
+use App\Services\Interfaces\OrangeAPIClientInterface;
+use App\Services\Interfaces\PhoneNumberValidatorInterface;
+use App\Services\Interfaces\PhoneSegmentationServiceInterface;
+use App\Services\Interfaces\SMSBusinessServiceInterface;
+use App\Services\Interfaces\SMSHistoryServiceInterface;
+use App\Services\Interfaces\SMSSenderServiceInterface;
+use App\Services\Interfaces\SMSValidationServiceInterface;
+use App\Services\OrangeAPIClient;
+use App\Services\PhoneNumberValidator;
+use App\Services\PhoneSegmentationService;
+use App\Services\SMSBusinessService;
+use App\Services\SMSHistoryService;
 use App\Services\SMSService;
+use App\Services\SMSSenderService;
+use App\Services\SMSValidationService;
+use TheCodingMachine\GraphQLite\Security\AuthenticationServiceInterface;
+use TheCodingMachine\GraphQLite\Security\AuthorizationServiceInterface;
 
 /**
  * Configuration class for GraphQLite
@@ -32,67 +56,107 @@ class GraphQLiteConfiguration
         // Create a PSR-16 compatible cache
         $cache = new Psr16Cache(new ArrayAdapter());
 
-        // Create a simple container and register our services
-        $container = new SimpleContainer();
+        // Create a DI container with PHP-DI
+        $container = new DIContainer();
 
-        // Create PDO instance
-        $dbFile = __DIR__ . '/../../src/database/database.sqlite';
-        $pdo = new \PDO("sqlite:$dbFile");
-        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-
-        // Create repositories
-        $phoneNumberRepository = new PhoneNumberRepository($pdo);
-        $segmentRepository = new SegmentRepository($pdo);
-        $technicalSegmentRepository = new TechnicalSegmentRepository($pdo);
-        $customSegmentRepository = new CustomSegmentRepository($pdo);
-        $smsHistoryRepository = new SMSHistoryRepository($pdo);
-
-        // Create services
-        $phoneSegmentationService = new PhoneSegmentationService();
-        $batchSegmentationService = new BatchSegmentationService(
-            $phoneSegmentationService,
-            $phoneNumberRepository,
-            $technicalSegmentRepository
-        );
-        $csvImportService = new CSVImportService(
-            $phoneNumberRepository,
-            $phoneSegmentationService
-        );
-        $exportService = new ExportService($phoneNumberRepository);
-
-        // Create SMS service with Orange API credentials
-        $smsService = new SMSService(
-            'DGxbQKd9JHXLdFaWGtv0FfqFFI7Gu03a',  // Client ID
-            'S4ywfdZUjNvOXErMr5NyQwgliBCdXIAYp1DcibKThBXs',  // Client Secret
-            'tel:+2250595016840',  // Sender address
-            'Qualitas CI',  // Sender name
-            $phoneNumberRepository,
-            $customSegmentRepository,
-            $smsHistoryRepository
-        );
-
-        // Register all services in the container
-        $container->set(\PDO::class, $pdo);
-        $container->set(PhoneNumberRepository::class, $phoneNumberRepository);
-        $container->set(SegmentRepository::class, $segmentRepository);
-        $container->set(TechnicalSegmentRepository::class, $technicalSegmentRepository);
-        $container->set(CustomSegmentRepository::class, $customSegmentRepository);
-        $container->set(SMSHistoryRepository::class, $smsHistoryRepository);
-        $container->set(PhoneSegmentationService::class, $phoneSegmentationService);
-        $container->set(BatchSegmentationService::class, $batchSegmentationService);
-        $container->set(CSVImportService::class, $csvImportService);
-        $container->set(ExportService::class, $exportService);
-        $container->set(SMSService::class, $smsService);
+        // All services are now configured in src/config/di.php
+        // and automatically loaded by the DIContainer
 
         // Create a schema factory with cache and container
         $schemaFactory = new SchemaFactory($cache, $container);
 
         // Configure the schema factory
-        $schemaFactory->addControllerNamespace('App\\GraphQL\\Controllers');
-        $schemaFactory->addTypeNamespace('App\\GraphQL\\Types');
-        $schemaFactory->addTypeNamespace('App\\Models');
+        $schemaFactory->addNamespace('App\\GraphQL\\Controllers');
+        $schemaFactory->addNamespace('App\\GraphQL\\Types');
+        $schemaFactory->addNamespace('App\\Models');
+
+        // Add authentication middleware
+        $schemaFactory->setAuthenticationService(new class implements AuthenticationServiceInterface {
+            public function isLogged(): bool
+            {
+                // Démarrer la session si elle n'est pas déjà démarrée
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+
+                return isset($_SESSION['user_id']);
+            }
+
+            public function getUserId()
+            {
+                // Démarrer la session si elle n'est pas déjà démarrée
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+
+                return $_SESSION['user_id'] ?? null;
+            }
+        });
+
+        // Add authorization middleware
+        $schemaFactory->setAuthorizationService(new class implements AuthorizationServiceInterface {
+            public function isAllowed(string $right, mixed $subject = null): bool
+            {
+                // Démarrer la session si elle n'est pas déjà démarrée
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+
+                // Vérifier si l'utilisateur est administrateur
+                if ($right === 'ADMIN') {
+                    return isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true;
+                }
+
+                // Par défaut, autoriser l'accès aux utilisateurs authentifiés
+                return isset($_SESSION['user_id']);
+            }
+        });
+
+        // Add debug logging
+        error_log("Creating GraphQL schema with controllers in App\\GraphQL\\Controllers namespace");
+
+        // List all controller files
+        $controllersDir = __DIR__ . '/Controllers';
+        if (is_dir($controllersDir)) {
+            $files = scandir($controllersDir);
+            error_log("Controllers found: " . implode(", ", array_filter($files, function ($file) {
+                return $file !== '.' && $file !== '..';
+            })));
+
+            // Try to instantiate the DummyController directly
+            try {
+                $dummyController = $container->get(\App\GraphQL\Controllers\DummyController::class);
+                error_log("DummyController instantiated successfully");
+
+                // Try to instantiate the SMSController directly
+                try {
+                    $smsController = $container->get(\App\GraphQL\Controllers\SMSController::class);
+                    error_log("SMSController instantiated successfully");
+                } catch (\Throwable $e) {
+                    error_log("Error instantiating SMSController: " . $e->getMessage());
+                }
+            } catch (\Throwable $e) {
+                error_log("Error instantiating DummyController: " . $e->getMessage());
+            }
+        } else {
+            error_log("Controllers directory not found: $controllersDir");
+        }
 
         // Create the schema
-        return $schemaFactory->createSchema();
+        try {
+            $schema = $schemaFactory->createSchema();
+            error_log("Schema created successfully");
+
+            // Log the queries available in the schema
+            $queryType = $schema->getQueryType();
+            $fields = $queryType->getFields();
+            error_log("Queries available in schema: " . implode(", ", array_keys($fields)));
+
+            return $schema;
+        } catch (\Throwable $e) {
+            error_log("Error creating schema: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            throw $e;
+        }
     }
 }

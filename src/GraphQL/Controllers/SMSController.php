@@ -2,10 +2,8 @@
 
 namespace App\GraphQL\Controllers;
 
-use App\Repositories\PhoneNumberRepository;
-use App\Repositories\CustomSegmentRepository;
-use App\Repositories\SMSHistoryRepository;
-use App\Services\SMSService;
+use App\Services\Interfaces\SMSBusinessServiceInterface;
+use App\Services\Interfaces\SMSValidationServiceInterface;
 use TheCodingMachine\GraphQLite\Annotations\Query;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
 use TheCodingMachine\GraphQLite\Types\ID;
@@ -16,43 +14,27 @@ use TheCodingMachine\GraphQLite\Types\ID;
 class SMSController
 {
     /**
-     * @var SMSService
+     * @var SMSBusinessServiceInterface
      */
-    private SMSService $smsService;
+    private SMSBusinessServiceInterface $smsBusinessService;
 
     /**
-     * @var PhoneNumberRepository
+     * @var SMSValidationServiceInterface
      */
-    private PhoneNumberRepository $phoneNumberRepository;
-
-    /**
-     * @var CustomSegmentRepository
-     */
-    private CustomSegmentRepository $customSegmentRepository;
-
-    /**
-     * @var SMSHistoryRepository
-     */
-    private SMSHistoryRepository $smsHistoryRepository;
+    private SMSValidationServiceInterface $validationService;
 
     /**
      * Constructor
      * 
-     * @param SMSService $smsService
-     * @param PhoneNumberRepository $phoneNumberRepository
-     * @param CustomSegmentRepository $customSegmentRepository
-     * @param SMSHistoryRepository $smsHistoryRepository
+     * @param SMSBusinessServiceInterface $smsBusinessService
+     * @param SMSValidationServiceInterface $validationService
      */
     public function __construct(
-        SMSService $smsService,
-        PhoneNumberRepository $phoneNumberRepository,
-        CustomSegmentRepository $customSegmentRepository,
-        SMSHistoryRepository $smsHistoryRepository
+        SMSBusinessServiceInterface $smsBusinessService,
+        SMSValidationServiceInterface $validationService
     ) {
-        $this->smsService = $smsService;
-        $this->phoneNumberRepository = $phoneNumberRepository;
-        $this->customSegmentRepository = $customSegmentRepository;
-        $this->smsHistoryRepository = $smsHistoryRepository;
+        $this->smsBusinessService = $smsBusinessService;
+        $this->validationService = $validationService;
     }
 
     /**
@@ -64,20 +46,7 @@ class SMSController
     public function segmentsForSMS(): array
     {
         try {
-            $segments = $this->customSegmentRepository->findAll();
-            $result = [];
-
-            foreach ($segments as $segment) {
-                $phoneNumbers = $this->phoneNumberRepository->findByCustomSegment($segment->getId());
-                $result[] = [
-                    'id' => $segment->getId(),
-                    'name' => $segment->getName(),
-                    'description' => $segment->getDescription(),
-                    'phoneNumberCount' => count($phoneNumbers)
-                ];
-            }
-
-            return $result;
+            return $this->smsBusinessService->getSegmentsForSMS();
         } catch (\Exception $e) {
             // En cas d'erreur, retourner un tableau vide plutôt que de laisser l'exception se propager
             error_log('Error in segmentsForSMS: ' . $e->getMessage());
@@ -91,12 +60,17 @@ class SMSController
      * @Query
      * @return array
      */
-    public function smsHistory(int $limit = 100, int $offset = 0): array
+    public function smsHistory(int $limit = 100, int $offset = 0, ?string $search = null, ?string $status = null, ?int $segmentId = null): array
     {
         try {
-            $history = $this->smsHistoryRepository->findAll($limit, $offset);
-            $result = [];
+            // If search is provided, normalize the phone number
+            if ($search !== null && !empty($search)) {
+                $search = $this->validationService->convertToInternationalFormat($search);
+            }
 
+            $history = $this->smsBusinessService->getSMSHistory($limit, $offset, $search, $status, $segmentId);
+
+            $result = [];
             foreach ($history as $item) {
                 $result[] = [
                     'id' => $item->getId(),
@@ -120,6 +94,22 @@ class SMSController
     }
 
     /**
+     * Get SMS history count
+     * 
+     * @Query
+     * @return int
+     */
+    public function smsHistoryCount(): int
+    {
+        try {
+            return $this->smsBusinessService->getSMSHistoryCount();
+        } catch (\Exception $e) {
+            error_log('Error in smsHistoryCount: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * Send an SMS to a single phone number
      * 
      * @Mutation
@@ -130,14 +120,14 @@ class SMSController
     public function sendSms(string $phoneNumber, string $message): array
     {
         try {
-            $result = $this->smsService->sendSMS($phoneNumber, $message);
+            $result = $this->smsBusinessService->sendSMS($phoneNumber, $message);
 
             // Format the response
             return [
                 'id' => uniqid(), // In a real implementation, this would be a database ID
                 'phoneNumber' => $phoneNumber,
                 'message' => $message,
-                'status' => isset($result['outboundSMSMessageRequest']) ? 'SENT' : 'FAILED',
+                'status' => $result['success'] ? 'SENT' : 'FAILED',
                 'createdAt' => date('c')
             ];
         } catch (\Exception $e) {
@@ -163,47 +153,27 @@ class SMSController
     public function sendBulkSms(array $phoneNumbers, string $message): array
     {
         try {
-            // Ensure each phone number is processed individually
-            $processedNumbers = [];
-            foreach ($phoneNumbers as $number) {
-                // Trim and validate each number
-                $trimmedNumber = trim($number);
-                if (!empty($trimmedNumber)) {
-                    $processedNumbers[] = $trimmedNumber;
-                }
-            }
+            $result = $this->smsBusinessService->sendBulkSMS($phoneNumbers, $message);
 
-            // Log the processed numbers for debugging
-            error_log('Processing bulk SMS for numbers: ' . implode(', ', $processedNumbers));
-
-            $results = $this->smsService->sendBulkSMS($processedNumbers, $message);
-
-            // Count successful and failed sends
-            $successful = 0;
-            $failed = 0;
+            // Format the results
             $formattedResults = [];
-
-            foreach ($results as $number => $result) {
-                if ($result['status'] === 'success') {
-                    $successful++;
-                } else {
-                    $failed++;
+            if (isset($result['details']) && is_array($result['details'])) {
+                foreach ($result['details'] as $detail) {
+                    $formattedResults[] = [
+                        'phoneNumber' => $detail['number'] ?? '',
+                        'status' => $detail['success'] ? 'success' : 'error',
+                        'message' => $detail['message'] ?? ($detail['success'] ? 'SMS envoyé avec succès' : 'Échec de l\'envoi')
+                    ];
                 }
-
-                $formattedResults[] = [
-                    'phoneNumber' => $number,
-                    'status' => $result['status'] === 'success' ? 'success' : 'error',
-                    'message' => $result['status'] === 'success' ? 'SMS envoyé avec succès' : $result['message']
-                ];
             }
 
             return [
-                'status' => 'success',
-                'message' => 'Envoi en masse terminé',
-                'summary' => [
+                'status' => $result['success'] ? 'success' : 'error',
+                'message' => $result['message'] ?? 'Envoi en masse terminé',
+                'summary' => $result['summary'] ?? [
                     'total' => count($phoneNumbers),
-                    'successful' => $successful,
-                    'failed' => $failed
+                    'successful' => 0,
+                    'failed' => 0
                 ],
                 'results' => $formattedResults
             ];
@@ -233,55 +203,28 @@ class SMSController
     public function sendSmsToSegment(ID $segmentId, string $message): array
     {
         try {
-            // Check if the segment exists
-            $segment = $this->customSegmentRepository->findById((int)$segmentId);
-            if (!$segment) {
-                return [
-                    'status' => 'error',
-                    'message' => 'Segment non trouvé',
-                    'segment' => null,
-                    'summary' => [
-                        'total' => 0,
-                        'successful' => 0,
-                        'failed' => 0
-                    ],
-                    'results' => []
-                ];
-            }
+            $result = $this->smsBusinessService->sendSMSToSegment((int)$segmentId, $message);
 
-            // Send the SMS
-            $results = $this->smsService->sendSMSToSegment((int)$segmentId, $message);
-
-            // Count successful and failed sends
-            $successful = 0;
-            $failed = 0;
+            // Format the results
             $formattedResults = [];
-
-            foreach ($results as $number => $result) {
-                if ($result['status'] === 'success') {
-                    $successful++;
-                } else {
-                    $failed++;
+            if (isset($result['details']) && is_array($result['details'])) {
+                foreach ($result['details'] as $detail) {
+                    $formattedResults[] = [
+                        'phoneNumber' => $detail['number'] ?? '',
+                        'status' => $detail['success'] ? 'success' : 'error',
+                        'message' => $detail['message'] ?? ($detail['success'] ? 'SMS envoyé avec succès' : 'Échec de l\'envoi')
+                    ];
                 }
-
-                $formattedResults[] = [
-                    'phoneNumber' => $number,
-                    'status' => $result['status'] === 'success' ? 'success' : 'error',
-                    'message' => $result['status'] === 'success' ? 'SMS envoyé avec succès' : $result['message']
-                ];
             }
 
             return [
-                'status' => 'success',
-                'message' => 'Envoi au segment terminé',
-                'segment' => [
-                    'id' => $segment->getId(),
-                    'name' => $segment->getName()
-                ],
-                'summary' => [
-                    'total' => count($results),
-                    'successful' => $successful,
-                    'failed' => $failed
+                'status' => $result['success'] ? 'success' : 'error',
+                'message' => $result['message'] ?? 'Envoi au segment terminé',
+                'segment' => $result['segment'] ?? ['id' => (int)$segmentId],
+                'summary' => $result['summary'] ?? [
+                    'total' => 0,
+                    'successful' => 0,
+                    'failed' => 0
                 ],
                 'results' => $formattedResults
             ];
@@ -290,7 +233,7 @@ class SMSController
             return [
                 'status' => 'error',
                 'message' => 'Erreur lors de l\'envoi au segment: ' . $e->getMessage(),
-                'segment' => null,
+                'segment' => ['id' => (int)$segmentId],
                 'summary' => [
                     'total' => 0,
                     'successful' => 0,

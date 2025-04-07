@@ -56,8 +56,9 @@ use App\Repositories\SMSHistoryRepository;
 
 // Enable CORS for GraphQL endpoint
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Credentials: true');
 
 // Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -91,34 +92,250 @@ if (empty($input)) {
 }
 
 try {
-    // Create PDO instance
-    $dbFile = __DIR__ . '/../src/database/database.sqlite';
-    $pdo = new \PDO("sqlite:$dbFile");
-    $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+    // Create DI container
+    $container = new \App\GraphQL\DIContainer();
 
-    // Create repository
-    $smsHistoryRepository = new SMSHistoryRepository($pdo);
+    // Get repositories from container
+    $smsHistoryRepository = $container->get(\App\Repositories\SMSHistoryRepository::class);
+    $userRepository = $container->get(\App\Repositories\UserRepository::class);
+    $customSegmentRepository = $container->get(\App\Repositories\CustomSegmentRepository::class);
+    $smsService = $container->get(\App\Services\SMSService::class);
 
     // Load schema from file
     $schemaString = file_get_contents(__DIR__ . '/../src/GraphQL/schema.graphql');
     $schema = BuildSchema::build($schemaString);
 
-    // Create SMS service
-    $smsService = new \App\Services\SMSService(
-        'DGxbQKd9JHXLdFaWGtv0FfqFFI7Gu03a',  // Client ID
-        'S4ywfdZUjNvOXErMr5NyQwgliBCdXIAYp1DcibKThBXs',  // Client Secret
-        'tel:+2250595016840',  // Sender address
-        'Qualitas CI',  // Sender name
-        new \App\Repositories\PhoneNumberRepository($pdo),
-        new \App\Repositories\CustomSegmentRepository($pdo),
-        $smsHistoryRepository
-    );
-
-    // Create repositories
-    $customSegmentRepository = new \App\Repositories\CustomSegmentRepository($pdo);
-
     // Define resolvers
     $rootValue = [
+        // User resolvers
+        'users' => function () use ($userRepository) {
+            error_log('Executing users resolver');
+            try {
+                $users = $userRepository->findAll();
+                error_log('Found ' . count($users) . ' users');
+
+                // Convert User objects to arrays
+                $result = [];
+                foreach ($users as $user) {
+                    $result[] = [
+                        'id' => $user->getId(),
+                        'username' => $user->getUsername(),
+                        'email' => $user->getEmail(),
+                        'smsCredit' => $user->getSmsCredit(),
+                        'smsLimit' => $user->getSmsLimit(),
+                        'createdAt' => $user->getCreatedAt(),
+                        'updatedAt' => $user->getUpdatedAt()
+                    ];
+                }
+                error_log('Converted users to arrays: ' . json_encode($result));
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in users resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'user' => function ($rootValue, $args) use ($userRepository) {
+            error_log('Executing user resolver for ID: ' . $args['id']);
+            try {
+                $user = $userRepository->findById((int)$args['id']);
+                if (!$user) {
+                    return null;
+                }
+
+                // Convert User object to array
+                $result = [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'email' => $user->getEmail(),
+                    'smsCredit' => $user->getSmsCredit(),
+                    'smsLimit' => $user->getSmsLimit(),
+                    'createdAt' => $user->getCreatedAt(),
+                    'updatedAt' => $user->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in user resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'userByUsername' => function ($rootValue, $args) use ($userRepository) {
+            error_log('Executing userByUsername resolver for username: ' . $args['username']);
+            try {
+                $user = $userRepository->findByUsername($args['username']);
+                if (!$user) {
+                    return null;
+                }
+
+                // Convert User object to array
+                $result = [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'email' => $user->getEmail(),
+                    'smsCredit' => $user->getSmsCredit(),
+                    'smsLimit' => $user->getSmsLimit(),
+                    'createdAt' => $user->getCreatedAt(),
+                    'updatedAt' => $user->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in userByUsername resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'createUser' => function ($rootValue, $args) use ($userRepository) {
+            error_log('Executing createUser resolver for username: ' . $args['username']);
+            try {
+                // Vérifier si l'utilisateur existe déjà
+                $existingUser = $userRepository->findByUsername($args['username']);
+                if ($existingUser) {
+                    throw new \Exception("Un utilisateur avec ce nom d'utilisateur existe déjà");
+                }
+
+                // Hacher le mot de passe
+                $hashedPassword = password_hash($args['password'], PASSWORD_DEFAULT);
+
+                // Créer l'utilisateur
+                $smsCredit = isset($args['smsCredit']) ? (int)$args['smsCredit'] : 10;
+                $smsLimit = isset($args['smsLimit']) ? (int)$args['smsLimit'] : null;
+                $user = new \App\Models\User($args['username'], $hashedPassword, null, $args['email'] ?? null, $smsCredit, $smsLimit);
+
+                // Sauvegarder l'utilisateur
+                $user = $userRepository->save($user);
+
+                // Convert User object to array
+                $result = [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'email' => $user->getEmail(),
+                    'smsCredit' => $user->getSmsCredit(),
+                    'smsLimit' => $user->getSmsLimit(),
+                    'createdAt' => $user->getCreatedAt(),
+                    'updatedAt' => $user->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in createUser resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'updateUser' => function ($rootValue, $args) use ($userRepository) {
+            error_log('Executing updateUser resolver for ID: ' . $args['id']);
+            try {
+                // Récupérer l'utilisateur
+                $user = $userRepository->findById((int)$args['id']);
+                if (!$user) {
+                    throw new \Exception("Utilisateur non trouvé");
+                }
+
+                // Mettre à jour les champs
+                if (isset($args['email'])) {
+                    $user->setEmail($args['email']);
+                }
+
+                if (isset($args['smsLimit'])) {
+                    $user->setSmsLimit((int)$args['smsLimit']);
+                }
+
+                // Sauvegarder l'utilisateur
+                $user = $userRepository->save($user);
+
+                // Convert User object to array
+                $result = [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'email' => $user->getEmail(),
+                    'smsCredit' => $user->getSmsCredit(),
+                    'smsLimit' => $user->getSmsLimit(),
+                    'createdAt' => $user->getCreatedAt(),
+                    'updatedAt' => $user->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in updateUser resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'changePassword' => function ($rootValue, $args) use ($userRepository) {
+            error_log('Executing changePassword resolver for ID: ' . $args['id']);
+            try {
+                // Récupérer l'utilisateur
+                $user = $userRepository->findById((int)$args['id']);
+                if (!$user) {
+                    throw new \Exception("Utilisateur non trouvé");
+                }
+
+                // Hacher le nouveau mot de passe
+                $hashedPassword = password_hash($args['newPassword'], PASSWORD_DEFAULT);
+                $user->setPassword($hashedPassword);
+
+                // Sauvegarder l'utilisateur
+                $user = $userRepository->save($user);
+
+                // Convert User object to array
+                $result = [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'email' => $user->getEmail(),
+                    'smsCredit' => $user->getSmsCredit(),
+                    'smsLimit' => $user->getSmsLimit(),
+                    'createdAt' => $user->getCreatedAt(),
+                    'updatedAt' => $user->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in changePassword resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'addCredits' => function ($rootValue, $args) use ($userRepository) {
+            error_log('Executing addCredits resolver for ID: ' . $args['id'] . ', amount: ' . $args['amount']);
+            try {
+                // Récupérer l'utilisateur
+                $user = $userRepository->findById((int)$args['id']);
+                if (!$user) {
+                    throw new \Exception("Utilisateur non trouvé");
+                }
+
+                // Ajouter les crédits
+                $currentCredits = $user->getSmsCredit();
+                $user->setSmsCredit($currentCredits + (int)$args['amount']);
+
+                // Sauvegarder l'utilisateur
+                $user = $userRepository->save($user);
+
+                // Convert User object to array
+                $result = [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'email' => $user->getEmail(),
+                    'smsCredit' => $user->getSmsCredit(),
+                    'smsLimit' => $user->getSmsLimit(),
+                    'createdAt' => $user->getCreatedAt(),
+                    'updatedAt' => $user->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in addCredits resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'deleteUser' => function ($rootValue, $args) use ($userRepository) {
+            // Récupérer l'utilisateur
+            $user = $userRepository->findById((int)$args['id']);
+            if (!$user) {
+                throw new \Exception("Utilisateur non trouvé");
+            }
+
+            // Supprimer l'utilisateur
+            return $userRepository->delete((int)$args['id']);
+        },
         'retrySms' => function ($rootValue, $args) use ($smsService, $smsHistoryRepository) {
             $id = $args['id'];
 
@@ -310,6 +527,42 @@ try {
                 ];
             }
         },
+        'login' => function ($rootValue, $args) use ($container) {
+            $username = $args['username'];
+            $password = $args['password'];
+
+            try {
+                $authService = $container->get(\App\Services\Interfaces\AuthServiceInterface::class);
+                $user = $authService->authenticate($username, $password);
+
+                if (!$user) {
+                    throw new \Exception("Nom d'utilisateur ou mot de passe incorrect");
+                }
+
+                // Générer un token JWT (ou tout autre type de token)
+                $token = bin2hex(random_bytes(32)); // Génération simple pour l'exemple
+
+                // Retourner les informations de l'utilisateur
+                return [
+                    'token' => $token,
+                    'user' => [
+                        'id' => $user->getId(),
+                        'username' => $user->getUsername(),
+                        'email' => $user->getEmail(),
+                        'smsCredit' => $user->getSmsCredit(),
+                        'smsLimit' => $user->getSmsLimit(),
+                        'isAdmin' => $user->isAdmin(),
+                        'createdAt' => $user->getCreatedAt(),
+                        'updatedAt' => $user->getUpdatedAt()
+                    ]
+                ];
+            } catch (\Exception $e) {
+                error_log('Error in login resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+
         'sendSmsToSegment' => function ($rootValue, $args) use ($smsService, $customSegmentRepository) {
             $segmentId = $args['segmentId'];
             $message = $args['message'];

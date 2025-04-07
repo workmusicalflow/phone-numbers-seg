@@ -16,6 +16,21 @@ define('APP_ROOT', dirname(__DIR__));
 // Require Composer autoloader
 require APP_ROOT . '/vendor/autoload.php';
 
+// Load environment variables from .env file
+try {
+    $dotenv = Dotenv\Dotenv::createImmutable(APP_ROOT);
+    $dotenv->load();
+} catch (Dotenv\Exception\InvalidPathException $e) {
+    // .env file not found, proceed with defaults or system env vars
+    // You might want to log this in a real application
+    error_log('.env file not found, using default configurations or system environment variables.');
+} catch (Exception $e) {
+    // Other potential errors during Dotenv loading
+    error_log('Error loading .env file: ' . $e->getMessage());
+    // Depending on your error handling strategy, you might want to die() here
+}
+
+
 // Initialize application
 // This is a placeholder for the actual application initialization
 // which will be implemented as the project progresses
@@ -112,10 +127,19 @@ require APP_ROOT . '/vendor/autoload.php';
         </div>
 
         <div class="nav">
-            <a href="segment.html">Segmentation Individuelle</a>
-            <a href="batch.html">Traitement par Lot</a>
-            <a href="sms.html">Envoi de SMS</a>
-            <a href="segments.html">Gestion des Segments</a>
+            <a href="http://localhost:5173/">Vue.js App</a>
+            <a href="http://localhost:5173/segment" style="background-color: #27ae60;">Segmentation Vue.js</a>
+            <a href="http://localhost:5173/batch">Traitement par Lot Vue.js</a>
+            <a href="http://localhost:5173/sms">Envoi de SMS Vue.js</a>
+            <a href="http://localhost:5173/segments">Gestion des Segments Vue.js</a>
+            <a href="http://localhost:5173/import">Import/Export Vue.js</a>
+            <hr style="margin: 20px 0;">
+            <a href="segment.html">Segmentation (Ancienne)</a>
+            <a href="batch.html">Traitement par Lot (Ancien)</a>
+            <a href="sms.html">Envoi de SMS (Ancien)</a>
+            <a href="segments.html">Gestion des Segments (Ancien)</a>
+            <a href="import.html">Import/Export (Ancien)</a>
+            <a href="graphiql.html" style="background-color: #9b59b6;">API GraphQL</a>
         </div>
 
         <div class="features">
@@ -124,6 +148,10 @@ require APP_ROOT . '/vendor/autoload.php';
                 <p>Segmentez un numéro de téléphone à la fois pour obtenir des informations détaillées sur ses
                     composants.</p>
                 <p>Idéal pour analyser un numéro spécifique et comprendre sa structure.</p>
+                <p><strong>Nouveau :</strong> Ajoutez des informations de contact (civilité, prénom, nom, entreprise)
+                    avec la nouvelle interface Vue.js.</p>
+                <p><a href="http://localhost:5173/segment" style="color: #27ae60; font-weight: bold;">Essayer la
+                        nouvelle interface →</a></p>
             </div>
 
             <div class="feature">
@@ -143,6 +171,19 @@ require APP_ROOT . '/vendor/autoload.php';
                 <h2>Gestion des Segments</h2>
                 <p>Créez, modifiez et supprimez des segments personnalisés pour organiser vos numéros de téléphone.</p>
                 <p>Utilisez ces segments pour cibler vos campagnes SMS et analyser vos données.</p>
+            </div>
+
+            <div class="feature">
+                <h2>Import/Export</h2>
+                <p>Importez des numéros de téléphone depuis un fichier CSV ou un texte brut.</p>
+                <p>Exportez vos données pour les utiliser dans d'autres applications ou pour sauvegarder vos
+                    informations.</p>
+            </div>
+
+            <div class="feature">
+                <h2>API GraphQL</h2>
+                <p>Accédez à toutes les fonctionnalités de l'application via une API GraphQL moderne et flexible.</p>
+                <p>Utilisez l'interface GraphiQL pour explorer et tester l'API interactivement.</p>
             </div>
         </div>
     </div>

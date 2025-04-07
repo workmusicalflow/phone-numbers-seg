@@ -1,143 +1,199 @@
-# Cline Rules: Phone Numbers Segmentation Web Application
+# Règles et Préférences du Projet Oracle
 
-## Project Patterns
+## Conventions de Nommage
 
-### Coding Standards
+1. **Classes PHP** : PascalCase (ex: `PhoneNumber`, `SegmentRepository`)
+2. **Méthodes PHP** : camelCase (ex: `findById`, `segmentPhoneNumber`)
+3. **Variables PHP** : camelCase (ex: `$phoneNumber`, `$segmentType`)
+4. **Constantes PHP** : UPPER_SNAKE_CASE (ex: `DEFAULT_COUNTRY_CODE`, `MAX_BATCH_SIZE`)
+5. **Fichiers PHP** : PascalCase pour les classes (ex: `PhoneNumber.php`, `SegmentRepository.php`)
+6. **Composants Vue** : PascalCase (ex: `PhoneNumberCard.vue`, `CustomSegmentForm.vue`)
+7. **Propriétés et méthodes Vue** : camelCase (ex: `phoneNumber`, `handleSubmit`)
+8. **Stores Pinia** : camelCase avec suffixe "Store" (ex: `phoneStore`, `segmentStore`)
+9. **Fichiers CSS/SASS** : kebab-case (ex: `global.css`, `quasar-variables.sass`)
+10. **Tables de base de données** : snake_case au pluriel (ex: `phone_numbers`, `custom_segments`)
+11. **Colonnes de base de données** : snake_case (ex: `phone_number_id`, `created_at`)
 
-- PHP code follows PSR-12 coding standards
-- Use type hints for function parameters and return types
-- Document classes and methods with PHPDoc comments
-- Use meaningful variable and function names
+## Structure du Code
 
-### Architecture Patterns
+### PHP
 
-- Follow three-layer architecture (presentation, business, data)
-- Use repository pattern for data access
-- Implement service classes for business logic
-- Keep controllers thin, delegating to services
+1. **Namespaces** : Utiliser des namespaces correspondant à la structure des dossiers
+2. **Autoloading** : Utiliser l'autoloading PSR-4 via Composer
+3. **Dépendances** : Injecter les dépendances via le constructeur
+4. **Interfaces** : Créer des interfaces pour les repositories et services
+5. **Exceptions** : Créer des exceptions spécifiques pour chaque type d'erreur
+6. **Validation** : Valider les entrées au niveau des contrôleurs
+7. **Transactions** : Utiliser des transactions pour les opérations impliquant plusieurs tables
 
-### File Organization
+### Vue.js
 
-- Models in `src/Models/`
-- Services in `src/Services/`
-- Controllers in `src/Controllers/`
-- Repositories in `src/Repositories/`
-- Templates in `public/templates/`
-- Static assets in `public/assets/`
-- Tests mirror the src structure in `tests/`
+1. **Composition API** : Préférer la Composition API à l'Options API
+2. **TypeScript** : Utiliser TypeScript pour tous les composants et stores
+3. **Props** : Définir des types et des valeurs par défaut pour toutes les props
+4. **Composants** : Créer des composants réutilisables et modulaires
+5. **Stores** : Utiliser Pinia pour la gestion d'état global
+6. **Routing** : Utiliser Vue Router pour la navigation
+7. **Lazy Loading** : Utiliser le lazy loading pour les composants lourds
+8. **Composables** : Extraire la logique réutilisable dans des composables
 
-## User Preferences
+## Patterns et Pratiques
 
-### Development Workflow
+1. **Repository Pattern** : Utiliser le pattern Repository pour l'accès aux données
+2. **Service Pattern** : Encapsuler la logique métier dans des services
+3. **Dependency Injection** : Injecter les dépendances plutôt que de les créer en interne
+4. **Factory Pattern** : Utiliser des factories pour créer des objets complexes
+5. **Observer Pattern** : Utiliser des événements pour notifier les composants intéressés
+6. **Strategy Pattern** : Encapsuler différentes stratégies de segmentation
+7. **TDD** : Écrire les tests avant le code quand c'est possible
+8. **SOLID** : Suivre les principes SOLID pour une architecture robuste
+9. **DRY** : Ne pas se répéter, extraire le code commun dans des fonctions/classes
+10. **KISS** : Garder le code simple et lisible
 
-- Use Git for version control
-- Follow test-driven development (TDD) approach
-- Document changes in memory bank after significant updates
-- Keep track of progress in progress.md
+## Préférences de Formatage
 
-### Documentation Style
+### PHP
 
-- Use Markdown for all documentation
-- Include code examples where appropriate
-- Keep documentation up-to-date with code changes
-- Use mermaid diagrams for visualizing architecture and flows
+1. **Indentation** : 4 espaces
+2. **Accolades** : Sur la même ligne pour les fonctions et classes
+3. **Espaces** : Espaces autour des opérateurs
+4. **Longueur de ligne** : Maximum 120 caractères
+5. **Commentaires** : DocBlocks pour les classes et méthodes publiques
+6. **Type Hints** : Utiliser les type hints pour les paramètres et retours
+7. **Nullable Types** : Utiliser `?` pour les types nullables (ex: `?string`)
+8. **Return Types** : Toujours spécifier le type de retour
 
-## Implementation Notes
+### JavaScript/TypeScript
 
-### Phone Number Segmentation
+1. **Indentation** : 2 espaces
+2. **Quotes** : Guillemets simples pour les chaînes
+3. **Semicolons** : Obligatoires
+4. **Trailing Commas** : Obligatoires pour les objets et tableaux multi-lignes
+5. **Arrow Functions** : Préférer les arrow functions pour les callbacks
+6. **Destructuring** : Utiliser la déstructuration quand c'est approprié
+7. **Async/Await** : Préférer async/await aux promesses chaînées
+8. **Types** : Définir des interfaces pour les objets complexes
+9. **Enums** : Utiliser des enums pour les valeurs constantes
+10. **Null Checks** : Utiliser l'opérateur de coalescence nulle (`??`)
 
-#### Technical Segmentation
+## Préférences de Base de Données
 
-- Focus specifically on Côte d'Ivoire phone numbers
-- Support three formats:
-  - International format with + prefix: +2250777104936
-  - International format with 00 prefix: 002250777104936
-  - Local format: 0777104936
-- Standardize all formats internally for consistent processing
-- Extract technical segments such as:
-  - Country code (225 for Côte d'Ivoire)
-  - Operator code (e.g., 07 for certain mobile operators)
-  - Subscriber number
-  - Operator name (derived from operator code)
-- Validation should check for valid Ivorian phone number formats
+1. **Migrations** : Toutes les modifications de schéma doivent être faites via des migrations
+2. **Clés étrangères** : Utiliser des clés étrangères avec `ON DELETE CASCADE` quand approprié
+3. **Indexes** : Indexer les colonnes fréquemment utilisées dans les requêtes WHERE
+4. **Timestamps** : Inclure `created_at` dans toutes les tables
+5. **Soft Deletes** : Utiliser des soft deletes pour les données importantes
+6. **Transactions** : Utiliser des transactions pour les opérations multi-tables
+7. **Préparation** : Toujours préparer les requêtes SQL avec des paramètres liés
 
-#### Business Segmentation
+## Préférences d'API
 
-- Support custom business-oriented segments for grouping phone numbers
-- Allow creating and managing custom segments (e.g., by sector, company, client type)
-- Implement many-to-many relationship between phone numbers and custom segments
-- Support filtering and searching phone numbers by custom segments
-- Provide API endpoints for managing custom segments and their associations
+1. **REST** : Suivre les conventions RESTful pour l'API REST
+2. **GraphQL** : Utiliser des types forts et des résolveurs efficaces
+3. **Validation** : Valider toutes les entrées avant traitement
+4. **Pagination** : Implémenter la pagination pour les collections larges
+5. **Filtrage** : Permettre le filtrage des collections via des paramètres de requête
+6. **Tri** : Permettre le tri des collections via des paramètres de requête
+7. **Versioning** : Pas de versioning explicite pour GraphQL, utiliser des champs dépréciés
+8. **Erreurs** : Renvoyer des messages d'erreur clairs et utiles
+9. **Documentation** : Documenter tous les endpoints et types GraphQL
 
-### SMS Functionality
+## Préférences de Test
 
-- Use the Orange SMS API for sending messages
-- Support sending SMS to:
-  - Individual phone numbers
-  - Multiple phone numbers (bulk sending)
-  - All phone numbers in a segment
-- Normalize phone numbers to the format required by the Orange API (tel:+2250777104936)
-- Handle API authentication with client ID and client secret
-- Provide a user interface for composing and sending SMS messages
-- Track success/failure of SMS sending operations
-- Use "Qualitas CI" as the sender name for all SMS messages
-- Return detailed results for bulk SMS operations, including success/failure counts
+1. **PHPUnit** : Utiliser PHPUnit pour les tests backend
+2. **Vitest** : Utiliser Vitest pour les tests frontend
+3. **Mocks** : Utiliser des mocks pour les dépendances externes
+4. **Fixtures** : Utiliser des fixtures pour les données de test
+5. **Coverage** : Viser une couverture de code d'au moins 80%
+6. **CI** : Exécuter les tests automatiquement dans le pipeline CI
+7. **TDD** : Écrire les tests avant le code quand c'est possible
+8. **Assertions** : Utiliser des assertions spécifiques et descriptives
+9. **Isolation** : Isoler les tests les uns des autres
+10. **Nommage** : Nommer les tests de manière descriptive (ex: `testCanSegmentValidPhoneNumber`)
 
-### Database Interactions
+## Préférences de Déploiement
 
-- Use prepared statements for all database queries
-- Implement transactions for operations that modify multiple tables
-- Keep database schema extensible to support both technical and business segmentation
-- Use migrations for database schema changes
-- Initialize database with sample custom segments
+1. **Environnements** : Développement, Test, Production
+2. **Configuration** : Utiliser des variables d'environnement ou des fichiers .env
+3. **Builds** : Construire les assets frontend avant déploiement
+4. **Migrations** : Exécuter les migrations automatiquement lors du déploiement
+5. **Rollback** : Prévoir un mécanisme de rollback en cas d'échec
+6. **Monitoring** : Mettre en place un monitoring des erreurs et performances
+7. **Logs** : Centraliser les logs pour faciliter le débogage
+8. **Backups** : Sauvegarder régulièrement la base de données
 
-### Frontend Approach
+## Préférences de Documentation
 
-- Use HTMX for AJAX requests and dynamic content
-- Use Alpine.js for reactive components
-- Keep JavaScript usage minimal and focused
-- Ensure responsive design for mobile compatibility
-- Provide intuitive interfaces for both technical and business segmentation
+1. **Code** : Documenter les classes, méthodes et fonctions complexes
+2. **API** : Documenter tous les endpoints REST et types GraphQL
+3. **Architecture** : Maintenir une documentation de l'architecture système
+4. **Utilisateur** : Créer des guides utilisateur pour les fonctionnalités principales
+5. **Markdown** : Utiliser Markdown pour la documentation
+6. **Diagrammes** : Utiliser Mermaid pour les diagrammes
+7. **Exemples** : Inclure des exemples concrets dans la documentation
+8. **Mise à jour** : Mettre à jour la documentation lors des changements significatifs
 
-## Learning Journal
+## Préférences Spécifiques au Projet
 
-### Key Insights
+1. **Format de numéro** : Normaliser les numéros au format international (+XXX...)
+2. **Validation de numéro** : Utiliser des expressions régulières pour valider les numéros
+3. **Segmentation** : Segmenter les numéros en code pays, opérateur et numéro d'abonné
+4. **SMS** : Limiter la longueur des SMS à 160 caractères pour éviter la fragmentation
+5. **Historique SMS** : Enregistrer tous les SMS envoyés avec leur statut
+6. **Import CSV** : Supporter différents formats de délimiteurs et d'encodage
+7. **Export** : Proposer plusieurs formats d'export (CSV, Excel)
+8. **Segments personnalisés** : Valider les expressions régulières des segments personnalisés
+9. **Traitement par lot** : Limiter la taille des lots pour éviter les problèmes de mémoire
+10. **Détection d'opérateur** : Maintenir une base de données d'opérateurs à jour
 
-- The project uses a combination of HTMX and Alpine.js to create a dynamic UI with minimal JavaScript
-- SQLite provides a simple, file-based database solution that's perfect for this application
-- The three-layer architecture ensures separation of concerns and maintainability
-- Dual segmentation approach (technical and business) provides comprehensive phone number management
+## Préférences d'Interface Utilisateur
 
-### Challenges to Watch
+1. **Responsive** : Toutes les interfaces doivent être responsive
+2. **Thème** : Utiliser les variables Quasar pour la cohérence du thème
+3. **Formulaires** : Valider les formulaires côté client avant soumission
+4. **Feedback** : Fournir un feedback visuel pour les actions utilisateur
+5. **Erreurs** : Afficher les erreurs de manière claire et utile
+6. **Loading** : Indiquer les chargements avec des spinners ou skeletons
+7. **Pagination** : Paginer les listes longues
+8. **Filtres** : Permettre le filtrage des listes
+9. **Tri** : Permettre le tri des listes
+10. **Accessibilité** : Suivre les bonnes pratiques d'accessibilité (WCAG)
 
-- Handling the three different Côte d'Ivoire phone number formats consistently
-- Identifying and extracting operator information from Ivorian numbers
-- Keeping up with any changes in Ivorian telecom numbering plans
-- Balancing between simple UI and powerful functionality
-- Ensuring performance with potentially complex segmentation algorithms
-- Managing the many-to-many relationship between phone numbers and custom segments efficiently
+## Préférences de Sécurité
 
-### Evolution of Decisions
+1. **Validation** : Valider toutes les entrées utilisateur
+2. **Préparation SQL** : Utiliser des requêtes préparées pour éviter les injections SQL
+3. **XSS** : Échapper les sorties HTML pour éviter les attaques XSS
+4. **CSRF** : Utiliser des tokens CSRF pour les formulaires
+5. **Erreurs** : Ne pas exposer les détails des erreurs aux utilisateurs
+6. **Logs** : Ne pas logger d'informations sensibles
+7. **HTTPS** : Utiliser HTTPS pour toutes les communications
+8. **Authentification** : Implémenter une authentification robuste (à venir)
+9. **Autorisation** : Vérifier les permissions pour chaque action (à venir)
+10. **Données sensibles** : Chiffrer les données sensibles en base de données (à venir)
 
-- SQLite was chosen for simplicity, but may need to evaluate if it meets performance needs as the application grows
-- HTMX and Alpine.js were selected to minimize JavaScript while still providing dynamic UI capabilities
-- The three-layer architecture was adopted to ensure clean separation of concerns
-- Enhanced the database schema to support business-oriented segmentation for SMS campaigns
-- Added custom segments to support business requirements for targeted SMS campaigns
-- Integrated with the Orange SMS API for sending messages to segments
-- Created a dedicated SMS service and controller for handling SMS operations
+## Préférences de Performance
 
-## Tool Usage Patterns
+1. **Requêtes SQL** : Optimiser les requêtes SQL avec des indexes appropriés
+2. **N+1** : Éviter le problème N+1 en utilisant des jointures ou eager loading
+3. **Caching** : Mettre en cache les résultats fréquemment demandés
+4. **Assets** : Minifier et bundler les assets frontend
+5. **Lazy Loading** : Utiliser le lazy loading pour les composants Vue.js
+6. **Code Splitting** : Diviser le bundle JavaScript en chunks
+7. **Images** : Optimiser les images pour le web
+8. **GraphQL** : Demander uniquement les champs nécessaires
+9. **Pagination** : Paginer les grandes collections
+10. **Batch Processing** : Traiter les grandes quantités de données par lots
 
-### Development Tools
+## Préférences de Collaboration
 
-- Composer for PHP dependency management
-- PHPUnit for testing
-- Git for version control
-- PHP's built-in server for local development
-
-### Testing Approach
-
-- Write unit tests for models, services, and repositories
-- Use integration tests for testing interactions between components
-- Manually test UI interactions
+1. **Git Flow** : Utiliser Git Flow pour la gestion des branches
+2. **Pull Requests** : Créer des pull requests pour les nouvelles fonctionnalités
+3. **Code Review** : Faire des revues de code pour toutes les pull requests
+4. **Commits** : Écrire des messages de commit descriptifs
+5. **Issues** : Lier les commits aux issues correspondantes
+6. **CI/CD** : Utiliser CI/CD pour automatiser les tests et déploiements
+7. **Documentation** : Mettre à jour la documentation avec les changements
+8. **Changelog** : Maintenir un changelog des modifications
+9. **Versioning** : Utiliser le versioning sémantique pour les releases
+10. **Communication** : Communiquer clairement les changements à l'équipe

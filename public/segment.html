@@ -99,10 +99,7 @@
     </style>
   </head>
   <body>
-    <div
-      class="container"
-      x-data="{ phoneNumber: '', result: null, error: null }"
-    >
+    <div class="container" x-data="segmentApp">
       <div class="nav" style="margin-bottom: 20px">
         <a
           href="index.php"
@@ -129,6 +126,11 @@
           style="color: #3498db; text-decoration: none; margin-right: 15px"
           >Gestion des Segments</a
         >
+        <a
+          href="import.html"
+          style="color: #3498db; text-decoration: none; margin-right: 15px"
+          >Import/Export</a
+        >
       </div>
 
       <h1>Segmentation de Numéros de Téléphone</h1>
@@ -143,15 +145,54 @@
         />
       </div>
 
-      <button
-        hx-post="/api.php?endpoint=segment"
-        hx-trigger="click"
-        :hx-vals='JSON.stringify({"number": phoneNumber})'
-        hx-target="#result"
-        hx-swap="innerHTML"
-        @click="error = null"
-      >
-        Segmenter
+      <div class="form-group">
+        <label for="civility">Civilité</label>
+        <select
+          id="civility"
+          x-model="civility"
+          style="
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+          "
+        >
+          <option value="">-- Sélectionner --</option>
+          <option value="M.">M.</option>
+          <option value="Mme">Mme</option>
+          <option value="Mlle">Mlle</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="firstName">Prénom</label>
+        <input
+          type="text"
+          id="firstName"
+          x-model="firstName"
+          placeholder="Prénom"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="name">Nom</label>
+        <input type="text" id="name" x-model="name" placeholder="Nom" />
+      </div>
+
+      <div class="form-group">
+        <label for="company">Entreprise</label>
+        <input
+          type="text"
+          id="company"
+          x-model="company"
+          placeholder="Entreprise"
+        />
+      </div>
+
+      <button @click="segmentNumber" x-bind:disabled="isLoading">
+        <span x-show="!isLoading">Segmenter</span>
+        <span x-show="isLoading">Segmentation en cours...</span>
       </button>
 
       <div class="examples">
@@ -169,7 +210,24 @@
         </p>
       </div>
 
-      <div id="result" class="result" x-show="!error" style="display: none">
+      <div
+        id="result"
+        class="result"
+        x-show="!error && result"
+        style="display: none"
+      >
+        <div
+          x-show="contactInfo"
+          class="contact-info"
+          style="
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #e8f4fc;
+            border-radius: 4px;
+          "
+        >
+          <span x-text="contactInfo"></span>
+        </div>
         <!-- Results will be displayed here -->
       </div>
 
@@ -182,81 +240,189 @@
     </div>
 
     <script>
-      document.body.addEventListener("htmx:beforeSwap", function (event) {
-        if (event.detail.xhr.status === 400) {
-          event.detail.shouldSwap = false;
-          const response = JSON.parse(event.detail.xhr.responseText);
-          try {
-            // Try to get the Alpine.js component safely
-            if (document.querySelector("[x-data]").__x) {
-              const app = document.querySelector("[x-data]").__x.$data;
-              app.error = response.error;
-            } else {
-              console.error("Alpine.js component not found");
-            }
-          } catch (e) {
-            console.error("Error accessing Alpine.js component:", e);
-          }
-          document.getElementById("result").style.display = "none";
-        } else {
-          document.getElementById("result").style.display = "block";
-        }
-      });
+      // Client-side logging function
+      function logToConsole(level, message, data = null) {
+        const timestamp = new Date().toISOString();
+        const logEntry = {
+          timestamp,
+          level,
+          message,
+          data,
+        };
 
-      // Reinitialize Alpine.js components after HTMX updates the DOM
-      document.addEventListener("htmx:afterSwap", function (event) {
-        if (window.Alpine && window.Alpine.initTree) {
-          // Alpine.js v3 syntax
-          window.Alpine.initTree(event.detail.target);
-        } else if (window.Alpine) {
-          // Fallback for older Alpine.js versions
-          document.querySelectorAll("[x-data]").forEach((el) => {
-            if (!el.__x) {
-              window.Alpine.initializeComponent(el);
-            }
-          });
-        }
-      });
+        console[level](`[${timestamp}] ${message}`, data || "");
 
-      document.body.addEventListener("htmx:afterSwap", function (event) {
-        const response = JSON.parse(event.detail.xhr.responseText);
-        const resultDiv = document.getElementById("result");
+        // In a production environment, you might want to send logs to the server
+        // or store them in localStorage for later analysis
+      }
 
-        // Clear previous results
-        resultDiv.innerHTML = "";
+      document.addEventListener("alpine:init", () => {
+        Alpine.data("segmentApp", () => ({
+          phoneNumber: "",
+          civility: "",
+          firstName: "",
+          name: "",
+          company: "",
+          result: null,
+          error: null,
+          isLoading: false,
 
-        // Display the normalized phone number
-        const numberDiv = document.createElement("div");
-        numberDiv.className = "segment";
-        numberDiv.innerHTML = `<span class="segment-type">Numéro normalisé:</span> <span class="segment-value">${response.number}</span>`;
-        resultDiv.appendChild(numberDiv);
+          get contactInfo() {
+            const parts = [];
 
-        // Display each segment
-        if (response.segments && response.segments.length > 0) {
-          response.segments.forEach((segment) => {
-            const segmentDiv = document.createElement("div");
-            segmentDiv.className = "segment";
-
-            let segmentType = segment.segmentType;
-            switch (segment.segmentType) {
-              case "country_code":
-                segmentType = "Code pays";
-                break;
-              case "operator_code":
-                segmentType = "Code opérateur";
-                break;
-              case "subscriber_number":
-                segmentType = "Numéro d'abonné";
-                break;
-              case "operator_name":
-                segmentType = "Opérateur";
-                break;
+            if (this.civility) {
+              parts.push(this.civility);
             }
 
-            segmentDiv.innerHTML = `<span class="segment-type">${segmentType}:</span> <span class="segment-value">${segment.value}</span>`;
-            resultDiv.appendChild(segmentDiv);
-          });
-        }
+            if (this.firstName) {
+              parts.push(this.firstName);
+            }
+
+            if (this.name) {
+              parts.push(this.name);
+            }
+
+            let result = parts.join(" ");
+
+            if (this.company) {
+              if (result) {
+                result += ` - ${this.company}`;
+              } else {
+                result = this.company;
+              }
+            }
+
+            return result;
+          },
+
+          segmentNumber() {
+            this.error = null;
+            this.result = null;
+            this.isLoading = true;
+
+            logToConsole("info", "Segmenting phone number", {
+              number: this.phoneNumber,
+              civility: this.civility,
+              firstName: this.firstName,
+              name: this.name,
+              company: this.company,
+            });
+
+            // Validate phone number before sending
+            if (!this.phoneNumber || this.phoneNumber.trim() === "") {
+              this.error = "Veuillez entrer un numéro de téléphone";
+              logToConsole("warn", "Empty phone number submitted");
+              this.isLoading = false;
+              return;
+            }
+
+            fetch("/api.php?endpoint=segment", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                number: this.phoneNumber,
+                civility: this.civility || null,
+                firstName: this.firstName || null,
+                name: this.name || null,
+                company: this.company || null,
+              }),
+            })
+              .then((response) => {
+                logToConsole("debug", "API Response received", {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: Object.fromEntries([...response.headers]),
+                });
+
+                if (!response.ok) {
+                  return response.json().then((data) => {
+                    this.error = data.error || "Une erreur est survenue";
+                    logToConsole("error", "API Error", {
+                      status: response.status,
+                      error: data.error,
+                    });
+                    throw new Error(this.error);
+                  });
+                }
+                return response.json();
+              })
+              .then((data) => {
+                this.isLoading = false;
+                this.result = data;
+
+                logToConsole(
+                  "info",
+                  "Successfully segmented phone number",
+                  data
+                );
+                const resultDiv = document.getElementById("result");
+                resultDiv.style.display = "block";
+
+                // Clear previous results
+                resultDiv.innerHTML = "";
+
+                try {
+                  // Display the normalized phone number
+                  const numberDiv = document.createElement("div");
+                  numberDiv.className = "segment";
+                  numberDiv.innerHTML = `<span class="segment-type">Numéro normalisé:</span> <span class="segment-value">${
+                    data.number || "Unknown"
+                  }</span>`;
+                  resultDiv.appendChild(numberDiv);
+
+                  // Display each segment
+                  if (
+                    data.technicalSegments &&
+                    data.technicalSegments.length > 0
+                  ) {
+                    data.technicalSegments.forEach((segment) => {
+                      const segmentDiv = document.createElement("div");
+                      segmentDiv.className = "segment";
+
+                      let segmentType = segment.segmentType;
+                      switch (segment.segmentType) {
+                        case "country_code":
+                          segmentType = "Code pays";
+                          break;
+                        case "operator_code":
+                          segmentType = "Code opérateur";
+                          break;
+                        case "subscriber_number":
+                          segmentType = "Numéro d'abonné";
+                          break;
+                        case "operator_name":
+                          segmentType = "Opérateur";
+                          break;
+                      }
+
+                      segmentDiv.innerHTML = `<span class="segment-type">${segmentType}:</span> <span class="segment-value">${segment.value}</span>`;
+                      resultDiv.appendChild(segmentDiv);
+                    });
+                  } else {
+                    logToConsole(
+                      "warn",
+                      "No segments found for phone number",
+                      data
+                    );
+                    const noSegmentsDiv = document.createElement("div");
+                    noSegmentsDiv.className = "segment";
+                    noSegmentsDiv.textContent =
+                      "Aucun segment trouvé pour ce numéro";
+                    resultDiv.appendChild(noSegmentsDiv);
+                  }
+                } catch (e) {
+                  logToConsole("error", "Error rendering results", e);
+                  resultDiv.innerHTML = `<div class="error">Erreur lors de l'affichage des résultats: ${e.message}</div>`;
+                }
+              })
+              .catch((error) => {
+                this.isLoading = false;
+                logToConsole("error", "Fetch error", error);
+              });
+          },
+        }));
       });
     </script>
   </body>

@@ -337,10 +337,10 @@ class SMSService
             $normalizedNumber = '+' . substr($number, 3);
         } elseif (substr($number, 0, 1) === '0') {
             // Format: 0777104936 - convert to +225...
-            $normalizedNumber = '+225' . substr($number, 1);
-        } else {
-            // If none of the above, assume it needs country code
             $normalizedNumber = '+225' . $number;
+        } else {
+            // If none of the above, assume it's already normalized or invalid
+            $normalizedNumber = $number;
         }
 
         // Add the 'tel:' prefix required by the Orange API

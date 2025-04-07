@@ -20,7 +20,17 @@ class PhoneNumber
     private string $number;
 
     /**
-     * @var string|null The name associated with this phone number
+     * @var string|null The civility (M., Mme, Mlle) associated with this phone number
+     */
+    private ?string $civility;
+
+    /**
+     * @var string|null The first name associated with this phone number
+     */
+    private ?string $firstName;
+
+    /**
+     * @var string|null The last name associated with this phone number
      */
     private ?string $name;
 
@@ -59,7 +69,9 @@ class PhoneNumber
      * 
      * @param string $number The phone number
      * @param int|null $id The ID (null for new records)
-     * @param string|null $name The name associated with this phone number
+     * @param string|null $civility The civility (M., Mme, Mlle) associated with this phone number
+     * @param string|null $firstName The first name associated with this phone number
+     * @param string|null $name The last name associated with this phone number
      * @param string|null $company The company associated with this phone number
      * @param string|null $sector The business sector associated with this phone number
      * @param string|null $notes Additional notes about this phone number
@@ -68,6 +80,8 @@ class PhoneNumber
     public function __construct(
         string $number,
         ?int $id = null,
+        ?string $civility = null,
+        ?string $firstName = null,
         ?string $name = null,
         ?string $company = null,
         ?string $sector = null,
@@ -76,6 +90,8 @@ class PhoneNumber
     ) {
         $this->number = $this->normalizeNumber($number);
         $this->id = $id;
+        $this->civility = $civility;
+        $this->firstName = $firstName;
         $this->name = $name;
         $this->company = $company;
         $this->sector = $sector;
@@ -138,7 +154,51 @@ class PhoneNumber
     }
 
     /**
-     * Get the name
+     * Get the civility
+     * 
+     * @return string|null
+     */
+    public function getCivility(): ?string
+    {
+        return $this->civility;
+    }
+
+    /**
+     * Set the civility
+     * 
+     * @param string|null $civility
+     * @return self
+     */
+    public function setCivility(?string $civility): self
+    {
+        $this->civility = $civility;
+        return $this;
+    }
+
+    /**
+     * Get the first name
+     * 
+     * @return string|null
+     */
+    public function getFirstName(): ?string
+    {
+        return $this->firstName;
+    }
+
+    /**
+     * Set the first name
+     * 
+     * @param string|null $firstName
+     * @return self
+     */
+    public function setFirstName(?string $firstName): self
+    {
+        $this->firstName = $firstName;
+        return $this;
+    }
+
+    /**
+     * Get the last name
      * 
      * @return string|null
      */
@@ -148,7 +208,7 @@ class PhoneNumber
     }
 
     /**
-     * Set the name
+     * Set the last name
      * 
      * @param string|null $name
      * @return self
@@ -379,6 +439,8 @@ class PhoneNumber
         return [
             'id' => $this->id,
             'number' => $this->number,
+            'civility' => $this->civility,
+            'firstName' => $this->firstName,
             'name' => $this->name,
             'company' => $this->company,
             'sector' => $this->sector,

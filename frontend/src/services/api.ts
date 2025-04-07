@@ -1,0 +1,42 @@
+import axios from 'axios';
+
+// Créer une instance axios avec la configuration de base
+const api = axios.create({
+  baseURL: '/api', // URL de base pour toutes les requêtes
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+});
+
+// Intercepteur pour ajouter le token d'authentification à chaque requête
+api.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
+
+// Intercepteur pour gérer les erreurs de réponse
+api.interceptors.response.use(
+  response => {
+    return response;
+  },
+  error => {
+    // Gérer les erreurs d'authentification (401)
+    if (error.response && error.response.status === 401) {
+      // Rediriger vers la page de connexion
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export { api };

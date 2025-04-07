@@ -233,11 +233,29 @@ class PhoneController
      * Segment action - segment a phone number without saving it
      * 
      * @param string $number
+     * @param string|null $civility
+     * @param string|null $firstName
+     * @param string|null $name
+     * @param string|null $company
      * @return array
      */
-    public function segment(string $number): array
-    {
-        $phoneNumber = new PhoneNumber($number);
+    public function segment(
+        string $number,
+        ?string $civility = null,
+        ?string $firstName = null,
+        ?string $name = null,
+        ?string $company = null
+    ): array {
+        $phoneNumber = new PhoneNumber(
+            $number,
+            null,
+            $name,
+            $company,
+            null,
+            null,
+            $civility,
+            $firstName
+        );
 
         // Check if the phone number is valid
         if (!$phoneNumber->isValid()) {

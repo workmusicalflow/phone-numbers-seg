@@ -53,17 +53,58 @@ class PhoneNumberTest extends TestCase
     }
 
     /**
+     * Test civility getter and setter
+     */
+    public function testCivilityGetterAndSetter()
+    {
+        $phoneNumber = new PhoneNumber('+2250777104936');
+        $this->assertNull($phoneNumber->getCivility());
+
+        $phoneNumber->setCivility('M.');
+        $this->assertEquals('M.', $phoneNumber->getCivility());
+    }
+
+    /**
+     * Test firstName getter and setter
+     */
+    public function testFirstNameGetterAndSetter()
+    {
+        $phoneNumber = new PhoneNumber('+2250777104936');
+        $this->assertNull($phoneNumber->getFirstName());
+
+        $phoneNumber->setFirstName('John');
+        $this->assertEquals('John', $phoneNumber->getFirstName());
+    }
+
+    /**
      * Test phone number to array conversion
      */
     public function testToArray()
     {
-        $phoneNumber = new PhoneNumber('+2250777104936', 1, '2023-01-01 00:00:00');
+        $phoneNumber = new PhoneNumber(
+            '+2250777104936',
+            1,
+            'M.',
+            'John',
+            'Doe',
+            'ACME Corp',
+            'Technology',
+            'Important client',
+            '2023-01-01 00:00:00'
+        );
         $array = $phoneNumber->toArray();
 
         $this->assertIsArray($array);
         $this->assertEquals(1, $array['id']);
         $this->assertEquals('+2250777104936', $array['number']);
+        $this->assertEquals('M.', $array['civility']);
+        $this->assertEquals('John', $array['firstName']);
+        $this->assertEquals('Doe', $array['name']);
+        $this->assertEquals('ACME Corp', $array['company']);
+        $this->assertEquals('Technology', $array['sector']);
+        $this->assertEquals('Important client', $array['notes']);
         $this->assertEquals('2023-01-01 00:00:00', $array['dateAdded']);
-        $this->assertIsArray($array['segments']);
+        $this->assertIsArray($array['technicalSegments']);
+        $this->assertIsArray($array['customSegments']);
     }
 }

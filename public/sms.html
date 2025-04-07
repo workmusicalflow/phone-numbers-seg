@@ -158,6 +158,18 @@
         loading: false,
         activeTab: 'segment',
         
+        // Helper function to safely access nested properties
+        getNestedProp(obj, path, defaultValue = '') {
+          if (!obj) return defaultValue;
+          const keys = path.split('.');
+          let result = obj;
+          for (const key of keys) {
+            result = result[key];
+            if (result === undefined || result === null) return defaultValue;
+          }
+          return result;
+        },
+        
         selectSegment(id) {
           this.selectedSegmentId = id;
         },
@@ -297,6 +309,7 @@
         <a href="batch.html">Traitement par Lot</a>
         <a href="sms.html">Envoi de SMS</a>
         <a href="segments.html">Gestion des Segments</a>
+        <a href="import.html">Import/Export</a>
       </div>
 
       <h1>Envoi de SMS</h1>
@@ -432,49 +445,73 @@
       ></div>
 
       <!-- Result display -->
-      <div class="result" x-show="result">
-        <div x-show="result.status === 'success'" class="success">
+      <div class="result" x-show="result !== null">
+        <div x-show="result && result.status === 'success'" class="success">
           <p>SMS envoyé avec succès!</p>
 
           <!-- Summary for segment sending -->
-          <div class="summary" x-show="result.segment">
+          <div class="summary" x-show="result && result.segment">
             <p>
               <strong>Segment:</strong>
-              <span x-text="result.segment.name"></span>
+              <span
+                x-text="result && result.segment ? result.segment.name : ''"
+              ></span>
             </p>
             <p>
               <strong>Total:</strong>
-              <span x-text="result.summary.total"></span> numéros
+              <span
+                x-text="result && result.summary ? result.summary.total : 0"
+              ></span>
+              numéros
             </p>
             <p>
               <strong>Réussis:</strong>
-              <span x-text="result.summary.successful"></span>
+              <span
+                x-text="result && result.summary ? result.summary.successful : 0"
+              ></span>
             </p>
             <p>
               <strong>Échoués:</strong>
-              <span x-text="result.summary.failed"></span>
+              <span
+                x-text="result && result.summary ? result.summary.failed : 0"
+              ></span>
             </p>
           </div>
 
           <!-- Summary for bulk sending -->
-          <div class="summary" x-show="result.summary && !result.segment">
+          <div
+            class="summary"
+            x-show="result && result.summary && !result.segment"
+          >
             <p>
               <strong>Total:</strong>
-              <span x-text="result.summary.total"></span> numéros
+              <span
+                x-text="result && result.summary ? result.summary.total : 0"
+              ></span>
+              numéros
             </p>
             <p>
               <strong>Réussis:</strong>
-              <span x-text="result.summary.successful"></span>
+              <span
+                x-text="result && result.summary ? result.summary.successful : 0"
+              ></span>
             </p>
             <p>
               <strong>Échoués:</strong>
-              <span x-text="result.summary.failed"></span>
+              <span
+                x-text="result && result.summary ? result.summary.failed : 0"
+              ></span>
             </p>
           </div>
         </div>
 
-        <div x-show="result.status === 'error'" class="error">
-          <p>Erreur: <span x-text="result.message"></span></p>
+        <div x-show="result && result.status === 'error'" class="error">
+          <p>
+            Erreur:
+            <span
+              x-text="result && result.message ? result.message : 'Une erreur est survenue'"
+            ></span>
+          </p>
         </div>
       </div>
     </div>

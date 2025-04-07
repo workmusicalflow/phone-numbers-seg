@@ -157,26 +157,14 @@
     </style>
   </head>
   <body>
-    <div
-      class="container"
-      x-data="{
-        phoneNumbers: '',
-        result: null,
-        error: null,
-        activeTab: 'segment',
-        setTab(tab) {
-          this.activeTab = tab;
-          this.result = null;
-          this.error = null;
-        }
-      }"
-    >
+    <div class="container" x-data="container">
       <div class="nav">
         <a href="index.php">Accueil</a>
         <a href="segment.html">Segmentation Individuelle</a>
         <a href="batch.html">Traitement par Lot</a>
         <a href="sms.html">Envoi de SMS</a>
         <a href="segments.html">Gestion des Segments</a>
+        <a href="import.html">Import/Export</a>
       </div>
 
       <h1>Traitement par Lot - Segmentation de Numéros de Téléphone</h1>
@@ -208,16 +196,7 @@
           ></textarea>
         </div>
 
-        <button
-          hx-post="/api.php?endpoint=batch-segment"
-          hx-trigger="click"
-          :hx-vals='JSON.stringify({"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")})'
-          hx-target="#result"
-          hx-swap="innerHTML"
-          @click="error = null"
-        >
-          Segmenter
-        </button>
+        <button @click="segmentBatch()">Segmenter</button>
       </div>
 
       <div class="tab-content" :class="{ 'active': activeTab === 'save' }">
@@ -232,27 +211,18 @@
           ></textarea>
         </div>
 
-        <button
-          hx-post="/api.php?endpoint=batch-phones"
-          hx-trigger="click"
-          :hx-vals='JSON.stringify({"numbers": phoneNumbers.split("\n").filter(n => n.trim() !== "")})'
-          hx-target="#result"
-          hx-swap="innerHTML"
-          @click="error = null"
-        >
-          Segmenter et Enregistrer
-        </button>
+        <button @click="saveBatch()">Segmenter et Enregistrer</button>
       </div>
 
       <div class="examples">
         <p>Exemple:</p>
         <pre
           class="example"
-          @click="phoneNumbers = '+2250777104936\n002250177104936\n0577104936'"
+          @click="phoneNumbers = '+2250777104936\n002250141399354\n0546560953'"
         >
 +2250777104936
-002250177104936
-0577104936</pre
+002250141399354
+0546560953</pre
         >
       </div>
 
@@ -269,115 +239,237 @@
     </div>
 
     <script>
-      document.body.addEventListener("htmx:beforeSwap", function (event) {
-        if (event.detail.xhr.status >= 400) {
-          event.detail.shouldSwap = false;
-          const response = JSON.parse(event.detail.xhr.responseText);
-          try {
-            // Try to get the Alpine.js component safely
-            if (document.querySelector("[x-data]").__x) {
-              const app = document.querySelector("[x-data]").__x.$data;
-              app.error = response.error;
-            } else {
-              console.error("Alpine.js component not found");
-            }
-          } catch (e) {
-            console.error("Error accessing Alpine.js component:", e);
-          }
-          document.getElementById("result").style.display = "none";
-        } else {
-          document.getElementById("result").style.display = "block";
-        }
-      });
+      // Client-side logging function
+      function logToConsole(level, message, data = null) {
+        const timestamp = new Date().toISOString();
+        const logEntry = {
+          timestamp,
+          level,
+          message,
+          data,
+        };
 
-      // Reinitialize Alpine.js components after HTMX updates the DOM
-      document.addEventListener("htmx:afterSwap", function (event) {
-        if (window.Alpine && window.Alpine.initTree) {
-          // Alpine.js v3 syntax
-          window.Alpine.initTree(event.detail.target);
-        } else if (window.Alpine) {
-          // Fallback for older Alpine.js versions
-          document.querySelectorAll("[x-data]").forEach((el) => {
-            if (!el.__x) {
-              window.Alpine.initializeComponent(el);
-            }
-          });
-        }
-      });
+        console[level](`[${timestamp}] ${message}`, data || "");
 
-      document.body.addEventListener("htmx:afterSwap", function (event) {
-        const response = JSON.parse(event.detail.xhr.responseText);
-        const resultDiv = document.getElementById("result");
+        // In a production environment, you might want to send logs to the server
+        // or store them in localStorage for later analysis
+      }
 
-        // Clear previous results
-        resultDiv.innerHTML = "";
+      // Log HTMX events for debugging
+      document.addEventListener("alpine:init", () => {
+        Alpine.data("container", () => ({
+          phoneNumbers: "",
+          result: null,
+          error: null,
+          activeTab: "segment",
 
-        // Add summary
-        const summaryDiv = document.createElement("div");
-        summaryDiv.className = "summary";
-        summaryDiv.innerHTML = `
-          <div>Total: ${response.summary.total}</div>
-          <div class="success">Réussis: ${response.summary.successful}</div>
-          <div class="failure">Échoués: ${response.summary.failed}</div>
-        `;
-        resultDiv.appendChild(summaryDiv);
+          setTab(tab) {
+            this.activeTab = tab;
+            this.result = null;
+            this.error = null;
+          },
 
-        // Display successful results
-        Object.keys(response.results).forEach((key) => {
-          const phoneNumber = response.results[key];
-          const phoneDiv = document.createElement("div");
-          phoneDiv.className = "phone-result";
+          segmentBatch() {
+            this.error = null;
+            const resultDiv = document.getElementById("result");
+            resultDiv.style.display = "none";
 
-          // Display the normalized phone number
-          const numberDiv = document.createElement("div");
-          numberDiv.className = "phone-number";
-          numberDiv.textContent = `Numéro: ${phoneNumber.number}`;
-          phoneDiv.appendChild(numberDiv);
+            const numbers = this.phoneNumbers
+              .split("\n")
+              .filter((n) => n.trim() !== "");
 
-          // Display each segment
-          if (phoneNumber.segments && phoneNumber.segments.length > 0) {
-            phoneNumber.segments.forEach((segment) => {
-              const segmentDiv = document.createElement("div");
-              segmentDiv.className = "segment";
+            logToConsole("info", "Segmenting batch", { count: numbers.length });
 
-              let segmentType = segment.segmentType;
-              switch (segment.segmentType) {
-                case "country_code":
-                  segmentType = "Code pays";
-                  break;
-                case "operator_code":
-                  segmentType = "Code opérateur";
-                  break;
-                case "subscriber_number":
-                  segmentType = "Numéro d'abonné";
-                  break;
-                case "operator_name":
-                  segmentType = "Opérateur";
-                  break;
+            fetch("/api.php?endpoint=batch-segment", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ numbers: numbers }),
+            })
+              .then((response) => {
+                logToConsole("debug", "API Response received", {
+                  status: response.status,
+                  statusText: response.statusText,
+                });
+
+                if (!response.ok) {
+                  return response.json().then((data) => {
+                    this.error = data.error || "Une erreur est survenue";
+                    logToConsole("error", "API Error", {
+                      status: response.status,
+                      error: data.error,
+                    });
+                    throw new Error(this.error);
+                  });
+                }
+                return response.json();
+              })
+              .then((data) => {
+                logToConsole("info", "Successfully processed batch", data);
+                this.displayResults(data);
+              })
+              .catch((error) => {
+                logToConsole("error", "Fetch error", error);
+              });
+          },
+
+          saveBatch() {
+            this.error = null;
+            const resultDiv = document.getElementById("result");
+            resultDiv.style.display = "none";
+
+            const numbers = this.phoneNumbers
+              .split("\n")
+              .filter((n) => n.trim() !== "");
+
+            logToConsole("info", "Saving batch", { count: numbers.length });
+
+            fetch("/api.php?endpoint=batch-phones", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ numbers: numbers }),
+            })
+              .then((response) => {
+                logToConsole("debug", "API Response received", {
+                  status: response.status,
+                  statusText: response.statusText,
+                });
+
+                if (!response.ok) {
+                  return response.json().then((data) => {
+                    this.error = data.error || "Une erreur est survenue";
+                    logToConsole("error", "API Error", {
+                      status: response.status,
+                      error: data.error,
+                    });
+                    throw new Error(this.error);
+                  });
+                }
+                return response.json();
+              })
+              .then((data) => {
+                logToConsole("info", "Successfully saved batch", data);
+                this.displayResults(data);
+              })
+              .catch((error) => {
+                logToConsole("error", "Fetch error", error);
+              });
+          },
+
+          displayResults(response) {
+            try {
+              const resultDiv = document.getElementById("result");
+              resultDiv.style.display = "block";
+
+              // Clear previous results
+              resultDiv.innerHTML = "";
+
+              // Add summary
+              const summaryDiv = document.createElement("div");
+              summaryDiv.className = "summary";
+              summaryDiv.innerHTML = `
+                <div>Total: ${response.summary.total}</div>
+                <div class="success">Réussis: ${response.summary.successful}</div>
+                <div class="failure">Échoués: ${response.summary.failed}</div>
+              `;
+              resultDiv.appendChild(summaryDiv);
+
+              // Display successful results
+              if (response.results) {
+                logToConsole("info", "Processing results", {
+                  count: Object.keys(response.results).length,
+                });
+
+                Object.keys(response.results).forEach((key) => {
+                  const phoneNumber = response.results[key];
+                  const phoneDiv = document.createElement("div");
+                  phoneDiv.className = "phone-result";
+
+                  // Display the normalized phone number
+                  const numberDiv = document.createElement("div");
+                  numberDiv.className = "phone-number";
+                  numberDiv.textContent = `Numéro: ${
+                    phoneNumber.number || "Unknown"
+                  }`;
+                  phoneDiv.appendChild(numberDiv);
+
+                  // Display each segment
+                  if (
+                    phoneNumber.technicalSegments &&
+                    phoneNumber.technicalSegments.length > 0
+                  ) {
+                    phoneNumber.technicalSegments.forEach((segment) => {
+                      const segmentDiv = document.createElement("div");
+                      segmentDiv.className = "segment";
+
+                      let segmentType = segment.segmentType;
+                      switch (segment.segmentType) {
+                        case "country_code":
+                          segmentType = "Code pays";
+                          break;
+                        case "operator_code":
+                          segmentType = "Code opérateur";
+                          break;
+                        case "subscriber_number":
+                          segmentType = "Numéro d'abonné";
+                          break;
+                        case "operator_name":
+                          segmentType = "Opérateur";
+                          break;
+                      }
+
+                      segmentDiv.innerHTML = `<span class="segment-type">${segmentType}:</span> <span class="segment-value">${segment.value}</span>`;
+                      phoneDiv.appendChild(segmentDiv);
+                    });
+                  } else {
+                    logToConsole(
+                      "warn",
+                      "No segments found for phone number",
+                      phoneNumber
+                    );
+                    const noSegmentsDiv = document.createElement("div");
+                    noSegmentsDiv.className = "segment";
+                    noSegmentsDiv.textContent =
+                      "Aucun segment trouvé pour ce numéro";
+                    phoneDiv.appendChild(noSegmentsDiv);
+                  }
+
+                  resultDiv.appendChild(phoneDiv);
+                });
+              } else {
+                logToConsole("warn", "No results found in response", response);
               }
 
-              segmentDiv.innerHTML = `<span class="segment-type">${segmentType}:</span> <span class="segment-value">${segment.value}</span>`;
-              phoneDiv.appendChild(segmentDiv);
-            });
-          }
+              // Display errors
+              if (response.errors && Object.keys(response.errors).length > 0) {
+                logToConsole(
+                  "warn",
+                  "Errors found in response",
+                  response.errors
+                );
 
-          resultDiv.appendChild(phoneDiv);
-        });
+                const errorsTitle = document.createElement("h3");
+                errorsTitle.textContent = "Erreurs:";
+                resultDiv.appendChild(errorsTitle);
 
-        // Display errors
-        if (Object.keys(response.errors).length > 0) {
-          const errorsTitle = document.createElement("h3");
-          errorsTitle.textContent = "Erreurs:";
-          resultDiv.appendChild(errorsTitle);
-
-          Object.keys(response.errors).forEach((key) => {
-            const error = response.errors[key];
-            const errorDiv = document.createElement("div");
-            errorDiv.className = "error";
-            errorDiv.textContent = `${error.number}: ${error.error}`;
-            resultDiv.appendChild(errorDiv);
-          });
-        }
+                Object.keys(response.errors).forEach((key) => {
+                  const error = response.errors[key];
+                  const errorDiv = document.createElement("div");
+                  errorDiv.className = "error";
+                  errorDiv.textContent = `${error.number}: ${error.error}`;
+                  resultDiv.appendChild(errorDiv);
+                });
+              }
+            } catch (e) {
+              logToConsole("error", "Error processing response", e);
+              const resultDiv = document.getElementById("result");
+              resultDiv.innerHTML = `<div class="error">Une erreur est survenue lors du traitement de la réponse: ${e.message}</div>`;
+            }
+          },
+        }));
       });
     </script>
   </body>

@@ -1,3 +1,6 @@
+-- Drop the existing table if it exists
+DROP TABLE IF EXISTS sms_history;
+
 -- Migration pour créer la table sms_history
 CREATE TABLE IF NOT EXISTS sms_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

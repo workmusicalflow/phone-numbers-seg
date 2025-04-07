@@ -4,6 +4,11 @@ type Query {
   test: String!
   hello: String!
   segmentsForSMS: [Segment!]!
+  users: [User!]!
+  user(id: ID!): User
+  userByUsername(username: String!): User
+  verifyToken(token: String!): TokenVerificationResult!
+  me: User
 }
 
 type Segment {
@@ -18,6 +23,26 @@ type Mutation {
   sendBulkSms(phoneNumbers: [String!]!, message: String!): BulkSMSResult!
   sendSmsToSegment(segmentId: ID!, message: String!): SegmentSMSResult!
   retrySms(id: ID!): SMSResult!
+  createUser(
+    username: String!
+    password: String!
+    email: String
+    smsCredit: Int
+    smsLimit: Int
+  ): User!
+  updateUser(id: ID!, email: String, smsLimit: Int): User!
+  changePassword(id: ID!, newPassword: String!): User!
+  addCredits(id: ID!, amount: Int!): User!
+  deleteUser(id: ID!): Boolean!
+
+  # Mutations d'authentification
+  login(username: String!, password: String!): AuthPayload!
+  refreshToken(token: String!): AuthPayload!
+  logout: Boolean!
+
+  # Mutations de sécurité
+  requestPasswordReset(email: String!): Boolean!
+  resetPassword(token: String!, newPassword: String!): Boolean!
 }
 
 type SMSHistory {
@@ -71,4 +96,27 @@ type SMSDetailResult {
   phoneNumber: String!
   status: String!
   message: String!
+}
+
+type User {
+  id: ID!
+  username: String!
+  email: String
+  smsCredit: Int!
+  smsLimit: Int
+  createdAt: String!
+  updatedAt: String!
+  isAdmin: Boolean!
+}
+
+# Types pour l'authentification
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+type TokenVerificationResult {
+  valid: Boolean!
+  user: User
+  error: String
 }
