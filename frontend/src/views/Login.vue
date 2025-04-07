@@ -74,7 +74,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, nextTick } from 'vue'; // Import nextTick
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 
@@ -102,9 +102,11 @@ export default defineComponent({
         const success = await authStore.login(username.value, password.value);
         
         if (success) {
+          // Wait for the next DOM update cycle before redirecting
+          await nextTick(); 
           // Rediriger vers la page d'accueil ou le tableau de bord
           if (authStore.isAdmin) {
-            router.push('/admin/dashboard');
+            router.push('/admin-dashboard'); // Corrected path
           } else {
             router.push('/');
           }

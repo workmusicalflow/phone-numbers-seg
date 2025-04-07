@@ -48,6 +48,11 @@ set_exception_handler(function ($e) {
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Start the session before any output or session access
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 use GraphQL\GraphQL;
 use GraphQL\Type\Schema;
 use GraphQL\Type\Definition\ObjectType;
@@ -55,7 +60,8 @@ use GraphQL\Utils\BuildSchema;
 use App\Repositories\SMSHistoryRepository;
 
 // Enable CORS for GraphQL endpoint
-header('Access-Control-Allow-Origin: *');
+// header('Access-Control-Allow-Origin: *'); // Incorrect with credentials
+header('Access-Control-Allow-Origin: http://localhost:5173'); // Correct origin
 header('Access-Control-Allow-Headers: Content-Type');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Credentials: true');

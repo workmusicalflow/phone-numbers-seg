@@ -139,36 +139,57 @@ const router = createRouter({
 
 // Navigation guards
 router.beforeEach(async (to, from, next) => {
-  // Initialiser le store d'authentification
-  const authStore = useAuthStore();
-  
-  // Vérifier l'état d'authentification actuel
-  await authStore.checkAuth();
-  
-  // Redirection vers la page de connexion si l'authentification est requise
-  if (to.matched.some(record => record.meta.requiresAuth)) {
-    if (!authStore.isAuthenticated) {
-      next({
-        path: '/login',
-        query: { redirect: to.fullPath }
-      });
-      return;
+    const authStore = useAuthStore();
+    const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+    const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
+    const isGuestRoute = to.matched.some(record => record.meta.guest);
+
+    let isAuthenticated = authStore.isAuthenticated;
+
+    // If navigating away from login page immediately after successful login,
+    // trust the store state set by the login action.
+    if (from.name === 'login' && isAuthenticated) {
+        // Already handled by the login component's redirect logic,
+        // but we ensure the guard allows it without re-checking auth immediately.
+        if (requiresAdmin && !authStore.isAdmin) {
+             // This case should ideally not happen if login sets isAdmin correctly
+            next({ name: 'home' });
+        } else {
+            next(); // Allow navigation
+        }
+        return; // Skip further checks for this specific transition
     }
 
-    // Vérification des droits d'administrateur
-    if (to.matched.some(record => record.meta.requiresAdmin) && !authStore.isAdmin) {
-      next({ name: 'home' });
-      return;
+    // For other navigations (refresh, direct access, etc.)
+    // If route requires auth and store says not authenticated, check backend
+    if (requiresAuth && !isAuthenticated) {
+        isAuthenticated = await authStore.checkAuth();
     }
-  }
 
-  // Redirection vers la page d'accueil si l'utilisateur est déjà connecté
-  if (to.matched.some(record => record.meta.guest) && authStore.isAuthenticated) {
-    next({ name: 'home' });
-    return;
-  }
-
-  next();
+    // Final checks based on potentially updated isAuthenticated
+    if (requiresAuth) {
+        if (isAuthenticated) {
+            // Authenticated: Check admin rights if needed
+            if (requiresAdmin && !authStore.isAdmin) {
+                next({ name: 'home' }); // Redirect non-admins
+            } else {
+                next(); // Allow access
+            }
+        } else {
+             // Not Authenticated: Redirect to login
+            next({ path: '/login', query: { redirect: to.fullPath } });
+        }
+    } else if (isGuestRoute) {
+         // Guest Route: Redirect if already logged in
+        if (isAuthenticated) {
+            next({ name: authStore.isAdmin ? 'admin-dashboard' : 'home' });
+        } else {
+            next(); // Allow access if not logged in
+        }
+    } else {
+        // Public Route: Allow access
+        next();
+    }
 });
 
 export default router;
