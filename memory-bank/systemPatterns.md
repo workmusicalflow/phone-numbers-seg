@@ -30,6 +30,52 @@ flowchart TD
     Models --> DB
 ```
 
+### Architecture GraphQL (Refactoring Phase 1)
+
+Pour améliorer la maintenabilité, le point d'entrée GraphQL (`public/graphql.php`) a été refactorisé pour déléguer la résolution des champs à des classes dédiées (`Resolver`) plutôt que d'utiliser un grand tableau de fonctions anonymes.
+
+- **Point d'Entrée (`public/graphql.php`)**:
+  - Charge le schéma depuis `src/GraphQL/schema.graphql`.
+  - Initialise le conteneur DI (`DIContainer`).
+  - Récupère les instances des classes Resolver via le DI.
+  - Utilise `GraphQL\Executor\Executor::setDefaultFieldResolver` avec une fonction de mapping qui dirige chaque champ de Query/Mutation vers la méthode appropriée dans la classe Resolver correspondante.
+- **Classes Resolver (`src/GraphQL/Resolvers/`)**:
+  - Chaque classe regroupe la logique pour un domaine spécifique (ex: `UserResolver`, `ContactResolver`, `SMSResolver`, `AuthResolver`).
+  - Les dépendances (Repositories, Services, Logger) sont injectées via le constructeur par le conteneur DI.
+  - Chaque méthode publique correspond à un champ du schéma GraphQL (ex: `UserResolver::resolveUsers()`, `ContactResolver::mutateCreateContact()`).
+  - La logique métier est contenue dans ces méthodes, appelant les services ou repositories nécessaires.
+  - **Note:** L'authentification/autorisation est encore gérée via `$_SESSION` dans cette phase, à améliorer en Phase 2. La conversion Objet -> Tableau est faite manuellement dans les méthodes `format*`, à améliorer en Phase 3.
+
+```mermaid
+graph TD
+    subgraph "GraphQL Request Handling (Phase 1)"
+        REQ[Requête HTTP POST /graphql.php] --> GP(graphql.php)
+        GP -- Charge --> SCHEMA(schema.graphql)
+        GP -- Initialise --> DIC(DIContainer)
+        GP -- Récupère --> UR(UserResolver)
+        GP -- Récupère --> CR(ContactResolver)
+        GP -- Récupère --> SR(SMSResolver)
+        GP -- Récupère --> AR(AuthResolver)
+        DIC --> UR
+        DIC --> CR
+        DIC --> SR
+        DIC --> AR
+        GP -- Configure --> EXEC(GraphQL Executor)
+        EXEC -- Appelle via mapping --> UR
+        EXEC -- Appelle via mapping --> CR
+        EXEC -- Appelle via mapping --> SR
+        EXEC -- Appelle via mapping --> AR
+        UR --> Repos/Services
+        CR --> Repos/Services
+        SR --> Repos/Services
+        AR --> Repos/Services
+        EXEC --> RESP[Réponse JSON]
+        GP --> RESP
+    end
+```
+
+## Patterns de Conception
+
 ## Couche de Données
 
 ### Modèles

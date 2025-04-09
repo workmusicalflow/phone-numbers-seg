@@ -116,9 +116,16 @@ Le projet est actuellement à environ **90%** de complétion. La plupart des fon
 - ✅ **Phase 4** : Interface utilisateur et administrateur de base
 - ✅ **Phase 5** : Système d'authentification et gestion des utilisateurs
 - ✅ **Phase 6** : Gestion des contacts et planification d'envois
+- ✅ **Phase 1 (Refactoring GraphQL)** : Extraction des résolveurs (Terminée)
 - ⏳ **Phase 7** : Fonctionnalités avancées et finalisation (en cours)
 
-## Prochains Jalons
+## Prochains Jalons (Refactoring)
+
+- ⏳ **Phase 2 (Refactoring GraphQL)** : Amélioration de l'Injection de Dépendances et de l'Authentification
+- 🔜 **Phase 3 (Refactoring GraphQL)** : Centralisation de la Conversion Objet -> Tableau
+- 🔜 **Phase 4 (Refactoring GraphQL)** : Externalisation de la Configuration
+
+## Prochains Jalons (Fonctionnalités)
 
 - ⏳ **Phase 7.1** : Implémentation des modèles de SMS (en cours)
 - 🔜 **Phase 7.2** : Développement des fonctionnalités administrateur avancées
