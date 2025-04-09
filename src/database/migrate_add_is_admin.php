@@ -5,60 +5,40 @@
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
-require_once __DIR__ . '/../config/database.php';
 
-// Charger les variables d'environnement
+// Charger les variables d'environnement en premier
 $dotenvPath = __DIR__ . '/../../';
 if (file_exists($dotenvPath . '.env')) {
     $dotenv = \Dotenv\Dotenv::createImmutable($dotenvPath);
     $dotenv->load();
 }
 
-// Charger la configuration de la base de données
+// Charger la configuration de la base de données après avoir chargé les variables d'environnement
+require_once __DIR__ . '/../config/database.php';
 $config = require __DIR__ . '/../config/database.php';
 
-// Utiliser le driver de la configuration
-$dbDriver = $config['driver'];
-echo "Utilisation de $dbDriver comme base de données\n";
+// Afficher le driver de base de données utilisé
+$driver = $config['driver'];
+echo "Utilisation de $driver comme base de données\n";
 
-// Connexion à la base de données
+// Connexion à la base de données SQLite
 try {
-    if ($dbDriver === 'sqlite') {
-        $sqliteConfig = $config['sqlite'];
-        $dbFile = $sqliteConfig['path'];
+    $dbFile = $config['sqlite']['path'];
 
-        if (!file_exists($dbFile)) {
-            die("Le fichier de base de données SQLite n'existe pas: $dbFile\nExécutez d'abord 'composer db:init'\n");
-        }
-
-        $dsn = "sqlite:$dbFile";
-        $db = new PDO($dsn);
-
-        // Exécuter la migration SQLite
-        echo "Exécution de la migration SQLite pour ajouter le champ is_admin à la table users...\n";
-        $migrationSql = file_get_contents(__DIR__ . '/migrations/add_is_admin_to_users_sqlite.sql');
-        $db->exec($migrationSql);
-        echo "Migration SQLite exécutée avec succès.\n";
-    } else {
-        // MySQL ou autre
-        $mysqlConfig = $config['mysql'];
-        $host = $mysqlConfig['host'];
-        $dbname = $mysqlConfig['database'];
-        $username = $mysqlConfig['username'];
-        $password = $mysqlConfig['password'];
-
-        $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
-        $db = new PDO($dsn, $username, $password);
-
-        // Exécuter la migration MySQL
-        echo "Exécution de la migration MySQL pour ajouter le champ is_admin à la table users...\n";
-        $migrationSql = file_get_contents(__DIR__ . '/migrations/add_is_admin_to_users.sql');
-        $db->exec($migrationSql);
-        echo "Migration MySQL exécutée avec succès.\n";
+    if (!file_exists($dbFile)) {
+        die("Le fichier de base de données SQLite n'existe pas: $dbFile\nExécutez d'abord 'composer db:init'\n");
     }
 
+    $dsn = "sqlite:$dbFile";
+    $db = new PDO($dsn);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    echo "Connexion à la base de données réussie\n";
+    echo "Connexion à la base de données SQLite réussie\n";
+
+    // Exécuter la migration
+    echo "Exécution de la migration pour ajouter le champ is_admin à la table users...\n";
+    $migrationSql = file_get_contents(__DIR__ . '/migrations/add_is_admin_to_users_sqlite.sql');
+    $db->exec($migrationSql);
+    echo "Migration exécutée avec succès.\n";
 } catch (PDOException $e) {
     die("Échec de la connexion à la base de données: " . $e->getMessage() . "\n");
 }

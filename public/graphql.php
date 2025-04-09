@@ -129,6 +129,7 @@ try {
                         'email' => $user->getEmail(),
                         'smsCredit' => $user->getSmsCredit(),
                         'smsLimit' => $user->getSmsLimit(),
+                        'isAdmin' => $user->isAdmin(),
                         'createdAt' => $user->getCreatedAt(),
                         'updatedAt' => $user->getUpdatedAt()
                     ];
@@ -156,6 +157,7 @@ try {
                     'email' => $user->getEmail(),
                     'smsCredit' => $user->getSmsCredit(),
                     'smsLimit' => $user->getSmsLimit(),
+                    'isAdmin' => $user->isAdmin(),
                     'createdAt' => $user->getCreatedAt(),
                     'updatedAt' => $user->getUpdatedAt()
                 ];
@@ -181,6 +183,7 @@ try {
                     'email' => $user->getEmail(),
                     'smsCredit' => $user->getSmsCredit(),
                     'smsLimit' => $user->getSmsLimit(),
+                    'isAdmin' => $user->isAdmin(),
                     'createdAt' => $user->getCreatedAt(),
                     'updatedAt' => $user->getUpdatedAt()
                 ];
@@ -218,6 +221,7 @@ try {
                     'email' => $user->getEmail(),
                     'smsCredit' => $user->getSmsCredit(),
                     'smsLimit' => $user->getSmsLimit(),
+                    'isAdmin' => $user->isAdmin(),
                     'createdAt' => $user->getCreatedAt(),
                     'updatedAt' => $user->getUpdatedAt()
                 ];
@@ -256,6 +260,7 @@ try {
                     'email' => $user->getEmail(),
                     'smsCredit' => $user->getSmsCredit(),
                     'smsLimit' => $user->getSmsLimit(),
+                    'isAdmin' => $user->isAdmin(),
                     'createdAt' => $user->getCreatedAt(),
                     'updatedAt' => $user->getUpdatedAt()
                 ];
@@ -289,6 +294,7 @@ try {
                     'email' => $user->getEmail(),
                     'smsCredit' => $user->getSmsCredit(),
                     'smsLimit' => $user->getSmsLimit(),
+                    'isAdmin' => $user->isAdmin(),
                     'createdAt' => $user->getCreatedAt(),
                     'updatedAt' => $user->getUpdatedAt()
                 ];

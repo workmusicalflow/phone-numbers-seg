@@ -70,6 +70,87 @@ class SenderNameRepository
     }
 
     /**
+     * Trouve des entités selon des critères spécifiques
+     * 
+     * @param array $criteria Critères de recherche
+     * @param array|null $orderBy Critères de tri
+     * @param int|null $limit Nombre maximum d'entités à retourner
+     * @param int|null $offset Décalage pour la pagination
+     * @return array
+     */
+    public function findBy(array $criteria = [], array $orderBy = null, int $limit = null, int $offset = null): array
+    {
+        $sql = 'SELECT * FROM sender_names WHERE 1=1';
+        $params = [];
+
+        // Ajouter les critères de recherche
+        foreach ($criteria as $field => $value) {
+            $sql .= " AND $field = :$field";
+            $params[":$field"] = $value;
+        }
+
+        // Ajouter les critères de tri
+        if ($orderBy !== null && !empty($orderBy)) {
+            $sql .= ' ORDER BY';
+            $first = true;
+            foreach ($orderBy as $field => $direction) {
+                if (!$first) {
+                    $sql .= ',';
+                }
+                $sql .= " $field $direction";
+                $first = false;
+            }
+        } else {
+            // Tri par défaut
+            $sql .= ' ORDER BY created_at DESC';
+        }
+
+        // Ajouter la limite et l'offset
+        if ($limit !== null) {
+            $sql .= ' LIMIT :limit';
+            if ($offset !== null) {
+                $sql .= ' OFFSET :offset';
+            }
+        }
+
+        $stmt = $this->db->prepare($sql);
+
+        // Lier les paramètres des critères
+        foreach ($params as $param => $value) {
+            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($param, $value, $type);
+        }
+
+        // Lier les paramètres de limite et d'offset
+        if ($limit !== null) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            if ($offset !== null) {
+                $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+
+        $stmt->execute();
+
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = SenderName::fromArray($row);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Trouve une entité par son identifiant
+     * 
+     * @param int $id Identifiant de l'entité
+     * @return object|null
+     */
+    public function find(int $id): ?object
+    {
+        return $this->findById($id);
+    }
+
+    /**
      * Count all pending sender name requests.
      */
     public function countPending(): int

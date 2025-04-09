@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Repositories\UserRepository;
 use App\Services\Validators\UserValidator;
 use App\Exceptions\ValidationException;
+use App\Services\Interfaces\AdminActionLoggerInterface;
+use App\Services\Interfaces\AuthServiceInterface;
 use TheCodingMachine\GraphQLite\Annotations\Query;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
 use TheCodingMachine\GraphQLite\Annotations\Type;
@@ -29,17 +31,33 @@ class UserController
     private $userValidator;
 
     /**
+     * @var AdminActionLoggerInterface
+     */
+    private $adminActionLogger;
+
+    /**
+     * @var AuthServiceInterface
+     */
+    private $authService;
+
+    /**
      * Constructeur
      * 
      * @param UserRepository $userRepository
      * @param UserValidator $userValidator
+     * @param AdminActionLoggerInterface $adminActionLogger
+     * @param AuthServiceInterface $authService
      */
     public function __construct(
         UserRepository $userRepository,
-        UserValidator $userValidator
+        UserValidator $userValidator,
+        AdminActionLoggerInterface $adminActionLogger,
+        AuthServiceInterface $authService
     ) {
         $this->userRepository = $userRepository;
         $this->userValidator = $userValidator;
+        $this->adminActionLogger = $adminActionLogger;
+        $this->authService = $authService;
     }
 
     /**
@@ -69,11 +87,13 @@ class UserController
      * Créer un nouvel utilisateur
      * 
      * @Mutation
+     * @Right("ROLE_ADMIN")
      * @param string $username
      * @param string $password
      * @param string $email
      * @param int $smsCredit
      * @param int $smsLimit
+     * @param bool $isAdmin
      * @return User
      */
     public function createUser(
@@ -81,29 +101,53 @@ class UserController
         string $password,
         string $email = '',
         int $smsCredit = 0,
-        int $smsLimit = 0
+        int $smsLimit = 0,
+        bool $isAdmin = false
     ): User {
         try {
             // Valider les données
-            $validatedData = $this->userValidator->validateCreate(
+            $validatedData = $this->userValidator->prepareUserCreateData(
                 $username,
                 $password,
                 $email,
                 $smsCredit,
-                $smsLimit
+                $smsLimit,
+                $isAdmin
             );
 
             // Créer l'utilisateur
             $user = new User(
                 $validatedData['username'],
                 password_hash($validatedData['password'], PASSWORD_DEFAULT),
-                $validatedData['email'],
+                null,
+                $validatedData['email'] ?? null,
                 $validatedData['smsCredit'],
-                $validatedData['smsLimit']
+                $validatedData['smsLimit'],
+                $validatedData['isAdmin']
             );
 
             // Sauvegarder l'utilisateur
-            return $this->userRepository->save($user);
+            $newUser = $this->userRepository->save($user);
+
+            // Journaliser l'action
+            $currentUser = $this->authService->getCurrentUser();
+            if ($currentUser) {
+                $this->adminActionLogger->log(
+                    $currentUser->getId(),
+                    'user_creation',
+                    $newUser->getId(),
+                    'user',
+                    [
+                        'username' => $validatedData['username'],
+                        'email' => $validatedData['email'] ?? null,
+                        'smsCredit' => $validatedData['smsCredit'],
+                        'smsLimit' => $validatedData['smsLimit'],
+                        'isAdmin' => $validatedData['isAdmin']
+                    ]
+                );
+            }
+
+            return $newUser;
         } catch (ValidationException $e) {
             throw new \Exception($e->getMessage() . ': ' . json_encode($e->getErrors()));
         }
@@ -115,23 +159,23 @@ class UserController
      * @Mutation
      * @param int $id
      * @param string $email
-     * @param int $smsCredit
      * @param int $smsLimit
+     * @param bool $isAdmin
      * @return User
      */
     public function updateUser(
         int $id,
         string $email = '',
-        int $smsCredit = 0,
-        int $smsLimit = 0
+        int $smsLimit = 0,
+        bool $isAdmin = null
     ): User {
         try {
             // Valider les données
-            $validatedData = $this->userValidator->validateUpdate(
+            $validatedData = $this->userValidator->prepareUserUpdateData(
                 $id,
                 $email,
-                $smsCredit,
-                $smsLimit
+                $smsLimit,
+                $isAdmin
             );
 
             // Récupérer l'utilisateur
@@ -142,11 +186,33 @@ class UserController
 
             // Mettre à jour l'utilisateur
             $user->setEmail($validatedData['email']);
-            $user->setSmsCredit($validatedData['smsCredit']);
             $user->setSmsLimit($validatedData['smsLimit']);
 
+            // Mettre à jour le statut admin si fourni
+            if ($validatedData['isAdmin'] !== null) {
+                $user->setIsAdmin($validatedData['isAdmin']);
+            }
+
             // Sauvegarder l'utilisateur
-            return $this->userRepository->save($user);
+            $updatedUser = $this->userRepository->save($user);
+
+            // Journaliser l'action
+            $currentUser = $this->authService->getCurrentUser();
+            if ($currentUser) {
+                $this->adminActionLogger->log(
+                    $currentUser->getId(),
+                    'user_update',
+                    $updatedUser->getId(),
+                    'user',
+                    [
+                        'email' => $validatedData['email'],
+                        'smsLimit' => $validatedData['smsLimit'],
+                        'isAdmin' => $validatedData['isAdmin']
+                    ]
+                );
+            }
+
+            return $updatedUser;
         } catch (ValidationException $e) {
             throw new \Exception($e->getMessage() . ': ' . json_encode($e->getErrors()));
         }
@@ -165,8 +231,32 @@ class UserController
             // Valider les données
             $validatedData = $this->userValidator->validateDelete($id);
 
+            // Récupérer l'utilisateur avant de le supprimer pour le journaliser
+            $user = $this->userRepository->findById($validatedData['id']);
+            if (!$user) {
+                throw new \Exception("Utilisateur non trouvé");
+            }
+
             // Supprimer l'utilisateur
-            return $this->userRepository->delete($validatedData['id']);
+            $result = $this->userRepository->delete($validatedData['id']);
+
+            // Journaliser l'action
+            if ($result) {
+                $currentUser = $this->authService->getCurrentUser();
+                if ($currentUser) {
+                    $this->adminActionLogger->log(
+                        $currentUser->getId(),
+                        'user_deletion',
+                        $validatedData['id'],
+                        'user',
+                        [
+                            'username' => $user->getUsername()
+                        ]
+                    );
+                }
+            }
+
+            return $result;
         } catch (ValidationException $e) {
             throw new \Exception($e->getMessage() . ': ' . json_encode($e->getErrors()));
         }
@@ -206,6 +296,20 @@ class UserController
             // Sauvegarder l'utilisateur
             $this->userRepository->save($user);
 
+            // Journaliser l'action
+            $currentUser = $this->authService->getCurrentUser();
+            if ($currentUser) {
+                $this->adminActionLogger->log(
+                    $currentUser->getId(),
+                    'password_change',
+                    $validatedData['id'],
+                    'user',
+                    [
+                        'username' => $user->getUsername()
+                    ]
+                );
+            }
+
             return true;
         } catch (ValidationException $e) {
             throw new \Exception($e->getMessage() . ': ' . json_encode($e->getErrors()));
@@ -237,6 +341,24 @@ class UserController
         $user->setSmsCredit($user->getSmsCredit() + $credits);
 
         // Sauvegarder l'utilisateur
-        return $this->userRepository->save($user);
+        $updatedUser = $this->userRepository->save($user);
+
+        // Journaliser l'action
+        $currentUser = $this->authService->getCurrentUser();
+        if ($currentUser) {
+            $this->adminActionLogger->log(
+                $currentUser->getId(),
+                'credit_added',
+                $id,
+                'user',
+                [
+                    'username' => $user->getUsername(),
+                    'credits_added' => $credits,
+                    'new_balance' => $user->getSmsCredit()
+                ]
+            );
+        }
+
+        return $updatedUser;
     }
 }

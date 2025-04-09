@@ -364,6 +364,16 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
     }
 
     /**
+     * Alias de count() pour l'interface CountableRepositoryInterface
+     *
+     * @return int
+     */
+    public function countAll(): int
+    {
+        return $this->count();
+    }
+
+    /**
      * Compte le nombre de SMS envoyés à une date spécifique
      * 
      * @param string $date Date au format Y-m-d
@@ -375,6 +385,36 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
         $stmt->bindValue(':date', $date, PDO::PARAM_STR);
         $stmt->execute();
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Récupère les comptes quotidiens de SMS pour une plage de dates
+     * 
+     * @param string $startDate Date de début au format Y-m-d
+     * @param string $endDate Date de fin au format Y-m-d
+     * @return array Tableau associatif avec les dates et les comptes
+     */
+    public function getDailyCountsForDateRange(string $startDate, string $endDate): array
+    {
+        $stmt = $this->db->prepare('
+            SELECT 
+                DATE(created_at) as date, 
+                COUNT(*) as count 
+            FROM 
+                sms_history 
+            WHERE 
+                DATE(created_at) BETWEEN :start_date AND :end_date 
+            GROUP BY 
+                DATE(created_at) 
+            ORDER BY 
+                DATE(created_at)
+        ');
+
+        $stmt->bindValue(':start_date', $startDate, PDO::PARAM_STR);
+        $stmt->bindValue(':end_date', $endDate, PDO::PARAM_STR);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**

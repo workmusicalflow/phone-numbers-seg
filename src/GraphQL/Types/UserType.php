@@ -88,6 +88,14 @@ class UserType
 
     /**
      * @Field
+     */
+    public function isAdmin(User $user): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
+     * @Field
      * @return \App\Models\SenderName[]
      */
     public function senderNames(User $user): array

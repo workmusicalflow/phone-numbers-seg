@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import notification from '../services/NotificationService';
+import { useDashboardStore } from './dashboardStore';
 
 // Types
 export interface User {
@@ -9,6 +10,7 @@ export interface User {
   email: string | null;
   smsCredit: number;
   smsLimit: number | null;
+  isAdmin: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +52,7 @@ const GET_USERS = `
       email
       smsCredit
       smsLimit
+      isAdmin
       createdAt
       updatedAt
     }
@@ -64,6 +67,7 @@ const GET_USER = `
       email
       smsCredit
       smsLimit
+      isAdmin
       createdAt
       updatedAt
     }
@@ -71,8 +75,8 @@ const GET_USER = `
 `;
 
 const CREATE_USER = `
-  mutation CreateUser($username: String!, $password: String!, $email: String, $smsCredit: Int, $smsLimit: Int) {
-    createUser(username: $username, password: $password, email: $email, smsCredit: $smsCredit, smsLimit: $smsLimit) {
+  mutation CreateUser($username: String!, $password: String!, $email: String, $smsCredit: Int, $smsLimit: Int, $isAdmin: Boolean) {
+    createUser(username: $username, password: $password, email: $email, smsCredit: $smsCredit, smsLimit: $smsLimit, isAdmin: $isAdmin) {
       id
       username
       email
@@ -80,18 +84,20 @@ const CREATE_USER = `
       smsLimit
       createdAt
       updatedAt
+      isAdmin
     }
   }
 `;
 
 const UPDATE_USER = `
-  mutation UpdateUser($id: Int!, $email: String, $smsLimit: Int) {
-    updateUser(id: $id, email: $email, smsLimit: $smsLimit) {
+  mutation UpdateUser($id: Int!, $email: String, $smsLimit: Int, $isAdmin: Boolean) {
+    updateUser(id: $id, email: $email, smsLimit: $smsLimit, isAdmin: $isAdmin) {
       id
       username
       email
       smsCredit
       smsLimit
+      isAdmin
       createdAt
       updatedAt
     }
@@ -145,7 +151,7 @@ const totalSmsCredits = computed(() => {
 });
 
 const isAdmin = computed(() => {
-  return currentUser.value?.username === 'Admin';
+  return currentUser.value?.isAdmin === true;
 });
   
   // Actions
@@ -154,6 +160,7 @@ const isAdmin = computed(() => {
     error.value = null;
     
     try {
+      console.log('Fetching users...');
       const response = await fetch('/graphql.php', {
         method: 'POST',
         headers: {
@@ -165,12 +172,14 @@ const isAdmin = computed(() => {
       });
       
       const result = await response.json();
+      console.log('GraphQL response:', result);
       
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
       
       users.value = result.data.users;
+      console.log('Users fetched:', users.value);
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la récupération des utilisateurs';
       notification.error(error.value);
@@ -212,11 +221,12 @@ const isAdmin = computed(() => {
     }
   }
   
-  async function createUser(username: string, password: string, email?: string, smsCredit?: number, smsLimit?: number) {
+  async function createUser(username: string, password: string, email?: string, smsCredit?: number, smsLimit?: number, isAdmin?: boolean) {
     loading.value = true;
     error.value = null;
     
     try {
+      console.log('Creating user:', { username, email, smsCredit, smsLimit, isAdmin });
       const response = await fetch('/graphql.php', {
         method: 'POST',
         headers: {
@@ -229,20 +239,32 @@ const isAdmin = computed(() => {
             password, 
             email: email || null, 
             smsCredit: smsCredit || 10, 
-            smsLimit: smsLimit || null 
+            smsLimit: smsLimit || null,
+            isAdmin: isAdmin || false
           }
         }),
       });
       
       const result = await response.json();
+      console.log('Create user response:', result);
       
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
       
       const newUser = result.data.createUser;
+      console.log('New user created:', newUser);
       users.value.push(newUser);
+      console.log('Updated users array:', users.value);
       notification.success(`L'utilisateur ${username} a été créé avec succès`);
+      
+      // Refresh dashboard data after user creation
+      const dashboardStore = useDashboardStore();
+      await Promise.all([
+        dashboardStore.fetchDashboardStats(),
+        dashboardStore.fetchRecentActivity()
+      ]);
+      
       return newUser;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la création de l\'utilisateur';
@@ -253,7 +275,7 @@ const isAdmin = computed(() => {
     }
   }
   
-  async function updateUser(id: number, email?: string, smsLimit?: number) {
+  async function updateUser(id: number, email?: string, smsLimit?: number, isAdmin?: boolean) {
     loading.value = true;
     error.value = null;
     
@@ -268,7 +290,8 @@ const isAdmin = computed(() => {
           variables: { 
             id, 
             email: email || null, 
-            smsLimit: smsLimit || null 
+            smsLimit: smsLimit || null,
+            isAdmin: isAdmin
           }
         }),
       });

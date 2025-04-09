@@ -1,0 +1,2 @@
+Node.js version: v16.20.2
+Node.js executable path: /Users/ns2poportable/.nvm/versions/node/v16.20.2/bin/node

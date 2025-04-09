@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ApolloClient, InMemoryCache, gql } from '@apollo/client/core';
 
 // Créer une instance axios avec la configuration de base
 const api = axios.create({
@@ -39,4 +40,10 @@ api.interceptors.response.use(
   }
 );
 
-export { api };
+// Apollo Client setup
+const apolloClient = new ApolloClient({
+  uri: '/graphql.php',
+  cache: new InMemoryCache()
+});
+
+export { api, apolloClient, gql };

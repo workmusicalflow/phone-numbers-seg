@@ -9,6 +9,7 @@ type Query {
   userByUsername(username: String!): User
   verifyToken(token: String!): TokenVerificationResult!
   me: User
+  dashboardStats: DashboardStats!
 }
 
 type Segment {
@@ -29,8 +30,9 @@ type Mutation {
     email: String
     smsCredit: Int
     smsLimit: Int
+    isAdmin: Boolean
   ): User!
-  updateUser(id: ID!, email: String, smsLimit: Int): User!
+  updateUser(id: ID!, email: String, smsLimit: Int, isAdmin: Boolean): User!
   changePassword(id: ID!, newPassword: String!): User!
   addCredits(id: ID!, amount: Int!): User!
   deleteUser(id: ID!): Boolean!
@@ -107,6 +109,12 @@ type User {
   createdAt: String!
   updatedAt: String!
   isAdmin: Boolean!
+}
+
+type DashboardStats {
+  usersCount: Int!
+  totalSmsCredits: Int!
+  lastUpdated: String!
 }
 
 # Types pour l'authentification

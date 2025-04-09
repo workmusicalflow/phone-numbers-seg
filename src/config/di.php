@@ -239,6 +239,13 @@ $definitions = [
             $container->get(\App\Services\Interfaces\NotificationServiceInterface::class)
         );
     }),
+
+    // Service de journalisation des actions administrateur
+    \App\Services\Interfaces\AdminActionLoggerInterface::class => factory(function (Container $container) {
+        return new \App\Services\AdminActionLogger(
+            $container->get(PDO::class)
+        );
+    }),
 ];
 
 // Return the definitions array instead of the built container

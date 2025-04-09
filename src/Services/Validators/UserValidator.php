@@ -29,69 +29,63 @@ class UserValidator extends AbstractValidator
     }
 
     /**
-     * Valide les données pour la création d'un utilisateur
+     * Prépare les données pour la création d'un utilisateur
      * 
      * @param string $username
      * @param string $password
      * @param string $email
      * @param int $smsCredit
      * @param int $smsLimit
+     * @param bool $isAdmin
      * @return array Données validées
      * @throws ValidationException Si les données sont invalides
      */
-    public function validateCreate(
+    public function prepareUserCreateData(
         string $username,
         string $password,
         string $email = '',
         int $smsCredit = 0,
-        int $smsLimit = 0
+        int $smsLimit = 0,
+        bool $isAdmin = false
     ): array {
         $data = [
             'username' => $username,
             'password' => $password,
             'email' => $email,
             'smsCredit' => $smsCredit,
-            'smsLimit' => $smsLimit
+            'smsLimit' => $smsLimit,
+            'isAdmin' => $isAdmin
         ];
 
-        $errors = $this->validateCreateData($data);
-
-        if (!empty($errors)) {
-            throw new ValidationException("Validation de l'utilisateur échouée", $errors);
-        }
-
-        return $data;
+        return $this->validateCreate($data);
     }
 
     /**
-     * Valide les données pour la mise à jour d'un utilisateur
+     * Prépare les données pour la mise à jour d'un utilisateur
      * 
      * @param int $id
      * @param string $email
-     * @param int $smsCredit
      * @param int $smsLimit
+     * @param bool|null $isAdmin
      * @return array Données validées
      * @throws ValidationException Si les données sont invalides
      */
-    public function validateUpdate(
+    public function prepareUserUpdateData(
         int $id,
         string $email = '',
-        int $smsCredit = 0,
-        int $smsLimit = 0
+        int $smsLimit = 0,
+        ?bool $isAdmin = null
     ): array {
         $data = [
             'email' => $email,
-            'smsCredit' => $smsCredit,
             'smsLimit' => $smsLimit
         ];
 
-        $errors = $this->validateUpdateData($id, $data);
-
-        if (!empty($errors)) {
-            throw new ValidationException("Validation de la mise à jour de l'utilisateur échouée", $errors);
+        if ($isAdmin !== null) {
+            $data['isAdmin'] = $isAdmin;
         }
 
-        return array_merge(['id' => $id], $data);
+        return $this->validateUpdate($id, $data);
     }
 
     /**
@@ -138,6 +132,10 @@ class UserValidator extends AbstractValidator
             $errors['password'] = "Le mot de passe est requis";
         } elseif (strlen($data['password']) < 8) {
             $errors['password'] = "Le mot de passe doit contenir au moins 8 caractères";
+        } elseif (!preg_match('/[A-Z]/', $data['password'])) {
+            $errors['password'] = "Le mot de passe doit contenir au moins une lettre majuscule";
+        } elseif (!preg_match('/[0-9]/', $data['password'])) {
+            $errors['password'] = "Le mot de passe doit contenir au moins un chiffre";
         }
 
         // Validation de l'email
@@ -211,7 +209,7 @@ class UserValidator extends AbstractValidator
         }
 
         // Vérifier que l'utilisateur n'est pas l'administrateur
-        if ($user && $user->getUsername() === 'Admin') {
+        if ($user && $user->isAdmin()) {
             $errors['id'] = "L'administrateur ne peut pas être supprimé";
         }
 
@@ -248,6 +246,10 @@ class UserValidator extends AbstractValidator
             $errors['newPassword'] = "Le nouveau mot de passe est requis";
         } elseif (strlen($newPassword) < 8) {
             $errors['newPassword'] = "Le nouveau mot de passe doit contenir au moins 8 caractères";
+        } elseif (!preg_match('/[A-Z]/', $newPassword)) {
+            $errors['newPassword'] = "Le nouveau mot de passe doit contenir au moins une lettre majuscule";
+        } elseif (!preg_match('/[0-9]/', $newPassword)) {
+            $errors['newPassword'] = "Le nouveau mot de passe doit contenir au moins un chiffre";
         }
 
         if (!empty($errors)) {

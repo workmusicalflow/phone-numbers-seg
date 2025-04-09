@@ -78,6 +78,97 @@ class UserRepository
     }
 
     /**
+     * Find users by criteria with pagination.
+     * 
+     * @param array $criteria Associative array of field => value pairs to filter by
+     * @param array $orderBy Associative array of field => direction pairs for sorting
+     * @param int $limit Maximum number of results to return
+     * @param int $offset Number of results to skip
+     * @return array Array of User objects
+     */
+    public function findBy(array $criteria = [], array $orderBy = [], int $limit = 100, int $offset = 0): array
+    {
+        $sql = 'SELECT * FROM users';
+        $params = [];
+
+        // Add WHERE clause if criteria are provided
+        if (!empty($criteria)) {
+            $conditions = [];
+            foreach ($criteria as $field => $value) {
+                $conditions[] = "$field = :$field";
+                $params[":$field"] = $value;
+            }
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+
+        // Add ORDER BY clause if orderBy is provided
+        if (!empty($orderBy)) {
+            $orders = [];
+            foreach ($orderBy as $field => $direction) {
+                $orders[] = "$field $direction";
+            }
+            $sql .= ' ORDER BY ' . implode(', ', $orders);
+        } else {
+            // Default ordering
+            $sql .= ' ORDER BY username';
+        }
+
+        // Add LIMIT and OFFSET
+        $sql .= ' LIMIT :limit OFFSET :offset';
+        $params[':limit'] = $limit;
+        $params[':offset'] = $offset;
+
+        $stmt = $this->db->prepare($sql);
+
+        // Bind parameters
+        foreach ($params as $param => $value) {
+            $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($param, $value, $type);
+        }
+
+        $stmt->execute();
+
+        $users = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $users[] = User::fromArray($row);
+        }
+
+        return $users;
+    }
+
+    /**
+     * Find users by their IDs.
+     * 
+     * @param array $ids Array of user IDs
+     * @return array Array of User objects
+     */
+    public function findByIds(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        // Create placeholders for the IN clause
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE id IN ($placeholders)");
+
+        // Bind each ID to its placeholder
+        foreach ($ids as $index => $id) {
+            $stmt->bindValue($index + 1, $id, PDO::PARAM_INT);
+        }
+
+        $stmt->execute();
+
+        $users = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $users[$row['id']] = User::fromArray($row);
+        }
+
+        return $users;
+    }
+
+    /**
      * Count all users.
      */
     public function countAll(): int

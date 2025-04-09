@@ -62,6 +62,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/sms/history',
+      name: 'sms-history-alt',
+      component: () => import('../views/SMSHistory.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/sms-templates',
       name: 'sms-templates',
       component: () => import('../views/SMSTemplates.vue'),
@@ -91,42 +97,50 @@ const router = createRouter({
       component: () => import('../views/ContactGroups.vue'),
       meta: { requiresAuth: true }
     },
-    // Routes d'administration
+    // Route alternative pour le tableau de bord administrateur
     {
       path: '/admin-dashboard',
       name: 'admin-dashboard',
       component: () => import('../views/AdminDashboard.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
+    // Routes d'administration
     {
-      path: '/users',
-      name: 'users',
-      component: () => import('../views/Users.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }
-    },
-    {
-      path: '/user/:id',
-      name: 'user-details',
-      component: () => import('../views/UserDetails.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }
-    },
-    {
-      path: '/sender-names',
-      name: 'sender-names',
-      component: () => import('../views/SenderNames.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }
-    },
-    {
-      path: '/sms-orders',
-      name: 'sms-orders',
-      component: () => import('../views/SMSOrders.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }
-    },
-    {
-      path: '/orange-api-config',
-      name: 'orange-api-config',
-      component: () => import('../views/OrangeAPIConfig.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }
+      path: '/admin',
+      component: () => import('../layouts/AdminLayout.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        {
+          path: 'dashboard',
+          name: 'admin.dashboard',
+          component: () => import('../views/AdminDashboard.vue')
+        },
+        {
+          path: 'users',
+          name: 'users',
+          component: () => import('../views/Users.vue')
+        },
+        {
+          path: 'users/:id',
+          name: 'user-details',
+          component: () => import('../views/UserDetails.vue')
+        },
+        {
+          path: 'sender-names',
+          name: 'sender-names',
+          component: () => import('../views/SenderNames.vue')
+        },
+        {
+          path: 'sms-orders',
+          name: 'sms-orders',
+          component: () => import('../views/SMSOrders.vue')
+        },
+        {
+          path: 'orange-api-config',
+          name: 'orange-api-config',
+          component: () => import('../views/OrangeAPIConfig.vue')
+        }
+      ]
     },
     // Route 404
     {
@@ -182,7 +196,7 @@ router.beforeEach(async (to, from, next) => {
     } else if (isGuestRoute) {
          // Guest Route: Redirect if already logged in
         if (isAuthenticated) {
-            next({ name: authStore.isAdmin ? 'admin-dashboard' : 'home' });
+            next({ name: authStore.isAdmin ? 'admin.dashboard' : 'home' });
         } else {
             next(); // Allow access if not logged in
         }

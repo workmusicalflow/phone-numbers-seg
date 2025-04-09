@@ -126,4 +126,33 @@ return [
         // Durée de rafraîchissement en secondes
         'refresh_interval' => 60,
     ],
+
+    /**
+     * Configuration de la journalisation des actions administrateur
+     */
+    'admin_actions' => [
+        // Activer la journalisation des actions administrateur
+        'enabled' => true,
+
+        // Journaliser dans la base de données
+        'log_to_database' => true,
+
+        // Inclure les détails de la requête (IP, User-Agent, etc.)
+        'include_request_details' => true,
+
+        // Période de rétention des journaux en jours (0 = illimité)
+        'retention_period_days' => 90,
+
+        // Types d'actions à journaliser
+        'action_types' => [
+            'user_creation',
+            'user_update',
+            'user_deletion',
+            'credit_added',
+            'password_change',
+            'sender_name_approval',
+            'order_completion',
+            'config_update',
+        ],
+    ],
 ];

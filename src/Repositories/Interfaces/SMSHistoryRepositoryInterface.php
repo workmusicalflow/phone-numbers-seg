@@ -14,4 +14,13 @@ interface SMSHistoryRepositoryInterface extends DashboardRepositoryInterface
      * @return int
      */
     public function countByDate(string $date): int;
+
+    /**
+     * Récupère les comptes quotidiens de SMS pour une plage de dates
+     * 
+     * @param string $startDate Date de début au format Y-m-d
+     * @param string $endDate Date de fin au format Y-m-d
+     * @return array Tableau associatif avec les dates et les comptes
+     */
+    public function getDailyCountsForDateRange(string $startDate, string $endDate): array;
 }

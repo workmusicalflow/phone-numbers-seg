@@ -12,5 +12,5 @@ interface CountableRepositoryInterface
      * 
      * @return int
      */
-    public function count(): int;
+    public function countAll(): int; // Renamed from count() to countAll() for consistency
 }
