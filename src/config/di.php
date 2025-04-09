@@ -107,7 +107,8 @@ $definitions = [
             'Qualitas CI',             // Nom d'expéditeur par défaut
             $container->get(\App\Repositories\PhoneNumberRepository::class),
             $container->get(\App\Repositories\CustomSegmentRepository::class),
-            $container->get(\App\Repositories\SMSHistoryRepository::class)
+            $container->get(\App\Repositories\SMSHistoryRepository::class),
+            $container->get(\App\Repositories\UserRepository::class)
         );
     }),
 

@@ -350,6 +350,7 @@ try {
         },
         'retrySms' => function ($rootValue, $args) use ($smsService, $smsHistoryRepository) {
             $id = $args['id'];
+            $userId = isset($args['userId']) ? (int)$args['userId'] : null;
 
             try {
                 // Get the SMS history record
@@ -365,7 +366,7 @@ try {
                 }
 
                 // Retry sending the SMS
-                $result = $smsService->sendSMS($smsHistory->getPhoneNumber(), $smsHistory->getMessage());
+                $result = $smsService->sendSMS($smsHistory->getPhoneNumber(), $smsHistory->getMessage(), $userId);
 
                 // Create a new SMS history record for the retry
                 $status = isset($result['outboundSMSMessageRequest']) ? 'SENT' : 'FAILED';
@@ -377,7 +378,9 @@ try {
                     $status === 'FAILED' ? 'Retry failed: ' . json_encode($result) : null,
                     $smsHistory->getSenderAddress(),
                     $smsHistory->getSenderName(),
-                    $smsHistory->getSegmentId()
+                    $smsHistory->getSegmentId(),
+                    null,
+                    $userId ?? $smsHistory->getUserId()
                 );
 
                 return [
@@ -402,8 +405,12 @@ try {
         'smsHistory' => function ($rootValue, $args) use ($smsHistoryRepository, $customSegmentRepository) {
             $limit = isset($args['limit']) ? $args['limit'] : 100;
             $offset = isset($args['offset']) ? $args['offset'] : 0;
+            $userId = isset($args['userId']) ? (int)$args['userId'] : null;
 
-            $history = $smsHistoryRepository->findAll($limit, $offset);
+            // Si un userId est fourni, filtrer par utilisateur
+            $history = $userId !== null
+                ? $smsHistoryRepository->findByUserId($userId, $limit, $offset)
+                : $smsHistoryRepository->findAll($limit, $offset);
             $result = [];
 
             foreach ($history as $item) {
@@ -416,7 +423,8 @@ try {
                     'errorMessage' => $item->getErrorMessage(),
                     'senderAddress' => $item->getSenderAddress(),
                     'senderName' => $item->getSenderName(),
-                    'createdAt' => $item->getCreatedAt()
+                    'createdAt' => $item->getCreatedAt(),
+                    'userId' => $item->getUserId()
                 ];
 
                 // Add segment information if available
@@ -440,8 +448,12 @@ try {
             return $result;
         },
 
-        'smsHistoryCount' => function () use ($smsHistoryRepository) {
-            return $smsHistoryRepository->count();
+        'smsHistoryCount' => function ($rootValue, $args) use ($smsHistoryRepository) {
+            $userId = isset($args['userId']) ? (int)$args['userId'] : null;
+
+            return $userId !== null
+                ? $smsHistoryRepository->countByUserId($userId)
+                : $smsHistoryRepository->count();
         },
         'segmentsForSMS' => function () use ($customSegmentRepository) {
             $segments = $customSegmentRepository->findAll();
@@ -467,9 +479,10 @@ try {
         'sendSms' => function ($rootValue, $args) use ($smsService) {
             $phoneNumber = $args['phoneNumber'];
             $message = $args['message'];
+            $userId = isset($args['userId']) ? (int)$args['userId'] : null;
 
             try {
-                $result = $smsService->sendSMS($phoneNumber, $message);
+                $result = $smsService->sendSMS($phoneNumber, $message, $userId);
 
                 return [
                     'id' => uniqid(),
@@ -492,9 +505,10 @@ try {
         'sendBulkSms' => function ($rootValue, $args) use ($smsService) {
             $phoneNumbers = $args['phoneNumbers'];
             $message = $args['message'];
+            $userId = isset($args['userId']) ? (int)$args['userId'] : null;
 
             try {
-                $results = $smsService->sendBulkSMS($phoneNumbers, $message);
+                $results = $smsService->sendBulkSMS($phoneNumbers, $message, $userId);
 
                 // Count successful and failed sends
                 $successful = 0;
@@ -578,6 +592,7 @@ try {
         'sendSmsToSegment' => function ($rootValue, $args) use ($smsService, $customSegmentRepository) {
             $segmentId = $args['segmentId'];
             $message = $args['message'];
+            $userId = isset($args['userId']) ? (int)$args['userId'] : null;
 
             try {
                 // Check if the segment exists
@@ -597,7 +612,7 @@ try {
                 }
 
                 // Send the SMS
-                $results = $smsService->sendSMSToSegment((int)$segmentId, $message);
+                $results = $smsService->sendSMSToSegment((int)$segmentId, $message, $userId);
 
                 // Count successful and failed sends
                 $successful = 0;

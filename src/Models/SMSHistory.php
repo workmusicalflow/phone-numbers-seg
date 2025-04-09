@@ -58,6 +58,11 @@ class SMSHistory
     private ?int $segmentId;
 
     /**
+     * @var int|null ID de l'utilisateur qui a envoyé le SMS
+     */
+    private ?int $userId;
+
+    /**
      * @var string Date de création
      */
     private string $createdAt;
@@ -75,6 +80,7 @@ class SMSHistory
      * @param string|null $messageId ID du message retourné par l'API
      * @param string|null $errorMessage Message d'erreur en cas d'échec
      * @param int|null $segmentId ID du segment associé
+     * @param int|null $userId ID de l'utilisateur qui a envoyé le SMS
      * @param string|null $createdAt Date de création
      */
     public function __construct(
@@ -88,6 +94,7 @@ class SMSHistory
         ?string $messageId = null,
         ?string $errorMessage = null,
         ?int $segmentId = null,
+        ?int $userId = null,
         ?string $createdAt = null
     ) {
         $this->id = $id;
@@ -100,6 +107,7 @@ class SMSHistory
         $this->messageId = $messageId;
         $this->errorMessage = $errorMessage;
         $this->segmentId = $segmentId;
+        $this->userId = $userId;
         $this->createdAt = $createdAt ?? date('Y-m-d H:i:s');
     }
 
@@ -342,6 +350,28 @@ class SMSHistory
     public function setCreatedAt(string $createdAt): self
     {
         $this->createdAt = $createdAt;
+        return $this;
+    }
+
+    /**
+     * Obtenir l'ID de l'utilisateur qui a envoyé le SMS
+     *
+     * @return int|null
+     */
+    public function getUserId(): ?int
+    {
+        return $this->userId;
+    }
+
+    /**
+     * Définir l'ID de l'utilisateur qui a envoyé le SMS
+     *
+     * @param int|null $userId
+     * @return self
+     */
+    public function setUserId(?int $userId): self
+    {
+        $this->userId = $userId;
         return $this;
     }
 }

@@ -39,10 +39,10 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
             $stmt = $this->db->prepare(
                 'INSERT INTO sms_history (
                     phone_number_id, phone_number, message, status, message_id, 
-                    error_message, sender_address, sender_name, segment_id, created_at
+                    error_message, sender_address, sender_name, segment_id, user_id, created_at
                 ) VALUES (
                     :phone_number_id, :phone_number, :message, :status, :message_id, 
-                    :error_message, :sender_address, :sender_name, :segment_id, :created_at
+                    :error_message, :sender_address, :sender_name, :segment_id, :user_id, :created_at
                 )'
             );
 
@@ -55,6 +55,7 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
             $stmt->bindValue(':sender_address', $smsHistory->getSenderAddress(), PDO::PARAM_STR);
             $stmt->bindValue(':sender_name', $smsHistory->getSenderName(), PDO::PARAM_STR);
             $stmt->bindValue(':segment_id', $smsHistory->getSegmentId(), PDO::PARAM_INT);
+            $stmt->bindValue(':user_id', $smsHistory->getUserId(), PDO::PARAM_INT);
             $stmt->bindValue(':created_at', $smsHistory->getCreatedAt(), PDO::PARAM_STR);
 
             $stmt->execute();
@@ -75,6 +76,7 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
                     sender_address = :sender_address,
                     sender_name = :sender_name,
                     segment_id = :segment_id,
+                    user_id = :user_id,
                     created_at = :created_at
                 WHERE id = :id'
             );
@@ -89,6 +91,7 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
             $stmt->bindValue(':sender_address', $smsHistory->getSenderAddress(), PDO::PARAM_STR);
             $stmt->bindValue(':sender_name', $smsHistory->getSenderName(), PDO::PARAM_STR);
             $stmt->bindValue(':segment_id', $smsHistory->getSegmentId(), PDO::PARAM_INT);
+            $stmt->bindValue(':user_id', $smsHistory->getUserId(), PDO::PARAM_INT);
             $stmt->bindValue(':created_at', $smsHistory->getCreatedAt(), PDO::PARAM_STR);
 
             $stmt->execute();
@@ -109,6 +112,7 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
      * @param string $senderName Nom de l'expéditeur
      * @param int|null $segmentId ID du segment associé
      * @param int|null $phoneNumberId ID du numéro de téléphone associé
+     * @param int|null $userId ID de l'utilisateur qui a envoyé le SMS
      * @return SMSHistory
      */
     public function create(
@@ -120,7 +124,8 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
         string $senderAddress = 'tel:+2250595016840',
         string $senderName = 'Qualitas CI',
         ?int $segmentId = null,
-        ?int $phoneNumberId = null
+        ?int $phoneNumberId = null,
+        ?int $userId = null
     ): SMSHistory {
         $smsHistory = new SMSHistory(
             null,
@@ -132,7 +137,8 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
             $phoneNumberId,
             $messageId,
             $errorMessage,
-            $segmentId
+            $segmentId,
+            $userId
         );
 
         return $this->save($smsHistory);
@@ -353,6 +359,30 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
     }
 
     /**
+     * Trouver les enregistrements d'historique SMS par ID d'utilisateur
+     *
+     * @param int $userId
+     * @param int $limit Limite de résultats
+     * @param int $offset Offset pour la pagination
+     * @return array
+     */
+    public function findByUserId(int $userId, int $limit = 100, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM sms_history WHERE user_id = :user_id ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = $this->createSMSHistoryFromRow($row);
+        }
+
+        return $results;
+    }
+
+    /**
      * Compter le nombre total d'enregistrements d'historique SMS
      *
      * @return int
@@ -383,6 +413,20 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
     {
         $stmt = $this->db->prepare('SELECT COUNT(*) FROM sms_history WHERE DATE(created_at) = :date');
         $stmt->bindValue(':date', $date, PDO::PARAM_STR);
+        $stmt->execute();
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Compte le nombre de SMS envoyés par un utilisateur spécifique
+     * 
+     * @param int $userId ID de l'utilisateur
+     * @return int
+     */
+    public function countByUserId(int $userId): int
+    {
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM sms_history WHERE user_id = :user_id');
+        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
         $stmt->execute();
         return (int) $stmt->fetchColumn();
     }
@@ -559,6 +603,7 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
             $row['message_id'],
             $row['error_message'],
             $row['segment_id'] !== null ? (int) $row['segment_id'] : null,
+            $row['user_id'] !== null ? (int) $row['user_id'] : null,
             $row['created_at']
         );
     }

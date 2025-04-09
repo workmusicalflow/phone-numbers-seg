@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\CustomSegmentRepository;
 use App\Repositories\PhoneNumberRepository;
 use App\Repositories\SMSHistoryRepository;
+use App\Repositories\UserRepository;
 use App\Models\SMSHistory;
 
 /**
@@ -50,6 +51,11 @@ class SMSService
     private ?SMSHistoryRepository $smsHistoryRepository;
 
     /**
+     * @var UserRepository|null
+     */
+    private ?UserRepository $userRepository;
+
+    /**
      * Constructor
      * 
      * @param string $clientId Orange API client ID
@@ -59,6 +65,7 @@ class SMSService
      * @param PhoneNumberRepository|null $phoneNumberRepository
      * @param CustomSegmentRepository|null $customSegmentRepository
      * @param SMSHistoryRepository|null $smsHistoryRepository
+     * @param UserRepository|null $userRepository
      */
     public function __construct(
         string $clientId,
@@ -67,7 +74,8 @@ class SMSService
         string $senderName,
         ?PhoneNumberRepository $phoneNumberRepository = null,
         ?CustomSegmentRepository $customSegmentRepository = null,
-        ?SMSHistoryRepository $smsHistoryRepository = null
+        ?SMSHistoryRepository $smsHistoryRepository = null,
+        ?UserRepository $userRepository = null
     ) {
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
@@ -76,6 +84,7 @@ class SMSService
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->customSegmentRepository = $customSegmentRepository;
         $this->smsHistoryRepository = $smsHistoryRepository;
+        $this->userRepository = $userRepository;
     }
 
     /**
@@ -117,11 +126,32 @@ class SMSService
      * 
      * @param string $receiverNumber Receiver phone number
      * @param string $message SMS message
+     * @param int|null $userId ID of the user sending the SMS
      * @return array API response
      * @throws \RuntimeException If the SMS cannot be sent
      */
-    public function sendSMS(string $receiverNumber, string $message): array
+    public function sendSMS(string $receiverNumber, string $message, ?int $userId = null): array
     {
+        // Vérifier les crédits de l'utilisateur si un userId est fourni
+        $user = null;
+        if ($userId !== null && $this->userRepository !== null) {
+            $user = $this->userRepository->findById($userId);
+            if ($user === null) {
+                throw new \RuntimeException("Utilisateur non trouvé");
+            }
+
+            // Vérifier si l'utilisateur a assez de crédits
+            if ($user->getSmsCredit() <= 0) {
+                throw new \RuntimeException("Crédits SMS insuffisants");
+            }
+
+            // Vérifier la limite SMS si définie
+            if ($user->getSmsLimit() !== null && $user->getSmsLimit() > 0) {
+                // TODO: Implémenter la vérification de la limite d'envoi
+                // Pour l'instant, on suppose que la limite n'est pas atteinte
+            }
+        }
+
         // Normalize the receiver number to international format with tel: prefix
         $receiverNumber = $this->normalizePhoneNumber($receiverNumber);
         $originalNumber = preg_replace('/^tel:/', '', $receiverNumber);
@@ -141,7 +171,9 @@ class SMSService
                     $this->senderName,
                     null,
                     null,
-                    'Failed to obtain access token: ' . $e->getMessage()
+                    'Failed to obtain access token: ' . $e->getMessage(),
+                    null,
+                    $userId
                 );
                 $this->smsHistoryRepository->save($smsHistory);
             }
@@ -189,7 +221,9 @@ class SMSService
                     $this->senderName,
                     null,
                     null,
-                    $errorMessage
+                    $errorMessage,
+                    null,
+                    $userId
                 );
                 $this->smsHistoryRepository->save($smsHistory);
             }
@@ -231,9 +265,19 @@ class SMSService
                 $this->senderName,
                 $phoneNumberId,
                 $messageId,
-                $isSuccess ? null : 'API Error: ' . ($httpCode . ' - ' . json_encode($responseData))
+                $isSuccess ? null : 'API Error: ' . ($httpCode . ' - ' . json_encode($responseData)),
+                null,
+                $userId
             );
             $this->smsHistoryRepository->save($smsHistory);
+        }
+
+        // Décompter les crédits si l'envoi a réussi et qu'un utilisateur est spécifié
+        if ($isSuccess && $userId !== null && $this->userRepository !== null && $user !== null) {
+            // Décompter un crédit
+            $newCreditBalance = $user->getSmsCredit() - 1;
+            $user->setSmsCredit($newCreditBalance);
+            $this->userRepository->save($user);
         }
 
         return $responseData;
@@ -244,10 +288,30 @@ class SMSService
      * 
      * @param array $receiverNumbers Array of receiver phone numbers
      * @param string $message SMS message
+     * @param int|null $userId ID of the user sending the SMS
      * @return array Results for each number
      */
-    public function sendBulkSMS(array $receiverNumbers, string $message): array
+    public function sendBulkSMS(array $receiverNumbers, string $message, ?int $userId = null): array
     {
+        // Vérifier les crédits de l'utilisateur si un userId est fourni
+        if ($userId !== null && $this->userRepository !== null) {
+            $user = $this->userRepository->findById($userId);
+            if ($user === null) {
+                throw new \RuntimeException("Utilisateur non trouvé");
+            }
+
+            // Vérifier si l'utilisateur a assez de crédits pour tous les SMS
+            if ($user->getSmsCredit() < count($receiverNumbers)) {
+                throw new \RuntimeException("Crédits SMS insuffisants pour l'envoi en masse");
+            }
+
+            // Vérifier la limite SMS si définie
+            if ($user->getSmsLimit() !== null && $user->getSmsLimit() > 0) {
+                // TODO: Implémenter la vérification de la limite d'envoi
+                // Pour l'instant, on suppose que la limite n'est pas atteinte
+            }
+        }
+
         $results = [];
         $segmentId = null;
 
@@ -255,7 +319,7 @@ class SMSService
             try {
                 $results[$number] = [
                     'status' => 'success',
-                    'response' => $this->sendSMS($number, $message)
+                    'response' => $this->sendSMS($number, $message, $userId)
                 ];
             } catch (\Exception $e) {
                 $results[$number] = [
@@ -273,10 +337,11 @@ class SMSService
      * 
      * @param int $segmentId Segment ID
      * @param string $message SMS message
+     * @param int|null $userId ID of the user sending the SMS
      * @return array Results for each number
      * @throws \RuntimeException If the repositories are not provided
      */
-    public function sendSMSToSegment(int $segmentId, string $message): array
+    public function sendSMSToSegment(int $segmentId, string $message, ?int $userId = null): array
     {
         if ($this->phoneNumberRepository === null || $this->customSegmentRepository === null) {
             throw new \RuntimeException('Phone number and custom segment repositories are required for sending to a segment');
@@ -296,8 +361,27 @@ class SMSService
             return $phoneNumber->getNumber();
         }, $phoneNumbers);
 
+        // Vérifier les crédits de l'utilisateur si un userId est fourni
+        if ($userId !== null && $this->userRepository !== null) {
+            $user = $this->userRepository->findById($userId);
+            if ($user === null) {
+                throw new \RuntimeException("Utilisateur non trouvé");
+            }
+
+            // Vérifier si l'utilisateur a assez de crédits pour tous les SMS
+            if ($user->getSmsCredit() < count($numbers)) {
+                throw new \RuntimeException("Crédits SMS insuffisants pour l'envoi au segment");
+            }
+
+            // Vérifier la limite SMS si définie
+            if ($user->getSmsLimit() !== null && $user->getSmsLimit() > 0) {
+                // TODO: Implémenter la vérification de la limite d'envoi
+                // Pour l'instant, on suppose que la limite n'est pas atteinte
+            }
+        }
+
         // Send the SMS to all numbers
-        $results = $this->sendBulkSMS($numbers, $message);
+        $results = $this->sendBulkSMS($numbers, $message, $userId);
 
         // Update segment ID in SMS history records if repository is available
         if ($this->smsHistoryRepository !== null) {

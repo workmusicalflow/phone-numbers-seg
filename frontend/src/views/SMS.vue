@@ -1,7 +1,30 @@
 <template>
   <q-page padding>
     <div class="q-pa-md">
-      <h1 class="text-h4 q-mb-md">Envoi de SMS</h1>
+      <div class="row items-center q-mb-md">
+        <h1 class="text-h4 q-my-none">Envoi de SMS</h1>
+        <q-space />
+        <div v-if="userStore.currentUser">
+          <q-chip
+            :color="getCreditColor(userStore.currentUser.smsCredit)"
+            text-color="white"
+            icon="sms"
+          >
+            {{ userStore.currentUser.smsCredit }} crédit{{ userStore.currentUser.smsCredit !== 1 ? 's' : '' }} SMS
+          </q-chip>
+          <q-tooltip>
+            <div v-if="userStore.currentUser.smsCredit <= 0">
+              Vous n'avez plus de crédits SMS. Contactez l'administrateur pour en obtenir plus.
+            </div>
+            <div v-else-if="userStore.currentUser.smsCredit < 5">
+              Attention, votre crédit SMS est faible.
+            </div>
+            <div v-else>
+              Crédit SMS disponible.
+            </div>
+          </q-tooltip>
+        </div>
+      </div>
 
       <q-tabs
         v-model="activeTab"
@@ -85,7 +108,11 @@
                     type="submit"
                     color="primary"
                     :loading="loading"
+                    :disable="hasInsufficientCredits"
                   />
+                  <div v-if="hasInsufficientCredits" class="text-negative q-mt-sm">
+                    <q-icon name="warning" /> Crédits SMS insuffisants
+                  </div>
                 </div>
               </q-form>
             </q-card-section>
@@ -124,7 +151,11 @@
                     type="submit"
                     color="primary"
                     :loading="loading"
+                    :disable="hasInsufficientCredits"
                   />
+                  <div v-if="hasInsufficientCredits" class="text-negative q-mt-sm">
+                    <q-icon name="warning" /> Crédits SMS insuffisants
+                  </div>
                 </div>
               </q-form>
             </q-card-section>
@@ -190,8 +221,11 @@
                     type="submit"
                     color="primary"
                     :loading="loading"
-                    :disable="!segmentSmsData.segmentId"
+                    :disable="!segmentSmsData.segmentId || hasInsufficientCredits"
                   />
+                  <div v-if="hasInsufficientCredits" class="text-negative q-mt-sm">
+                    <q-icon name="warning" /> Crédits SMS insuffisants
+                  </div>
                 </div>
               </q-form>
             </q-card-section>
@@ -273,7 +307,7 @@
               icon="history"
               label="Voir tout l'historique"
               flat
-              :to="{ name: 'SMSHistory' }"
+              :to="{ name: 'sms-history' }"
             />
           </q-card-section>
 
@@ -318,12 +352,18 @@ import { useQuasar } from "quasar";
 import { useApolloClient } from "@vue/apollo-composable";
 import NotificationService from "../services/NotificationService";
 import { useSMSTemplateStore } from "../stores/smsTemplateStore";
+import { useAuthStore } from "../stores/authStore";
+import { useUserStore } from "../stores/userStore";
 
 const $q = useQuasar();
 // Utiliser le client Apollo global
 const { client: apolloClient } = useApolloClient();
 // Utiliser le store des modèles de SMS
 const smsTemplateStore = useSMSTemplateStore();
+// Utiliser le store d'authentification
+const authStore = useAuthStore();
+// Utiliser le store utilisateur pour accéder à l'utilisateur courant
+const userStore = useUserStore();
 
 // Variables pour les modèles de SMS
 const selectedTemplate = ref<any>(null);
@@ -469,8 +509,8 @@ const onSubmitSingle = async () => {
   try {
     const { data } = await apolloClient.mutate({
       mutation: gql`
-        mutation SendSms($phoneNumber: String!, $message: String!) {
-          sendSms(phoneNumber: $phoneNumber, message: $message) {
+        mutation SendSms($phoneNumber: String!, $message: String!, $userId: ID) {
+          sendSms(phoneNumber: $phoneNumber, message: $message, userId: $userId) {
             id
             phoneNumber
             message
@@ -482,6 +522,7 @@ const onSubmitSingle = async () => {
       variables: {
         phoneNumber: singleSmsData.value.phoneNumber,
         message: singleSmsData.value.message,
+        userId: userStore.currentUser?.id
       },
       refetchQueries: [
         {
@@ -526,11 +567,24 @@ const onSubmitSingle = async () => {
     await fetchSmsHistory();
   } catch (error) {
     console.error("Error sending SMS:", error);
+    
+    // Vérifier si l'erreur est due à un crédit insuffisant
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isCreditError = errorMessage.includes('Crédits SMS insuffisants');
+    
     smsResult.value = {
       status: "error",
-      message: "Erreur lors de l'envoi du SMS",
+      message: isCreditError 
+        ? "Crédits SMS insuffisants" 
+        : "Erreur lors de l'envoi du SMS",
     };
-    NotificationService.error("Erreur lors de l'envoi du SMS");
+    
+    NotificationService.error(smsResult.value.message);
+    
+    // Si c'est une erreur de crédit, rafraîchir les informations de l'utilisateur
+    if (isCreditError && userStore.currentUser) {
+      userStore.fetchUser(userStore.currentUser.id);
+    }
   } finally {
     loading.value = false;
   }
@@ -556,8 +610,8 @@ const onSubmitBulk = async () => {
   try {
     const { data } = await apolloClient.mutate({
       mutation: gql`
-        mutation SendBulkSms($phoneNumbers: [String!]!, $message: String!) {
-          sendBulkSms(phoneNumbers: $phoneNumbers, message: $message) {
+        mutation SendBulkSms($phoneNumbers: [String!]!, $message: String!, $userId: ID) {
+          sendBulkSms(phoneNumbers: $phoneNumbers, message: $message, userId: $userId) {
             status
             message
             summary {
@@ -576,6 +630,7 @@ const onSubmitBulk = async () => {
       variables: {
         phoneNumbers,
         message: bulkSmsData.value.message,
+        userId: userStore.currentUser?.id
       },
       refetchQueries: [
         {
@@ -618,11 +673,24 @@ const onSubmitBulk = async () => {
     await fetchSmsHistory();
   } catch (error) {
     console.error("Error sending bulk SMS:", error);
+    
+    // Vérifier si l'erreur est due à un crédit insuffisant
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isCreditError = errorMessage.includes('Crédits SMS insuffisants');
+    
     smsResult.value = {
       status: "error",
-      message: "Erreur lors de l'envoi des SMS en masse",
+      message: isCreditError 
+        ? "Crédits SMS insuffisants pour l'envoi en masse" 
+        : "Erreur lors de l'envoi des SMS en masse",
     };
-    NotificationService.error("Erreur lors de l'envoi des SMS en masse");
+    
+    NotificationService.error(smsResult.value.message);
+    
+    // Si c'est une erreur de crédit, rafraîchir les informations de l'utilisateur
+    if (isCreditError && userStore.currentUser) {
+      userStore.fetchUser(userStore.currentUser.id);
+    }
   } finally {
     loading.value = false;
   }
@@ -641,8 +709,8 @@ const onSubmitSegment = async () => {
   try {
     const { data } = await apolloClient.mutate({
       mutation: gql`
-        mutation SendSmsToSegment($segmentId: ID!, $message: String!) {
-          sendSmsToSegment(segmentId: $segmentId, message: $message) {
+        mutation SendSmsToSegment($segmentId: ID!, $message: String!, $userId: ID) {
+          sendSmsToSegment(segmentId: $segmentId, message: $message, userId: $userId) {
             status
             message
             segment {
@@ -665,6 +733,7 @@ const onSubmitSegment = async () => {
       variables: {
         segmentId: segmentSmsData.value.segmentId,
         message: segmentSmsData.value.message,
+        userId: userStore.currentUser?.id
       },
       refetchQueries: [
         {
@@ -707,20 +776,51 @@ const onSubmitSegment = async () => {
     await fetchSmsHistory();
   } catch (error) {
     console.error("Error sending SMS to segment:", error);
+    
+    // Vérifier si l'erreur est due à un crédit insuffisant
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isCreditError = errorMessage.includes('Crédits SMS insuffisants');
+    
     smsResult.value = {
       status: "error",
-      message: "Erreur lors de l'envoi des SMS au segment",
+      message: isCreditError 
+        ? "Crédits SMS insuffisants pour l'envoi au segment" 
+        : "Erreur lors de l'envoi des SMS au segment",
     };
-    NotificationService.error("Erreur lors de l'envoi des SMS au segment");
+    
+    NotificationService.error(smsResult.value.message);
+    
+    // Si c'est une erreur de crédit, rafraîchir les informations de l'utilisateur
+    if (isCreditError && userStore.currentUser) {
+      userStore.fetchUser(userStore.currentUser.id);
+    }
   } finally {
     loading.value = false;
   }
 };
+
+// Fonction pour déterminer la couleur du badge de crédit
+const getCreditColor = (credit: number) => {
+  if (credit <= 0) return 'negative';
+  if (credit < 5) return 'warning';
+  return 'positive';
+};
+
+// Propriété calculée pour vérifier si l'utilisateur a des crédits suffisants
+const hasInsufficientCredits = computed(() => {
+  return userStore.currentUser ? userStore.currentUser.smsCredit <= 0 : false;
+});
 
 // Initialisation
 onMounted(() => {
   fetchSmsHistory();
   fetchSegments();
   smsTemplateStore.fetchTemplates(); // Charger les modèles de SMS
+  
+  // Récupérer les informations de l'utilisateur courant si nécessaire
+  if (userStore.currentUser === null && authStore.isAuthenticated) {
+    // Rafraîchir les informations de l'utilisateur via le store d'authentification
+    authStore.checkAuth();
+  }
 });
 </script>

@@ -23,4 +23,22 @@ interface SMSHistoryRepositoryInterface extends DashboardRepositoryInterface
      * @return array Tableau associatif avec les dates et les comptes
      */
     public function getDailyCountsForDateRange(string $startDate, string $endDate): array;
+
+    /**
+     * Trouver les enregistrements d'historique SMS par ID d'utilisateur
+     *
+     * @param int $userId
+     * @param int $limit Limite de résultats
+     * @param int $offset Offset pour la pagination
+     * @return array
+     */
+    public function findByUserId(int $userId, int $limit = 100, int $offset = 0): array;
+
+    /**
+     * Compte le nombre de SMS envoyés par un utilisateur spécifique
+     * 
+     * @param int $userId ID de l'utilisateur
+     * @return int
+     */
+    public function countByUserId(int $userId): int;
 }

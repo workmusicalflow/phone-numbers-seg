@@ -321,10 +321,10 @@ class UserController
      * 
      * @Mutation
      * @param int $id
-     * @param int $credits
+     * @param int $amount
      * @return User
      */
-    public function addSMSCredits(int $id, int $credits): User
+    public function addCredits(int $id, int $amount): User
     {
         // Récupérer l'utilisateur
         $user = $this->userRepository->findById($id);
@@ -333,12 +333,12 @@ class UserController
         }
 
         // Valider les crédits
-        if ($credits <= 0) {
+        if ($amount <= 0) {
             throw new \Exception("Le nombre de crédits doit être positif");
         }
 
         // Ajouter les crédits
-        $user->setSmsCredit($user->getSmsCredit() + $credits);
+        $user->setSmsCredit($user->getSmsCredit() + $amount);
 
         // Sauvegarder l'utilisateur
         $updatedUser = $this->userRepository->save($user);
@@ -353,7 +353,7 @@ class UserController
                 'user',
                 [
                     'username' => $user->getUsername(),
-                    'credits_added' => $credits,
+                    'credits_added' => $amount,
                     'new_balance' => $user->getSmsCredit()
                 ]
             );
