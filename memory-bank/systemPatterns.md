@@ -44,7 +44,7 @@ Pour améliorer la maintenabilité, le point d'entrée GraphQL (`public/graphql.
   - Les dépendances (Repositories, Services, Logger) sont injectées via le constructeur par le conteneur DI.
   - Chaque méthode publique correspond à un champ du schéma GraphQL (ex: `UserResolver::resolveUsers()`, `ContactResolver::mutateCreateContact()`).
   - La logique métier est contenue dans ces méthodes, appelant les services ou repositories nécessaires.
-  - **Note:** L'authentification/autorisation est encore gérée via `$_SESSION` dans cette phase, à améliorer en Phase 2. La conversion Objet -> Tableau est faite manuellement dans les méthodes `format*`, à améliorer en Phase 3.
+  - **Note (Phase 3):** L'authentification/autorisation est gérée via `AuthServiceInterface` injecté. La conversion Objet -> Tableau est gérée par `GraphQLFormatterInterface` injecté, centralisant la logique de formatage qui était auparavant dans des méthodes `format*` privées au sein de chaque résolveur. L'accès direct à `$_SESSION` et les méthodes `format*` locales ont été supprimés des résolveurs. La prochaine étape (Phase 4) est d'externaliser la configuration (clés API, etc.).
 
 ```mermaid
 graph TD

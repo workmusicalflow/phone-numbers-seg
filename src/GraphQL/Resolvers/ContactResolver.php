@@ -3,20 +3,29 @@
 namespace App\GraphQL\Resolvers;
 
 use App\Repositories\ContactRepository;
-use App\Models\Contact; // Assuming Contact model exists
-use App\Models\User; // Needed for user context
+use App\Models\Contact;
+use App\Models\User;
+use App\Services\Interfaces\AuthServiceInterface;
+use App\GraphQL\Formatters\GraphQLFormatterInterface; // Import Formatter interface
 use Exception;
 use Psr\Log\LoggerInterface;
 
 class ContactResolver
 {
     private ContactRepository $contactRepository;
+    private AuthServiceInterface $authService;
+    private GraphQLFormatterInterface $formatter; // Add Formatter property
     private LoggerInterface $logger;
 
-    // We might need AuthService later for user context if not passed directly
-    public function __construct(ContactRepository $contactRepository, LoggerInterface $logger)
-    {
+    public function __construct(
+        ContactRepository $contactRepository,
+        AuthServiceInterface $authService,
+        GraphQLFormatterInterface $formatter, // Inject Formatter
+        LoggerInterface $logger
+    ) {
         $this->contactRepository = $contactRepository;
+        $this->authService = $authService;
+        $this->formatter = $formatter; // Assign Formatter
         $this->logger = $logger;
     }
 
@@ -34,14 +43,13 @@ class ContactResolver
     {
         $this->logger->info('Executing ContactResolver::resolveContacts');
         try {
-            // --- Authentication/User Context Handling (Phase 2 improvement needed) ---
-            // For now, assume user ID is in session or passed via context
-            // This needs to be standardized later. Let's try session for now.
-            $userId = $_SESSION['user_id'] ?? null;
-            if (!$userId) {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for resolveContacts.');
                 throw new Exception("User not authenticated");
             }
+            $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
             $limit = isset($args['limit']) ? (int)$args['limit'] : 100;
@@ -50,10 +58,10 @@ class ContactResolver
             $contacts = $this->contactRepository->findByUserId($userId, $limit, $offset);
             $this->logger->info('Found ' . count($contacts) . ' contacts for user ' . $userId);
 
-            // Convert Contact objects to arrays
+            // Convert Contact objects to arrays using the formatter service
             $result = [];
             foreach ($contacts as $contact) {
-                $result[] = $this->formatContact($contact);
+                $result[] = $this->formatter->formatContact($contact); // Use formatter
             }
             $this->logger->info('Formatted contacts for GraphQL response.');
             return $result;
@@ -83,12 +91,13 @@ class ContactResolver
         }
 
         try {
-            // --- Authentication/User Context Handling ---
-            $userId = $_SESSION['user_id'] ?? null;
-            if (!$userId) {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for resolveContact.');
                 throw new Exception("User not authenticated");
             }
+            $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
             $contact = $this->contactRepository->findById($contactId);
@@ -104,7 +113,7 @@ class ContactResolver
             }
 
             $this->logger->info('Contact found for ID: ' . $contactId . ' and user ' . $userId);
-            return $this->formatContact($contact);
+            return $this->formatter->formatContact($contact); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::resolveContact: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -131,12 +140,13 @@ class ContactResolver
         }
 
         try {
-            // --- Authentication/User Context Handling ---
-            $userId = $_SESSION['user_id'] ?? null;
-            if (!$userId) {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for resolveSearchContacts.');
                 throw new Exception("User not authenticated");
             }
+            $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
             $limit = isset($args['limit']) ? (int)$args['limit'] : 100;
@@ -145,10 +155,10 @@ class ContactResolver
             $contacts = $this->contactRepository->searchByUserId($query, $userId, $limit, $offset);
             $this->logger->info('Found ' . count($contacts) . ' contacts for query "' . $query . '" and user ' . $userId);
 
-            // Convert Contact objects to arrays
+            // Convert Contact objects to arrays using the formatter service
             $result = [];
             foreach ($contacts as $contact) {
-                $result[] = $this->formatContact($contact);
+                $result[] = $this->formatter->formatContact($contact); // Use formatter
             }
             $this->logger->info('Formatted search results for GraphQL response.');
             return $result;
@@ -178,12 +188,13 @@ class ContactResolver
         }
 
         try {
-            // --- Authentication/User Context Handling ---
-            $userId = $_SESSION['user_id'] ?? null;
-            if (!$userId) {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for mutateCreateContact.');
                 throw new Exception("User not authenticated");
             }
+            $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
             // Create a new contact model instance
@@ -201,7 +212,7 @@ class ContactResolver
             $savedContact = $this->contactRepository->create($contact); // Assuming 'create' returns the saved object with ID
             $this->logger->info('Contact created successfully for user ' . $userId . ' with ID: ' . $savedContact->getId());
 
-            return $this->formatContact($savedContact);
+            return $this->formatter->formatContact($savedContact); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::mutateCreateContact: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -227,12 +238,13 @@ class ContactResolver
         }
 
         try {
-            // --- Authentication/User Context Handling ---
-            $userId = $_SESSION['user_id'] ?? null;
-            if (!$userId) {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for mutateUpdateContact.');
                 throw new Exception("User not authenticated");
             }
+            $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
             // Fetch the existing contact
@@ -266,7 +278,7 @@ class ContactResolver
             $savedContact = $this->contactRepository->update($updatedContact); // Assuming 'update' returns the saved object
             $this->logger->info('Contact updated successfully for ID: ' . $contactId);
 
-            return $this->formatContact($savedContact);
+            return $this->formatter->formatContact($savedContact); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::mutateUpdateContact: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -292,12 +304,13 @@ class ContactResolver
         }
 
         try {
-            // --- Authentication/User Context Handling ---
-            $userId = $_SESSION['user_id'] ?? null;
-            if (!$userId) {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for mutateDeleteContact.');
                 throw new Exception("User not authenticated");
             }
+            $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
             // Fetch the existing contact to verify ownership
@@ -331,26 +344,5 @@ class ContactResolver
     }
 
 
-    // --- Helper Methods ---
-
-    /**
-     * Formats a Contact object into an array suitable for GraphQL response.
-     * This will be improved in Phase 3 (Centralized Conversion).
-     *
-     * @param Contact $contact
-     * @return array<string, mixed>
-     */
-    private function formatContact(Contact $contact): array
-    {
-        // Note: The GraphQL schema expects 'id' as ID!, 'name', 'phoneNumber', etc.
-        return [
-            'id' => $contact->getId(), // Ensure ID is returned as string if schema expects ID!
-            'name' => $contact->getName(),
-            'phoneNumber' => $contact->getPhoneNumber(),
-            'email' => $contact->getEmail(),
-            'notes' => $contact->getNotes(),
-            'createdAt' => $contact->getCreatedAt(), // Ensure format is correct (e.g., ISO 8601)
-            'updatedAt' => $contact->getUpdatedAt(), // Ensure format is correct
-        ];
-    }
+    // --- Helper Methods (Removed formatContact) ---
 }

@@ -4,9 +4,11 @@ namespace App\GraphQL\Resolvers;
 
 use App\Repositories\SMSHistoryRepository;
 use App\Repositories\CustomSegmentRepository;
-use App\Services\SMSService; // Assuming SMSService handles sending
-use App\Models\SMSHistory; // Assuming SMSHistory model exists
-use App\Models\Segment; // Assuming Segment model exists
+use App\Services\SMSService;
+use App\Models\SMSHistory;
+use App\Models\Segment;
+use App\Services\Interfaces\AuthServiceInterface;
+use App\GraphQL\Formatters\GraphQLFormatterInterface; // Import Formatter interface
 use Exception;
 use Psr\Log\LoggerInterface;
 
@@ -15,17 +17,23 @@ class SMSResolver
     private SMSHistoryRepository $smsHistoryRepository;
     private CustomSegmentRepository $customSegmentRepository;
     private SMSService $smsService;
+    private AuthServiceInterface $authService;
+    private GraphQLFormatterInterface $formatter; // Add Formatter property
     private LoggerInterface $logger;
 
     public function __construct(
         SMSHistoryRepository $smsHistoryRepository,
         CustomSegmentRepository $customSegmentRepository,
         SMSService $smsService,
+        AuthServiceInterface $authService,
+        GraphQLFormatterInterface $formatter, // Inject Formatter
         LoggerInterface $logger
     ) {
         $this->smsHistoryRepository = $smsHistoryRepository;
         $this->customSegmentRepository = $customSegmentRepository;
         $this->smsService = $smsService;
+        $this->authService = $authService;
+        $this->formatter = $formatter; // Assign Formatter
         $this->logger = $logger;
     }
 
@@ -46,21 +54,19 @@ class SMSResolver
 
         try {
             // --- Authentication/Authorization Check ---
-            // In a real app, you'd verify if the requesting user is allowed to see
-            // the history for the given $userId (or their own if $userId is null).
-            // For now, we assume the check is done or will be added in Phase 2.
-            $requestingUserId = $_SESSION['user_id'] ?? null; // Example
-            $isAdmin = $_SESSION['is_admin'] ?? false; // Example
-
-            if (!$requestingUserId) {
+            // --- Authentication/Authorization Check (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for resolveSmsHistory.');
                 throw new Exception("User not authenticated");
             }
+            $requestingUserId = $currentUser->getId();
+            $isAdmin = $currentUser->isAdmin();
 
             // If a specific user's history is requested, check permissions
             if ($userId !== null && $userId !== $requestingUserId && !$isAdmin) {
                 $this->logger->warning('User ' . $requestingUserId . ' attempted to access SMS history for user ' . $userId);
-                throw new Exception("Permission denied"); // Or return empty array
+                throw new Exception("Permission denied");
             }
 
             // If no specific user ID is provided, default to the current user unless admin
@@ -80,7 +86,7 @@ class SMSResolver
 
             $result = [];
             foreach ($history as $item) {
-                $result[] = $this->formatSmsHistory($item);
+                $result[] = $this->formatter->formatSmsHistory($item); // Use formatter
             }
             $this->logger->info('Formatted SMS history for GraphQL response.');
             return $result;
@@ -104,14 +110,15 @@ class SMSResolver
         $this->logger->info('Executing SMSResolver::resolveSmsHistoryCount', ['userId' => $userId]);
 
         try {
-            // --- Authentication/Authorization Check (similar to resolveSmsHistory) ---
-            $requestingUserId = $_SESSION['user_id'] ?? null;
-            $isAdmin = $_SESSION['is_admin'] ?? false;
-
-            if (!$requestingUserId) {
+            // --- Authentication/Authorization Check (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for resolveSmsHistoryCount.');
                 throw new Exception("User not authenticated");
             }
+            $requestingUserId = $currentUser->getId();
+            $isAdmin = $currentUser->isAdmin();
+
             if ($userId !== null && $userId !== $requestingUserId && !$isAdmin) {
                 $this->logger->warning('User ' . $requestingUserId . ' attempted to access SMS history count for user ' . $userId);
                 throw new Exception("Permission denied");
@@ -145,8 +152,8 @@ class SMSResolver
     {
         $this->logger->info('Executing SMSResolver::resolveSegmentsForSMS');
         try {
-            // --- Authentication Check ---
-            if (!isset($_SESSION['user_id'])) {
+            // --- Authentication Check (Using AuthService) ---
+            if (!$this->authService->isAuthenticated()) {
                 $this->logger->error('User not authenticated for resolveSegmentsForSMS.');
                 throw new Exception("User not authenticated");
             }
@@ -163,12 +170,8 @@ class SMSResolver
                 $phoneNumberCount = count($phoneNumbers);
                 $this->logger->debug('Segment ' . $segment->getId() . ' has ' . $phoneNumberCount . ' phone numbers.');
 
-                $result[] = [
-                    'id' => $segment->getId(),
-                    'name' => $segment->getName(),
-                    'description' => $segment->getDescription(),
-                    'phoneNumberCount' => $phoneNumberCount
-                ];
+                // Use formatter for segment
+                $result[] = $this->formatter->formatCustomSegment($segment, $phoneNumberCount);
             }
             $this->logger->info('Formatted segments for GraphQL response.');
             return $result;
@@ -196,14 +199,14 @@ class SMSResolver
         $this->logger->info('Executing SMSResolver::mutateSendSms', ['to' => $phoneNumber, 'targetUserId' => $targetUserId]);
 
         try {
-            // --- Authentication/Authorization Check ---
-            $requestingUserId = $_SESSION['user_id'] ?? null;
-            $isAdmin = $_SESSION['is_admin'] ?? false;
-
-            if (!$requestingUserId) {
+            // --- Authentication/Authorization Check (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
                 $this->logger->error('User not authenticated for mutateSendSms.');
                 throw new Exception("User not authenticated");
             }
+            $requestingUserId = $currentUser->getId();
+            $isAdmin = $currentUser->isAdmin();
 
             // Determine the actual user ID for sending/logging
             $effectiveUserId = $targetUserId;
@@ -274,12 +277,15 @@ class SMSResolver
         }
 
         try {
-            // --- Authentication/Authorization Check ---
-            $requestingUserId = $_SESSION['user_id'] ?? null;
-            $isAdmin = $_SESSION['is_admin'] ?? false;
-            if (!$requestingUserId) {
+            // --- Authentication/Authorization Check (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for mutateSendBulkSms.');
                 throw new Exception("User not authenticated");
             }
+            $requestingUserId = $currentUser->getId();
+            $isAdmin = $currentUser->isAdmin();
+
             $effectiveUserId = $targetUserId ?? $requestingUserId;
             if ($effectiveUserId !== $requestingUserId && !$isAdmin) {
                 throw new Exception("Permission denied to send bulk SMS as another user.");
@@ -361,12 +367,15 @@ class SMSResolver
         }
 
         try {
-            // --- Authentication/Authorization Check ---
-            $requestingUserId = $_SESSION['user_id'] ?? null;
-            $isAdmin = $_SESSION['is_admin'] ?? false;
-            if (!$requestingUserId) {
+            // --- Authentication/Authorization Check (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for mutateSendSmsToSegment.');
                 throw new Exception("User not authenticated");
             }
+            $requestingUserId = $currentUser->getId();
+            $isAdmin = $currentUser->isAdmin();
+
             $effectiveUserId = $targetUserId ?? $requestingUserId;
             if ($effectiveUserId !== $requestingUserId && !$isAdmin) {
                 throw new Exception("Permission denied to send segment SMS as another user.");
@@ -464,12 +473,14 @@ class SMSResolver
         }
 
         try {
-            // --- Authentication/Authorization Check ---
-            $requestingUserId = $_SESSION['user_id'] ?? null;
-            $isAdmin = $_SESSION['is_admin'] ?? false;
-            if (!$requestingUserId) {
+            // --- Authentication/Authorization Check (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for mutateRetrySms.');
                 throw new Exception("User not authenticated");
             }
+            $requestingUserId = $currentUser->getId();
+            $isAdmin = $currentUser->isAdmin();
             // --- End Auth Check ---
 
             // Get the original SMS history record
@@ -529,66 +540,7 @@ class SMSResolver
     }
 
 
-    // --- Helper Methods ---
-
-    /**
-     * Formats an SMSHistory object into an array suitable for GraphQL response.
-     * This will be improved in Phase 3 (Centralized Conversion).
-     *
-     * @param SMSHistory $item
-     * @return array<string, mixed>
-     */
-    private function formatSmsHistory(SMSHistory $item): array
-    {
-        $smsData = [
-            'id' => $item->getId(),
-            'phoneNumber' => $item->getPhoneNumber(),
-            'message' => $item->getMessage(),
-            'status' => $item->getStatus(),
-            'messageId' => $item->getMessageId(),
-            'errorMessage' => $item->getErrorMessage(),
-            'senderAddress' => $item->getSenderAddress(),
-            'senderName' => $item->getSenderName(),
-            'createdAt' => $item->getCreatedAt(), // Ensure format
-            'userId' => $item->getUserId() // Include userId
-        ];
-
-        // Add segment information if available and fetched
-        // This requires the repository/query to join or fetch segment data
-        // For now, assume segment info might be null or fetched separately if needed by schema.
-        // If segment info was fetched (e.g., via a join in the repository):
-        // if ($item->getSegmentId() && $item->getSegmentName()) { // Check if segment data is loaded
-        //     $smsData['segment'] = [
-        //         'id' => $item->getSegmentId(),
-        //         'name' => $item->getSegmentName()
-        //     ];
-        // } else {
-        //     $smsData['segment'] = null;
-        // }
-        // Simplified: Fetch segment info separately if needed, or adjust repository query.
-        // Let's assume segment info is not directly included for now based on current repo methods.
-        $smsData['segment'] = null; // Placeholder
-
-        // Fetch segment info if ID exists (less efficient N+1 potential)
-        if ($item->getSegmentId()) {
-            try {
-                $segment = $this->customSegmentRepository->findById($item->getSegmentId());
-                if ($segment) {
-                    $smsData['segment'] = [
-                        'id' => $segment->getId(),
-                        'name' => $segment->getName()
-                        // Add other fields if needed by schema
-                    ];
-                }
-            } catch (Exception $e) {
-                $this->logger->warning('Could not fetch segment info for history item ' . $item->getId(), ['segmentId' => $item->getSegmentId(), 'error' => $e->getMessage()]);
-                // Segment info remains null
-            }
-        }
-
-
-        return $smsData;
-    }
+    // --- Helper Methods (Removed formatSmsHistory) ---
 
     // Placeholder for credit check logic (to be implemented in Phase 2/AuthService)
     private function checkUserCredits(int $userId, int $requiredCredits): bool

@@ -247,6 +247,14 @@ $definitions = [
             $container->get(PDO::class)
         );
     }),
+
+    // GraphQL Formatters
+    \App\GraphQL\Formatters\GraphQLFormatterInterface::class => factory(function (Container $container) {
+        return new \App\GraphQL\Formatters\GraphQLFormatterService(
+            $container->get(\App\Repositories\CustomSegmentRepository::class), // Dependency needed by the formatter
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
 ];
 
 // Return the definitions array instead of the built container

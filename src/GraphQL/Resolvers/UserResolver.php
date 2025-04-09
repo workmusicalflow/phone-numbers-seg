@@ -3,17 +3,27 @@
 namespace App\GraphQL\Resolvers;
 
 use App\Repositories\UserRepository;
+use App\Services\Interfaces\AuthServiceInterface;
+use App\GraphQL\Formatters\GraphQLFormatterInterface; // Import Formatter interface
 use Exception;
-use Psr\Log\LoggerInterface; // Assuming you might want logging
+use Psr\Log\LoggerInterface;
 
 class UserResolver
 {
     private UserRepository $userRepository;
+    private AuthServiceInterface $authService;
+    private GraphQLFormatterInterface $formatter; // Add Formatter property
     private LoggerInterface $logger;
 
-    public function __construct(UserRepository $userRepository, LoggerInterface $logger)
-    {
+    public function __construct(
+        UserRepository $userRepository,
+        AuthServiceInterface $authService,
+        GraphQLFormatterInterface $formatter, // Inject Formatter
+        LoggerInterface $logger
+    ) {
         $this->userRepository = $userRepository;
+        $this->authService = $authService;
+        $this->formatter = $formatter; // Assign Formatter
         $this->logger = $logger;
     }
 
@@ -31,17 +41,36 @@ class UserResolver
             $users = $this->userRepository->findAll();
             $this->logger->info('Found ' . count($users) . ' users');
 
-            // Convert User objects to arrays (temporary, will be improved in Phase 3)
+            // Convert User objects to arrays using the formatter service
             $result = [];
             foreach ($users as $user) {
-                $result[] = $this->formatUser($user);
+                $result[] = $this->formatter->formatUser($user); // Use formatter
             }
             $this->logger->info('Formatted users for GraphQL response.');
             return $result;
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::resolveUsers: ' . $e->getMessage(), ['exception' => $e]);
-            throw $e; // Re-throw the exception to be handled by GraphQL error handling
+            throw $e;
         }
+    }
+
+    /**
+     * Resolver for the 'me' query. Fetches the currently authenticated user.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resolveMe(): ?array
+    {
+        $this->logger->info('Executing UserResolver::resolveMe');
+        $user = $this->authService->getCurrentUser();
+
+        if (!$user) {
+            $this->logger->info('No authenticated user found for "me" query.');
+            return null;
+        }
+
+        $this->logger->info('Authenticated user found for "me" query: ID ' . $user->getId());
+        return $this->formatter->formatUser($user); // Use formatter
     }
 
     /**
@@ -70,7 +99,7 @@ class UserResolver
             }
 
             $this->logger->info('User found for ID: ' . $userId);
-            return $this->formatUser($user);
+            return $this->formatter->formatUser($user); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::resolveUser: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -103,7 +132,7 @@ class UserResolver
             }
 
             $this->logger->info('User found for username: ' . $username);
-            return $this->formatUser($user);
+            return $this->formatter->formatUser($user); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::resolveUserByUsername: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -165,7 +194,7 @@ class UserResolver
             $savedUser = $this->userRepository->save($user); // Assuming save handles create/update
             $this->logger->info('User created successfully with ID: ' . $savedUser->getId());
 
-            return $this->formatUser($savedUser);
+            return $this->formatter->formatUser($savedUser); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::mutateCreateUser: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -216,7 +245,7 @@ class UserResolver
             $updatedUser = $this->userRepository->save($user);
             $this->logger->info('User updated successfully for ID: ' . $userId);
 
-            return $this->formatUser($updatedUser);
+            return $this->formatter->formatUser($updatedUser); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::mutateUpdateUser: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -261,7 +290,7 @@ class UserResolver
             $updatedUser = $this->userRepository->save($user);
             $this->logger->info('Password changed successfully for user ID: ' . $userId);
 
-            return $this->formatUser($updatedUser);
+            return $this->formatter->formatUser($updatedUser); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::mutateChangePassword: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -302,7 +331,7 @@ class UserResolver
             $updatedUser = $this->userRepository->save($user);
             $this->logger->info('Credits added successfully for user ID: ' . $userId . '. New balance: ' . $updatedUser->getSmsCredit());
 
-            return $this->formatUser($updatedUser);
+            return $this->formatter->formatUser($updatedUser); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::mutateAddCredits: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
@@ -350,26 +379,5 @@ class UserResolver
         }
     }
 
-    // --- Helper Methods ---
-
-    /**
-     * Formats a User object into an array suitable for GraphQL response.
-     * This will be improved in Phase 3 (Centralized Conversion).
-     *
-     * @param \App\Models\User $user
-     * @return array<string, mixed>
-     */
-    private function formatUser(\App\Models\User $user): array
-    {
-        return [
-            'id' => $user->getId(),
-            'username' => $user->getUsername(),
-            'email' => $user->getEmail(),
-            'smsCredit' => $user->getSmsCredit(),
-            'smsLimit' => $user->getSmsLimit(),
-            'isAdmin' => $user->isAdmin(),
-            'createdAt' => $user->getCreatedAt(), // Ensure format is correct (e.g., ISO 8601)
-            'updatedAt' => $user->getUpdatedAt(), // Ensure format is correct
-        ];
-    }
+    // --- Helper Methods (Removed formatUser) ---
 }

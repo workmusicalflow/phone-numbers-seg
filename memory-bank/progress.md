@@ -121,9 +121,9 @@ Le projet est actuellement à environ **90%** de complétion. La plupart des fon
 
 ## Prochains Jalons (Refactoring)
 
-- ⏳ **Phase 2 (Refactoring GraphQL)** : Amélioration de l'Injection de Dépendances et de l'Authentification
-- 🔜 **Phase 3 (Refactoring GraphQL)** : Centralisation de la Conversion Objet -> Tableau
-- 🔜 **Phase 4 (Refactoring GraphQL)** : Externalisation de la Configuration
+- ✅ **Phase 2 (Refactoring GraphQL)** : Amélioration de l'Injection de Dépendances et de l'Authentification (Terminée)
+- ✅ **Phase 3 (Refactoring GraphQL)** : Centralisation de la Conversion Objet -> Tableau (Terminée)
+- ⏳ **Phase 4 (Refactoring GraphQL)** : Externalisation de la Configuration
 
 ## Prochains Jalons (Fonctionnalités)
 
