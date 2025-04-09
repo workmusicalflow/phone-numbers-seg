@@ -111,6 +111,9 @@ try {
     $schemaString = file_get_contents(__DIR__ . '/../src/GraphQL/schema.graphql');
     $schema = BuildSchema::build($schemaString);
 
+    // Get contact repository
+    $contactRepository = $container->get(\App\Repositories\ContactRepository::class);
+
     // Define resolvers
     $rootValue = [
         // User resolvers
@@ -589,6 +592,233 @@ try {
             }
         },
 
+        // Contact resolvers
+        'contacts' => function ($rootValue, $args) use ($contactRepository) {
+            error_log('Executing contacts resolver');
+            try {
+                // Get the current user ID from the session
+                $userId = $_SESSION['user_id'] ?? null;
+                if (!$userId) {
+                    throw new \Exception("User not authenticated");
+                }
+
+                $limit = isset($args['limit']) ? $args['limit'] : 100;
+                $offset = isset($args['offset']) ? $args['offset'] : 0;
+
+                $contacts = $contactRepository->findByUserId($userId, $limit, $offset);
+                error_log('Found ' . count($contacts) . ' contacts for user ' . $userId);
+
+                // Convert Contact objects to arrays
+                $result = [];
+                foreach ($contacts as $contact) {
+                    $result[] = [
+                        'id' => $contact->getId(),
+                        'name' => $contact->getName(),
+                        'phoneNumber' => $contact->getPhoneNumber(),
+                        'email' => $contact->getEmail(),
+                        'notes' => $contact->getNotes(),
+                        'createdAt' => $contact->getCreatedAt(),
+                        'updatedAt' => $contact->getUpdatedAt()
+                    ];
+                }
+                error_log('Converted contacts to arrays: ' . json_encode($result));
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in contacts resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'contact' => function ($rootValue, $args) use ($contactRepository) {
+            error_log('Executing contact resolver for ID: ' . $args['id']);
+            try {
+                // Get the current user ID from the session
+                $userId = $_SESSION['user_id'] ?? null;
+                if (!$userId) {
+                    throw new \Exception("User not authenticated");
+                }
+
+                $contact = $contactRepository->findById((int)$args['id']);
+                if (!$contact) {
+                    return null;
+                }
+
+                // Check if the contact belongs to the current user
+                if ($contact->getUserId() !== $userId) {
+                    return null;
+                }
+
+                // Convert Contact object to array
+                $result = [
+                    'id' => $contact->getId(),
+                    'name' => $contact->getName(),
+                    'phoneNumber' => $contact->getPhoneNumber(),
+                    'email' => $contact->getEmail(),
+                    'notes' => $contact->getNotes(),
+                    'createdAt' => $contact->getCreatedAt(),
+                    'updatedAt' => $contact->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in contact resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'searchContacts' => function ($rootValue, $args) use ($contactRepository) {
+            error_log('Executing searchContacts resolver for query: ' . $args['query']);
+            try {
+                // Get the current user ID from the session
+                $userId = $_SESSION['user_id'] ?? null;
+                if (!$userId) {
+                    throw new \Exception("User not authenticated");
+                }
+
+                $limit = isset($args['limit']) ? $args['limit'] : 100;
+                $offset = isset($args['offset']) ? $args['offset'] : 0;
+
+                $contacts = $contactRepository->searchByUserId($args['query'], $userId, $limit, $offset);
+                error_log('Found ' . count($contacts) . ' contacts for query ' . $args['query']);
+
+                // Convert Contact objects to arrays
+                $result = [];
+                foreach ($contacts as $contact) {
+                    $result[] = [
+                        'id' => $contact->getId(),
+                        'name' => $contact->getName(),
+                        'phoneNumber' => $contact->getPhoneNumber(),
+                        'email' => $contact->getEmail(),
+                        'notes' => $contact->getNotes(),
+                        'createdAt' => $contact->getCreatedAt(),
+                        'updatedAt' => $contact->getUpdatedAt()
+                    ];
+                }
+                error_log('Converted contacts to arrays: ' . json_encode($result));
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in searchContacts resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'createContact' => function ($rootValue, $args) use ($contactRepository) {
+            error_log('Executing createContact resolver for name: ' . $args['name']);
+            try {
+                // Get the current user ID from the session
+                $userId = $_SESSION['user_id'] ?? null;
+                if (!$userId) {
+                    throw new \Exception("User not authenticated");
+                }
+
+                // Create a new contact
+                $contact = new \App\Models\Contact(
+                    0, // ID will be generated by the database
+                    $userId,
+                    $args['name'],
+                    $args['phoneNumber'],
+                    $args['email'] ?? null,
+                    $args['notes'] ?? null
+                );
+
+                // Save the contact
+                $contact = $contactRepository->create($contact);
+
+                // Convert Contact object to array
+                $result = [
+                    'id' => $contact->getId(),
+                    'name' => $contact->getName(),
+                    'phoneNumber' => $contact->getPhoneNumber(),
+                    'email' => $contact->getEmail(),
+                    'notes' => $contact->getNotes(),
+                    'createdAt' => $contact->getCreatedAt(),
+                    'updatedAt' => $contact->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in createContact resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'updateContact' => function ($rootValue, $args) use ($contactRepository) {
+            error_log('Executing updateContact resolver for ID: ' . $args['id']);
+            try {
+                // Get the current user ID from the session
+                $userId = $_SESSION['user_id'] ?? null;
+                if (!$userId) {
+                    throw new \Exception("User not authenticated");
+                }
+
+                // Get the existing contact
+                $contact = $contactRepository->findById((int)$args['id']);
+                if (!$contact) {
+                    throw new \Exception("Contact not found");
+                }
+
+                // Check if the contact belongs to the current user
+                if ($contact->getUserId() !== $userId) {
+                    throw new \Exception("Contact not found");
+                }
+
+                // Update the contact
+                $updatedContact = new \App\Models\Contact(
+                    (int)$args['id'],
+                    $userId,
+                    $args['name'],
+                    $args['phoneNumber'],
+                    $args['email'] ?? null,
+                    $args['notes'] ?? null,
+                    $contact->getCreatedAt()
+                );
+
+                // Save the contact
+                $contact = $contactRepository->update($updatedContact);
+
+                // Convert Contact object to array
+                $result = [
+                    'id' => $contact->getId(),
+                    'name' => $contact->getName(),
+                    'phoneNumber' => $contact->getPhoneNumber(),
+                    'email' => $contact->getEmail(),
+                    'notes' => $contact->getNotes(),
+                    'createdAt' => $contact->getCreatedAt(),
+                    'updatedAt' => $contact->getUpdatedAt()
+                ];
+                return $result;
+            } catch (\Exception $e) {
+                error_log('Error in updateContact resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                throw $e;
+            }
+        },
+        'deleteContact' => function ($rootValue, $args) use ($contactRepository) {
+            error_log('Executing deleteContact resolver for ID: ' . $args['id']);
+            try {
+                // Get the current user ID from the session
+                $userId = $_SESSION['user_id'] ?? null;
+                if (!$userId) {
+                    throw new \Exception("User not authenticated");
+                }
+
+                // Get the existing contact
+                $contact = $contactRepository->findById((int)$args['id']);
+                if (!$contact) {
+                    return false;
+                }
+
+                // Check if the contact belongs to the current user
+                if ($contact->getUserId() !== $userId) {
+                    return false;
+                }
+
+                // Delete the contact
+                return $contactRepository->delete($contact);
+            } catch (\Exception $e) {
+                error_log('Error in deleteContact resolver: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                return false;
+            }
+        },
         'sendSmsToSegment' => function ($rootValue, $args) use ($smsService, $customSegmentRepository) {
             $segmentId = $args['segmentId'];
             $message = $args['message'];

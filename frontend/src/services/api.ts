@@ -43,7 +43,12 @@ api.interceptors.response.use(
 // Apollo Client setup
 const apolloClient = new ApolloClient({
   uri: '/graphql.php',
-  cache: new InMemoryCache()
+  cache: new InMemoryCache(),
+  credentials: 'include', // Important pour inclure les cookies
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
 });
 
 export { api, apolloClient, gql };

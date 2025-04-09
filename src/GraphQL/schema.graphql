@@ -10,6 +10,11 @@ type Query {
   verifyToken(token: String!): TokenVerificationResult!
   me: User
   dashboardStats: DashboardStats!
+
+  # Contact queries
+  contacts(limit: Int, offset: Int): [Contact!]!
+  contact(id: ID!): Contact
+  searchContacts(query: String!, limit: Int, offset: Int): [Contact!]!
 }
 
 type Segment {
@@ -53,6 +58,22 @@ type Mutation {
   # Mutations de sécurité
   requestPasswordReset(email: String!): Boolean!
   resetPassword(token: String!, newPassword: String!): Boolean!
+
+  # Contact mutations
+  createContact(
+    name: String!
+    phoneNumber: String!
+    email: String
+    notes: String
+  ): Contact!
+  updateContact(
+    id: ID!
+    name: String!
+    phoneNumber: String!
+    email: String
+    notes: String
+  ): Contact!
+  deleteContact(id: ID!): Boolean!
 }
 
 type SMSHistory {
@@ -136,4 +157,15 @@ type TokenVerificationResult {
   valid: Boolean!
   user: User
   error: String
+}
+
+# Type pour les contacts
+type Contact {
+  id: ID!
+  name: String!
+  phoneNumber: String!
+  email: String
+  notes: String
+  createdAt: String!
+  updatedAt: String!
 }

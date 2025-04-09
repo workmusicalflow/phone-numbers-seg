@@ -85,6 +85,13 @@
           <q-item-section>Gestion des segments</q-item-section>
         </q-item>
 
+        <q-item clickable v-ripple to="/contacts">
+          <q-item-section avatar>
+            <q-icon name="people" />
+          </q-item-section>
+          <q-item-section>Contacts</q-item-section>
+        </q-item>
+
         <q-item clickable v-ripple to="/sms">
           <q-item-section avatar>
             <q-icon name="message" />
@@ -181,15 +188,8 @@ const logout = async () => {
 // Initialiser l'authentification au démarrage de l'application
 onMounted(async () => {
   // Initialiser l'authentification
+  // Cela va également charger les informations de l'utilisateur connecté dans userStore.currentUser
   await authStore.init();
-  
-  // Si l'utilisateur est authentifié, charger ses informations
-  if (authStore.isAuthenticated) {
-    // Dans une application réelle, nous récupérerions l'ID de l'utilisateur connecté
-    // à partir du store d'authentification
-    // Pour l'instant, nous simulons l'utilisateur Admin avec l'ID 1
-    await userStore.fetchUser(1);
-  }
 });
 </script>
 

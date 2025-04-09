@@ -42,6 +42,14 @@
                   maxlength="1"
                 />
 
+                <q-select
+                  v-model="importOptions.phoneColumn"
+                  :options="columnOptions"
+                  label="Colonne des numéros de téléphone"
+                  outlined
+                  class="q-mb-md"
+                />
+
                 <div>
                   <q-btn
                     label="Importer"
@@ -266,7 +274,17 @@ const importResults = ref({
 const importOptions = ref({
   hasHeader: true,
   delimiter: ",",
+  phoneColumn: 0, // Par défaut, première colonne
 });
+
+// Options pour les colonnes du CSV
+const columnOptions = ref([
+  { label: "Colonne 1", value: 0 },
+  { label: "Colonne 2", value: 1 },
+  { label: "Colonne 3", value: 2 },
+  { label: "Colonne 4", value: 3 },
+  { label: "Colonne 5", value: 4 },
+]);
 
 // Options pour les filtres avancés
 const operatorOptions = ref([
@@ -284,34 +302,15 @@ const countryOptions = ref([
   { label: "Autre", value: "Autre" },
 ]);
 
-// Récupérer les segments personnalisés depuis l'API GraphQL
-const segmentOptions = ref([]);
-const loadSegments = async () => {
-  try {
-    const { data } = await apolloClient.value.query({
-      query: gql`
-        query GetCustomSegments {
-          customSegments {
-            id
-            name
-          }
-        }
-      `,
-    });
+// Segments personnalisés (version simplifiée pour le MVP)
+const segmentOptions = ref([
+  { label: "Segment 1", value: 1 },
+  { label: "Segment 2", value: 2 },
+  { label: "Segment 3", value: 3 },
+]);
 
-    if (data && data.customSegments) {
-      segmentOptions.value = data.customSegments.map((segment) => ({
-        label: segment.name,
-        value: segment.id,
-      }));
-    }
-  } catch (error) {
-    console.error("Error loading segments:", error);
-  }
-};
-
-// Charger les segments au montage du composant
-loadSegments();
+// Note: Dans une version complète, nous chargerions les segments depuis l'API GraphQL
+// mais pour le MVP, nous utilisons des données statiques
 
 const exportOptions = ref({
   format: "csv",
@@ -337,12 +336,13 @@ const onImport = async () => {
   try {
     // Créer un FormData pour l'upload du fichier
     const formData = new FormData();
-    formData.append("file", csvFile.value);
-    formData.append("hasHeader", importOptions.value.hasHeader.toString());
+    formData.append("csv_file", csvFile.value); // Nom du fichier attendu par le backend
+    formData.append("has_header", importOptions.value.hasHeader.toString());
     formData.append("delimiter", importOptions.value.delimiter);
+    formData.append("phone_column", importOptions.value.phoneColumn.toString());
 
-    // Utiliser fetch pour l'upload du fichier
-    const response = await fetch("/api.php/import", {
+    // Utiliser fetch pour l'upload du fichier avec l'endpoint correct
+    const response = await fetch("/api.php?endpoint=import-csv", {
       method: "POST",
       body: formData,
     });
@@ -355,9 +355,9 @@ const onImport = async () => {
 
     // Afficher les résultats
     importResults.value = {
-      totalRows: result.totalRows,
-      successRows: result.successRows,
-      errorRows: result.errorRows,
+      totalRows: result.stats?.total || 0,
+      successRows: result.stats?.processed || 0,
+      errorRows: (result.stats?.invalid || 0) + (result.stats?.duplicates || 0),
     };
     showImportResults.value = true;
 
