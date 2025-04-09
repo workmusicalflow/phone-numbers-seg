@@ -446,14 +446,14 @@ const columns = [
   },
 ];
 
-// Récupération de l'historique des SMS
+  // Récupération de l'historique des SMS
 const fetchSmsHistory = async () => {
   loadingHistory.value = true;
   try {
     const { data } = await apolloClient.query({
       query: gql`
-        query GetSmsHistory {
-          smsHistory {
+        query GetSmsHistory($userId: ID) {
+          smsHistory(userId: $userId) {
             id
             phoneNumber
             message
@@ -462,6 +462,9 @@ const fetchSmsHistory = async () => {
           }
         }
       `,
+      variables: {
+        userId: userStore.currentUser?.id
+      },
       fetchPolicy: "network-only",
     });
 
@@ -527,8 +530,8 @@ const onSubmitSingle = async () => {
       refetchQueries: [
         {
           query: gql`
-            query GetSmsHistory {
-              smsHistory {
+            query GetSmsHistory($userId: ID) {
+              smsHistory(userId: $userId) {
                 id
                 phoneNumber
                 message
@@ -537,6 +540,9 @@ const onSubmitSingle = async () => {
               }
             }
           `,
+          variables: {
+            userId: userStore.currentUser?.id
+          },
           fetchPolicy: "network-only"
         }
       ],
@@ -635,8 +641,8 @@ const onSubmitBulk = async () => {
       refetchQueries: [
         {
           query: gql`
-            query GetSmsHistory {
-              smsHistory {
+            query GetSmsHistory($userId: ID) {
+              smsHistory(userId: $userId) {
                 id
                 phoneNumber
                 message
@@ -645,6 +651,9 @@ const onSubmitBulk = async () => {
               }
             }
           `,
+          variables: {
+            userId: userStore.currentUser?.id
+          },
           fetchPolicy: "network-only"
         }
       ],
@@ -738,8 +747,8 @@ const onSubmitSegment = async () => {
       refetchQueries: [
         {
           query: gql`
-            query GetSmsHistory {
-              smsHistory {
+            query GetSmsHistory($userId: ID) {
+              smsHistory(userId: $userId) {
                 id
                 phoneNumber
                 message
@@ -748,6 +757,9 @@ const onSubmitSegment = async () => {
               }
             }
           `,
+          variables: {
+            userId: userStore.currentUser?.id
+          },
           fetchPolicy: "network-only"
         }
       ],

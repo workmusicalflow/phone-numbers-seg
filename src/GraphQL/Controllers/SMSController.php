@@ -60,7 +60,7 @@ class SMSController
      * @Query
      * @return array
      */
-    public function smsHistory(int $limit = 100, int $offset = 0, ?string $search = null, ?string $status = null, ?int $segmentId = null): array
+    public function smsHistory(int $limit = 100, int $offset = 0, ?string $search = null, ?string $status = null, ?int $segmentId = null, ?int $userId = null): array
     {
         try {
             // If search is provided, normalize the phone number
@@ -68,7 +68,7 @@ class SMSController
                 $search = $this->validationService->convertToInternationalFormat($search);
             }
 
-            $history = $this->smsBusinessService->getSMSHistory($limit, $offset, $search, $status, $segmentId);
+            $history = $this->smsBusinessService->getSMSHistory($limit, $offset, $search, $status, $segmentId, $userId);
 
             $result = [];
             foreach ($history as $item) {
@@ -99,10 +99,10 @@ class SMSController
      * @Query
      * @return int
      */
-    public function smsHistoryCount(): int
+    public function smsHistoryCount(?int $userId = null): int
     {
         try {
-            return $this->smsBusinessService->getSMSHistoryCount();
+            return $this->smsBusinessService->getSMSHistoryCount($userId);
         } catch (\Exception $e) {
             error_log('Error in smsHistoryCount: ' . $e->getMessage());
             return 0;

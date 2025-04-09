@@ -23,6 +23,7 @@ interface SMSBusinessServiceInterface
      * @param string|null $search Search term for phone number
      * @param string|null $status Status filter (SENT, FAILED)
      * @param int|null $segmentId Segment ID filter
+     * @param int|null $userId User ID filter
      * @return array Array of SMS history records
      */
     public function getSMSHistory(
@@ -30,15 +31,17 @@ interface SMSBusinessServiceInterface
         int $offset = 0,
         ?string $search = null,
         ?string $status = null,
-        ?int $segmentId = null
+        ?int $segmentId = null,
+        ?int $userId = null
     ): array;
 
     /**
      * Get total count of SMS history records
      * 
+     * @param int|null $userId User ID filter
      * @return int Total count
      */
-    public function getSMSHistoryCount(): int;
+    public function getSMSHistoryCount(?int $userId = null): int;
 
     /**
      * Send an SMS to a single phone number

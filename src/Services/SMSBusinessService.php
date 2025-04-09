@@ -85,6 +85,7 @@ class SMSBusinessService implements SMSBusinessServiceInterface
      * @param string|null $search Search term for phone number
      * @param string|null $status Status filter (SENT, FAILED)
      * @param int|null $segmentId Segment ID filter
+     * @param int|null $userId User ID filter
      * @return array Array of SMS history records
      */
     public function getSMSHistory(
@@ -92,10 +93,14 @@ class SMSBusinessService implements SMSBusinessServiceInterface
         int $offset = 0,
         ?string $search = null,
         ?string $status = null,
-        ?int $segmentId = null
+        ?int $segmentId = null,
+        ?int $userId = null
     ): array {
         // Apply filters based on parameters
-        if ($search !== null) {
+        if ($userId !== null) {
+            // If userId is provided, filter by user ID first
+            return $this->historyService->getHistoryByUserId($userId, $limit, $offset);
+        } elseif ($search !== null) {
             return $this->historyService->getHistoryByPhoneNumber($search, $limit, $offset);
         } elseif ($status !== null) {
             return $this->historyService->getHistoryByStatus($status, $limit, $offset);
@@ -109,10 +114,14 @@ class SMSBusinessService implements SMSBusinessServiceInterface
     /**
      * Get total count of SMS history records
      * 
+     * @param int|null $userId User ID filter
      * @return int Total count
      */
-    public function getSMSHistoryCount(): int
+    public function getSMSHistoryCount(?int $userId = null): int
     {
+        if ($userId !== null) {
+            return $this->historyService->getHistoryCountByUserId($userId);
+        }
         return $this->historyService->getHistoryCount();
     }
 

@@ -130,6 +130,19 @@ class SMSHistoryService implements SMSHistoryServiceInterface
     }
 
     /**
+     * Get SMS history by user ID
+     * 
+     * @param int $userId User ID to search for
+     * @param int $limit Maximum number of records to return
+     * @param int $offset Offset for pagination
+     * @return array Array of SMSHistory objects
+     */
+    public function getHistoryByUserId(int $userId, int $limit = 100, int $offset = 0): array
+    {
+        return $this->smsHistoryRepository->findByUserId($userId, $limit, $offset);
+    }
+
+    /**
      * Get total count of SMS history records
      * 
      * @return int Total count
@@ -137,5 +150,16 @@ class SMSHistoryService implements SMSHistoryServiceInterface
     public function getHistoryCount(): int
     {
         return $this->smsHistoryRepository->count();
+    }
+
+    /**
+     * Get total count of SMS history records for a specific user
+     * 
+     * @param int $userId User ID to count records for
+     * @return int Total count for the user
+     */
+    public function getHistoryCountByUserId(int $userId): int
+    {
+        return $this->smsHistoryRepository->countByUserId($userId);
     }
 }
