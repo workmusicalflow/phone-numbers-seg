@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import notification from '../services/NotificationService';
 import { useDashboardStore } from './dashboardStore';
+import { apolloClient, gql } from '../services/api'; // Ensure apolloClient and gql are imported
 
 // Types
 export interface User {
@@ -193,25 +194,19 @@ const isAdmin = computed(() => {
     error.value = null;
     
     try {
-      const response = await fetch('/graphql.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: GET_USER,
-          variables: { id }
-        }),
+      // Use apolloClient instead of fetch
+      const { data, errors } = await apolloClient.query({
+        query: gql(GET_USER), // Use gql tag
+        variables: { id },
+        fetchPolicy: 'network-only' // Ensure fresh data is fetched
       });
-      
-      const result = await response.json();
-      
-      if (result.errors) {
-        throw new Error(result.errors[0].message);
+
+      if (errors) {
+        throw new Error(errors[0].message);
       }
       
-      currentUser.value = result.data.user;
-      return result.data.user;
+      currentUser.value = data.user;
+      return data.user;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la récupération de l'utilisateur #${id}`;
       notification.error(error.value);

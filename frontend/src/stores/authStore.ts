@@ -14,17 +14,23 @@ export interface AuthState {
 // GraphQL queries and mutations
 const LOGIN = `
   mutation Login($username: String!, $password: String!) {
-    # login mutation now returns User type directly
-    login(username: $username, password: $password) { 
-      id # Request fields directly on the returned User
+    # login mutation now returns Boolean!
+    login(username: $username, password: $password) 
+  }
+`;
+
+const ME_QUERY = `
+  query Me {
+    me {
+      id
       username
-        email
-        smsCredit
-        smsLimit
-        isAdmin
-        createdAt
-        updatedAt
-    } 
+      email
+      smsCredit
+      smsLimit
+      isAdmin
+      createdAt
+      updatedAt
+    }
   }
 `;
 
@@ -103,17 +109,45 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error(result.errors[0].message);
       }
       
-      // Mettre à jour l'état
-      // Consider login successful if no error and login data (which is the user) is returned
-      const loggedInUser = result.data.login; 
-      isAuthenticated.value = !!loggedInUser; 
-      isAdmin.value = loggedInUser?.isAdmin ?? false;
+      // Mettre à jour l'état basé sur le booléen retourné
+      const loginSuccess = result.data.login; 
+      isAuthenticated.value = loginSuccess; 
       
-      // Mettre à jour l'utilisateur courant
-      userStore.currentUser = loggedInUser;
-      
-      notification.success('Connexion réussie');
-      return true;
+      if (loginSuccess) {
+        // Si le login réussit, récupérer les infos utilisateur avec une query 'me'
+        try {
+          const meResponse = await fetch('/graphql.php', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ query: ME_QUERY }),
+             credentials: 'include' 
+          });
+          const meResult = await meResponse.json();
+          if (meResult.errors) {
+             throw new Error(meResult.errors[0].message);
+          }
+          if (meResult.data.me) {
+             userStore.currentUser = meResult.data.me;
+             isAdmin.value = meResult.data.me.isAdmin;
+             notification.success('Connexion réussie');
+             return true;
+          } else {
+             // Should not happen if login succeeded and session is set
+             throw new Error("Impossible de récupérer les informations utilisateur après connexion.");
+          }
+        } catch (meErr) {
+           // Échec de la récupération des infos utilisateur, annuler le login
+           isAuthenticated.value = false;
+           isAdmin.value = false;
+           userStore.currentUser = null;
+           error.value = meErr instanceof Error ? meErr.message : 'Erreur post-connexion';
+           notification.error(error.value);
+           return false;
+        }
+      } else {
+         // Login a retourné false (échec d'authentification)
+         throw new Error("Nom d'utilisateur ou mot de passe incorrect");
+      }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la connexion';
       notification.error(error.value);

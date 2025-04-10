@@ -35,6 +35,7 @@
         <q-tab name="single" label="Envoi Individuel" icon="person" />
         <q-tab name="bulk" label="Envoi en Masse" icon="people" />
         <q-tab name="segment" label="Envoi par Segment" icon="segment" />
+        <q-tab name="allContacts" label="À Tous les Contacts" icon="groups" />
       </q-tabs>
 
       <q-tab-panels v-model="activeTab" animated>
@@ -231,6 +232,46 @@
             </q-card-section>
           </q-card>
         </q-tab-panel>
+
+        <!-- Onglet Envoi à Tous les Contacts -->
+        <q-tab-panel name="allContacts">
+          <q-card>
+            <q-card-section>
+              <div class="text-h6">Envoyer un SMS à tous vos contacts</div>
+            </q-card-section>
+
+            <q-card-section>
+              <q-form @submit="onSubmitAllContacts" ref="allContactsFormRef" class="q-gutter-md">
+                 <q-input
+                  v-model="allContactsSmsData.message"
+                  type="textarea"
+                  label="Message"
+                  :rules="[val => !!val || 'Le message est requis']"
+                  rows="5"
+                />
+
+                <div>
+                  <q-btn
+                    label="Envoyer à Tous les Contacts"
+                    type="submit"
+                    color="primary"
+                    :loading="loading"
+                    :disable="hasInsufficientCredits" 
+                    icon="send"
+                  />
+                   <div v-if="hasInsufficientCredits" class="text-negative q-mt-sm">
+                    <q-icon name="warning" /> Crédits SMS insuffisants (vérification basique, le nombre exact de contacts sera vérifié à l'envoi)
+                  </div>
+                  <q-banner inline-actions rounded class="bg-orange text-white q-mt-md">
+                    <q-icon name="warning" color="white" class="q-mr-sm" />
+                    Attention : L'envoi à tous les contacts peut consommer un nombre important de crédits. Le nombre exact sera vérifié avant l'envoi final.
+                  </q-banner>
+                </div>
+              </q-form>
+            </q-card-section>
+          </q-card>
+        </q-tab-panel>
+
       </q-tab-panels>
 
       <!-- Résultats et historique -->
@@ -243,18 +284,33 @@
             </q-card-section>
 
             <q-card-section>
-              <div v-if="smsResult.status === 'success'" class="text-positive">
-                <q-icon name="check_circle" size="md" />
-                <span class="q-ml-sm">SMS envoyé avec succès</span>
+              <!-- Display logic adjusted for BulkSMSResult and single SMSResult -->
+              <div v-if="smsResult.summary"> <!-- Check if it's a bulk/segment/all result -->
+                <div v-if="smsResult.status === 'COMPLETED' && smsResult.summary.failed === 0" class="text-positive">
+                   <q-icon name="check_circle" size="md" />
+                   <span class="q-ml-sm">{{ smsResult.message || 'Envoi terminé avec succès.' }}</span>
+                </div>
+                 <div v-else-if="smsResult.status === 'PARTIAL' || (smsResult.status === 'COMPLETED' && smsResult.summary.failed > 0)" class="text-warning">
+                   <q-icon name="warning" size="md" />
+                   <span class="q-ml-sm">{{ smsResult.message || `Envoi terminé avec ${smsResult.summary.failed} échec(s).` }}</span>
+                </div>
+                <div v-else class="text-negative">
+                   <q-icon name="error" size="md" />
+                   <span class="q-ml-sm">{{ smsResult.message || 'Échec de l\'envoi.' }}</span>
+                </div>
               </div>
-              <div v-else class="text-negative">
-                <q-icon name="error" size="md" />
-                <span class="q-ml-sm"
-                  >Échec de l'envoi: {{ smsResult.message }}</span
-                >
+              <div v-else> <!-- Handling single SMS result -->
+                 <div v-if="smsResult.status === 'success' || smsResult.status === 'SENT'" class="text-positive">
+                   <q-icon name="check_circle" size="md" />
+                   <span class="q-ml-sm">{{ smsResult.message || 'SMS envoyé avec succès' }}</span>
+                 </div>
+                 <div v-else class="text-negative">
+                   <q-icon name="error" size="md" />
+                   <span class="q-ml-sm">{{ smsResult.message || 'Échec de l\'envoi' }}</span>
+                 </div>
               </div>
 
-              <!-- Résumé pour l'envoi en masse ou par segment -->
+              <!-- Résumé pour l'envoi en masse, par segment ou à tous -->
               <q-list
                 v-if="smsResult.summary"
                 bordered
@@ -354,6 +410,23 @@ import NotificationService from "../services/NotificationService";
 import { useSMSTemplateStore } from "../stores/smsTemplateStore";
 import { useAuthStore } from "../stores/authStore";
 import { useUserStore } from "../stores/userStore";
+import type { QForm } from 'quasar'; // Import QForm type
+
+// GraphQL Mutation Definition
+const SEND_SMS_TO_ALL_CONTACTS = gql`
+  mutation SendSmsToAllContacts($message: String!) {
+    sendSmsToAllContacts(message: $message) {
+      status
+      message
+      summary {
+        total
+        successful
+        failed
+      }
+      # results are not needed for the summary display, can be omitted
+    }
+  }
+`;
 
 const $q = useQuasar();
 // Utiliser le client Apollo global
@@ -426,6 +499,12 @@ const segmentSmsData = ref({
   segmentId: null as number | null,
   message: "",
 });
+
+// Données pour le nouvel onglet
+const allContactsSmsData = ref({
+  message: "",
+});
+const allContactsFormRef = ref<QForm | null>(null); // Ref for the form
 
 // Configuration de la table d'historique
 const columns = [
@@ -811,6 +890,72 @@ const onSubmitSegment = async () => {
   }
 };
 
+// Envoi de SMS à tous les contacts
+const onSubmitAllContacts = async () => {
+  loading.value = true;
+  smsResult.value = null;
+
+  try {
+    // Appeler directement la mutation GraphQL
+    const { data } = await apolloClient.mutate({
+        mutation: SEND_SMS_TO_ALL_CONTACTS,
+        variables: {
+            message: allContactsSmsData.value.message,
+            // userId is handled by the backend using the session/AuthService
+        },
+         refetchQueries: [ // Refetch history after sending
+            {
+              query: gql` 
+                query GetSmsHistory($userId: ID) {
+                  smsHistory(userId: $userId) { id phoneNumber message status createdAt }
+                }
+              `,
+              variables: { userId: userStore.currentUser?.id },
+              fetchPolicy: "network-only"
+            }
+         ],
+         awaitRefetchQueries: true
+    });
+
+    const resultData = data.sendSmsToAllContacts;
+    smsResult.value = resultData; // Afficher le résumé
+
+    if (resultData.status === 'ERROR' || resultData.summary.failed > 0) {
+       NotificationService.warning(`Envoi terminé avec ${resultData.summary.failed} échec(s). ${resultData.message}`);
+    } else {
+       NotificationService.success(`SMS envoyés avec succès à ${resultData.summary.successful} contacts.`);
+       allContactsSmsData.value.message = ""; // Réinitialiser le message
+       allContactsFormRef.value?.resetValidation(); // Réinitialiser la validation du formulaire
+    }
+
+    // L'historique est rafraîchi par refetchQueries
+    // Rafraîchir les crédits utilisateur
+     if (userStore.currentUser) {
+      userStore.fetchUser(userStore.currentUser.id);
+    }
+
+  } catch (error) {
+    console.error("Error sending SMS to all contacts:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isCreditError = errorMessage.includes('Crédits SMS insuffisants');
+    
+    smsResult.value = {
+      status: "error",
+      message: isCreditError 
+        ? "Crédits SMS insuffisants pour l'envoi à tous les contacts" 
+        : "Erreur lors de l'envoi à tous les contacts",
+      summary: null // Pas de résumé en cas d'erreur avant envoi
+    };
+    NotificationService.error(smsResult.value.message);
+     if (isCreditError && userStore.currentUser) {
+      userStore.fetchUser(userStore.currentUser.id);
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+
 // Fonction pour déterminer la couleur du badge de crédit
 const getCreditColor = (credit: number) => {
   if (credit <= 0) return 'negative';
@@ -827,12 +972,14 @@ const hasInsufficientCredits = computed(() => {
 onMounted(() => {
   fetchSmsHistory();
   fetchSegments();
-  smsTemplateStore.fetchTemplates(); // Charger les modèles de SMS
+  // smsTemplateStore.fetchTemplates(); // Commented out: Templates feature not yet implemented
   
   // Récupérer les informations de l'utilisateur courant si nécessaire
-  if (userStore.currentUser === null && authStore.isAuthenticated) {
-    // Rafraîchir les informations de l'utilisateur via le store d'authentification
-    authStore.checkAuth();
-  }
+  // L'appel à checkAuth a été supprimé de authStore. 
+  // La logique pour récupérer l'utilisateur au montage si nécessaire pourrait être ajoutée ici
+  // ou gérée par un watcher sur authStore.isAuthenticated dans App.vue par exemple.
+  // if (userStore.currentUser === null && authStore.isAuthenticated) {
+     // authStore.checkAuth(); // Appel supprimé
+  // }
 });
 </script>

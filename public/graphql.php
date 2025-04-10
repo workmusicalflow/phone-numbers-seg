@@ -225,6 +225,8 @@ try {
                     return $smsResolver->mutateSendBulkSms($args, $context);
                 case 'sendSmsToSegment':
                     return $smsResolver->mutateSendSmsToSegment($args, $context);
+                case 'sendSmsToAllContacts': // Add mapping for new mutation
+                    return $smsResolver->mutateSendSmsToAllContacts($args, $context);
                 case 'retrySms':
                     return $smsResolver->mutateRetrySms($args, $context);
                     // No default case needed, fall through to default resolver

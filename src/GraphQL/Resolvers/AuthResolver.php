@@ -4,23 +4,22 @@ namespace App\GraphQL\Resolvers;
 
 use App\Services\Interfaces\AuthServiceInterface;
 use App\Models\User;
-use App\GraphQL\Formatters\GraphQLFormatterInterface; // Restore Formatter interface
+// GraphQLFormatterInterface removed again
 use Exception;
 use Psr\Log\LoggerInterface;
 
 class AuthResolver
 {
     private AuthServiceInterface $authService;
-    private GraphQLFormatterInterface $formatter; // Restore Formatter property
+    // Formatter property removed again
     private LoggerInterface $logger;
 
     public function __construct(
         AuthServiceInterface $authService,
-        GraphQLFormatterInterface $formatter, // Restore Formatter injection
+        // Formatter injection removed again
         LoggerInterface $logger
     ) {
         $this->authService = $authService;
-        $this->formatter = $formatter; // Restore Formatter assignment
         $this->logger = $logger;
     }
 
@@ -29,10 +28,10 @@ class AuthResolver
      *
      * @param array<string, mixed> $args Contains 'username', 'password'
      * @param mixed $context
-     * @return array|null Formatted User array or null on failure (Workaround for resolution issue)
-     * @throws Exception
+     * @return bool True on success, false on failure.
+     * @throws Exception For unexpected errors.
      */
-    public function mutateLogin(array $args, $context): ?array // Return type back to ?array for workaround
+    public function mutateLogin(array $args, $context): bool // Return type changed to bool for testing
     {
         $username = $args['username'] ?? '';
         $password = $args['password'] ?? '';
@@ -49,20 +48,16 @@ class AuthResolver
 
             if (!$user) {
                 $this->logger->warning('Failed login attempt for username: ' . $username);
-                // Return null instead of throwing exception, as per new return type ?array
-                // GraphQL will handle the null return appropriately based on schema (User type is nullable)
-                return null;
-                // throw new Exception("Nom d'utilisateur ou mot de passe incorrect");
+                // Return false on authentication failure
+                return false;
             }
 
             $this->logger->info('User authenticated successfully: ' . $username . ' (ID: ' . $user->getId() . ')');
 
             // Session is handled by AuthService::authenticate via createUserSession
-            // No need to set session variables here again.
 
-            // Return the formatted User array directly (Workaround)
-            $this->logger->debug('Returning formatted User array directly as workaround', ['userId' => $user->getId(), 'userClass' => get_class($user)]);
-            return $this->formatter->formatUser($user); // Use formatter service
+            // Return true on success
+            return true;
         } catch (Exception $e) {
             // Don't log password in case of error
             $this->logger->error('Error during login for username ' . $username . ': ' . $e->getMessage(), ['exception' => $e]);

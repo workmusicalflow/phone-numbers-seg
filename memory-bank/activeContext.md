@@ -1,81 +1,43 @@
-# Active Context - Refactoring GraphQL Backend
+# Active Context - Feature: Send SMS to All Contacts
 
-**Current Focus:** Refactoring `public/graphql.php` to improve maintainability and organization, following recommendations from `scripts/utils/graphql_php_revue.md`.
+**Current Focus:** Implement the "Send SMS to All User Contacts" feature as per the User Story defined in the previous planning phase.
 
-**Phase 1: Resolver Extraction (Completed)**
+**Previous Context:**
 
-- **Goal:** Move resolver logic from the large `$rootValue` array in `graphql.php` into dedicated resolver classes.
-- **Actions Taken:**
-  - Created directory `src/GraphQL/Resolvers/`.
-  - Created classes: `UserResolver`, `ContactResolver`, `SMSResolver`, `AuthResolver`.
-  - Moved corresponding resolver logic from `graphql.php` into methods within these classes.
-  - Injected dependencies (Repositories, Logger, Services) into resolvers via constructors using the existing `DIContainer`.
-  - Modified `graphql.php` to:
-    - Instantiate resolvers via the DI container.
-    - Use `Executor::setDefaultFieldResolver` with a mapping function to delegate field resolution to the appropriate resolver methods.
-    - Removed the old `$rootValue` array.
-- **Outcome:** `graphql.php` is significantly smaller. Resolver logic is now organized by domain/feature in separate classes.
+- Completed GraphQL backend refactoring (Phases 1-4 + improvements).
+- Resolved persistent frontend login issue:
+  - Identified cause: Frontend query (`LOGIN` in `authStore.ts`) was inconsistent with the backend schema (`login` mutation returning `User`). Frontend expected `login { user { ... } }` but backend returned `User` directly. Also, frontend called a non-existent `checkAuth` query.
+  - Initial workaround: Modified `AuthResolver::mutateLogin` to return a formatted array.
+  - Final Solution: Corrected the `LOGIN` query in `authStore.ts` to match the schema. Removed the `checkAuth` query/function calls from frontend. Reverted `AuthResolver::mutateLogin` to return the `User` object directly (type hint `?User`). Removed the unnecessary formatter injection from `AuthResolver`. Login and redirection now work correctly via the browser.
+- Frontend login flow is now working.
 
-**Next Steps:**
+**User Story Summary:** As a logged-in user, I want to send a single SMS message to all my contacts at once, after checking for sufficient credits.
 
-- Proceed to **Phase 2: Improve Dependency Injection and Authentication Handling**. This involves:
+**Implementation Plan:**
 
-  - Creating/using an `AuthService`.
-  - Removing direct `$_SESSION` access within resolvers, using the `AuthService` instead.
-  - Centralizing authentication and authorization checks.
-    **Phase 2: Improve Dependency Injection and Authentication Handling (Completed)**
+1.  **Backend:**
+    - Define new GraphQL mutation `sendSmsToAllContacts(message: String!): BulkSMSResult!` in `schema.graphql`.
+    - Implement the corresponding resolver method `mutateSendSmsToAllContacts` in `SMSResolver.php`.
+    - Add a new method (e.g., `sendToAllContacts`) to `SMSService.php` (or potentially `SMSBusinessService.php` if more appropriate) that:
+      - Gets the current user ID (via injected `AuthService`).
+      - Retrieves all contacts for that user (`ContactRepository::findByUserId`).
+      - Extracts valid, unique phone numbers from the contacts.
+      - Checks user credits against the number of contacts (`UserRepository`).
+      - Throws an exception if credits are insufficient.
+      - Calls `SMSService::sendBulkSMS` (or iterates `sendSMS`) with the list of numbers and the message.
+      - Deducts credits based on the number of attempted/successful sends.
+      - Returns a result compatible with `BulkSMSResult`.
+    - Ensure necessary dependencies (`ContactRepository`, `UserRepository`, `AuthService`) are injected into the service handling the logic. Update DI configuration (`di.php`) if needed.
+2.  **Frontend:**
+    - Update the SMS sending view (`SMS.vue` or similar) to add an option (e.g., checkbox, dropdown item) for "Send to all contacts".
+    - When selected, disable manual number input and potentially display the contact count/estimated cost.
+    - Define the new GraphQL mutation string in the relevant store (likely `smsStore.ts` or `contactStore.ts`).
+    - Implement an action in the store to call the `sendSmsToAllContacts` mutation.
+    - Update the component's submit logic to call this new action when the "all contacts" option is selected.
+    - Display the summary result (success/failure count) from the mutation response.
+3.  **Testing:**
+    - Backend: Add unit/integration tests for the new service method. Test the GraphQL mutation via `curl`.
+    - Frontend: Test the UI option and the end-to-end flow manually or with Playwright.
+4.  **Documentation:** Update user guide and technical documentation.
 
-- **Goal:** Remove direct `$_SESSION` access from resolvers and use a dedicated `AuthService`.
-- **Actions Taken:**
-  - Verified existence and functionality of `AuthServiceInterface` and `AuthService`.
-  - Injected `AuthServiceInterface` into the constructors of `UserResolver`, `ContactResolver`, and `SMSResolver`.
-  - Modified methods within these resolvers to use `$this->authService->getCurrentUser()` or `$this->authService->isAuthenticated()` instead of accessing `$_SESSION` directly.
-  - Verified that `AuthResolver` already used `AuthService`.
-  - Confirmed that the DI container (`src/config/di.php`) correctly configures `AuthService` and that autowiring handles resolver instantiation.
-- **Outcome:** Direct dependency on `$_SESSION` has been removed from GraphQL resolvers, centralizing authentication logic within `AuthService`. This improves testability and separation of concerns.
-
-**Next Steps:**
-
-- Proceed to **Phase 3: Centralize Object-to-Array Conversion**. This involves:
-  - Creating dedicated formatter/transformer classes or methods (`src/GraphQL/Formatters/GraphQLFormatterInterface.php`, `src/GraphQL/Formatters/GraphQLFormatterService.php`).
-  - Removing the `format*` helper methods from individual resolvers (`UserResolver`, `ContactResolver`, `SMSResolver`).
-  - Using the centralized formatter within resolvers to prepare data for GraphQL responses (`$this->formatter->formatUser()`, etc.).
-- Update Memory Bank files (`systemPatterns.md`, `progress.md`) to reflect Phase 2 completion.
-
-**Phase 3: Centralize Object-to-Array Conversion (Completed)**
-
-- **Goal:** Remove `format*` helper methods from resolvers and use a dedicated service for converting models to arrays for GraphQL.
-- **Actions Taken:**
-  - Created `src/GraphQL/Formatters/GraphQLFormatterInterface.php` defining methods like `formatUser`, `formatContact`, `formatSmsHistory`, `formatCustomSegment`.
-  - Created `src/GraphQL/Formatters/GraphQLFormatterService.php` implementing the interface and consolidating the formatting logic from the resolvers.
-  - Updated `src/config/di.php` to register the new formatter service and interface.
-  - Injected `GraphQLFormatterInterface` into `UserResolver`, `ContactResolver`, and `SMSResolver`.
-  - Replaced calls to local `format*` methods with calls to the injected formatter service (e.g., `$this->formatter->formatUser($user)`).
-  - Removed the private `format*` methods from `UserResolver`, `ContactResolver`, and `SMSResolver`.
-- **Outcome:** Object-to-array conversion logic is now centralized in `GraphQLFormatterService`, making resolvers cleaner and the formatting logic reusable and easier to maintain.
-
-**Next Steps:**
-
-- Proceed to **Phase 4: Externalize Configuration**. This involves:
-  - Moving hardcoded values (like API keys, default sender names/numbers in `SMSService` or `di.php`) into environment variables or a configuration file (`.env`).
-  - Injecting configuration values where needed instead of hardcoding them (using `getenv()` in `src/config/di.php`).
-- Update Memory Bank files (`systemPatterns.md`, `progress.md`) to reflect Phase 3 completion.
-
-**Phase 4: Externalize Configuration (Completed)**
-
-- **Goal:** Move hardcoded configuration values (API keys, defaults) to an external source.
-- **Actions Taken:**
-  - Identified hardcoded Orange API credentials and defaults in `src/config/di.php`.
-  - Confirmed the presence of `.env` file and `vlucas/phpdotenv` library.
-  - Added `ORANGE_API_CLIENT_ID`, `ORANGE_API_CLIENT_SECRET`, `ORANGE_DEFAULT_SENDER_ADDRESS`, `ORANGE_DEFAULT_SENDER_NAME` variables to `.env`.
-  - Added code to load `.env` explicitly in `public/graphql.php` using `Dotenv\Dotenv::createImmutable()->load()`.
-  - Modified the factory definitions for `OrangeAPIClientInterface` and `SMSService` in `src/config/di.php` to read these values using `getenv()`.
-  - Verified that `OrangeAPIClient` and `SMSService` correctly receive configuration via their constructors.
-- **Outcome:** Sensitive credentials and configuration defaults are no longer hardcoded in the source code. They are now managed externally in the `.env` file, improving security and making configuration easier for different environments.
-
-**Next Steps:**
-
-- **Refactoring Complete:** All planned phases for refactoring `public/graphql.php` are now complete.
-- **Post-Refactoring Improvement (Completed):** Injected `OrangeAPIClientInterface` into `SMSService` to avoid passing raw configuration parameters (client ID, secret, etc.) through the DI container factory for `SMSService`, further improving decoupling.
-- **Login Mutation Issue & Workaround:** Encountered a persistent "Internal server error" when resolving fields on the `User` object returned by the `login` mutation. Other queries returning `User` objects worked correctly. As a workaround, `AuthResolver::mutateLogin` was modified to return a pre-formatted array using `GraphQLFormatterService` instead of the raw `User` object. This resolved the immediate error, but the root cause within the GraphQL library or configuration remains unclear and should be investigated further if possible.
-- Update Memory Bank files (`systemPatterns.md`, `progress.md`) to reflect Phase 4 completion and this additional improvement.
+**Current Step:** Start backend implementation - Define the new mutation in `schema.graphql`.

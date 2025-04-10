@@ -6,8 +6,10 @@ use App\Repositories\CustomSegmentRepository;
 use App\Repositories\PhoneNumberRepository;
 use App\Repositories\SMSHistoryRepository;
 use App\Repositories\UserRepository;
+use App\Repositories\ContactRepository; // Import ContactRepository
 use App\Models\SMSHistory;
-use App\Services\Interfaces\OrangeAPIClientInterface; // Import the interface
+use App\Models\Contact; // Import Contact model
+use App\Services\Interfaces\OrangeAPIClientInterface;
 use Exception; // Use base Exception
 use RuntimeException; // Use RuntimeException for specific errors
 
@@ -23,6 +25,7 @@ class SMSService
     private ?CustomSegmentRepository $customSegmentRepository;
     private ?SMSHistoryRepository $smsHistoryRepository;
     private ?UserRepository $userRepository;
+    private ?ContactRepository $contactRepository; // Add ContactRepository property
 
     /**
      * Constructor
@@ -32,19 +35,22 @@ class SMSService
      * @param CustomSegmentRepository|null $customSegmentRepository
      * @param SMSHistoryRepository|null $smsHistoryRepository
      * @param UserRepository|null $userRepository
+     * @param ContactRepository|null $contactRepository // Add ContactRepository parameter
      */
     public function __construct(
-        OrangeAPIClientInterface $orangeApiClient, // Inject the client
+        OrangeAPIClientInterface $orangeApiClient,
         ?PhoneNumberRepository $phoneNumberRepository = null,
         ?CustomSegmentRepository $customSegmentRepository = null,
         ?SMSHistoryRepository $smsHistoryRepository = null,
-        ?UserRepository $userRepository = null
+        ?UserRepository $userRepository = null,
+        ?ContactRepository $contactRepository = null // Inject ContactRepository
     ) {
-        $this->orangeApiClient = $orangeApiClient; // Store the client
+        $this->orangeApiClient = $orangeApiClient;
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->customSegmentRepository = $customSegmentRepository;
         $this->smsHistoryRepository = $smsHistoryRepository;
         $this->userRepository = $userRepository;
+        $this->contactRepository = $contactRepository; // Store ContactRepository
     }
 
     // getAccessToken method removed as it's handled by OrangeAPIClient
@@ -300,5 +306,95 @@ class SMSService
             return 'tel:' . $number;
         }
         return $number; // Already has prefix
+    }
+
+    /**
+     * Send an SMS to all contacts of a specific user.
+     *
+     * @param int $userId The ID of the user whose contacts should receive the SMS.
+     * @param string $message The SMS message content.
+     * @return array Results structured like BulkSMSResult: ['status', 'message', 'summary', 'results']
+     * @throws RuntimeException If required repositories are missing, user not found, or insufficient credits.
+     */
+    public function sendToAllContacts(int $userId, string $message): array
+    {
+        if ($this->contactRepository === null || $this->userRepository === null) {
+            throw new RuntimeException('Contact and User repositories are required for sending to all contacts.');
+        }
+
+        // 1. Get User (for credit check)
+        $user = $this->userRepository->findById($userId);
+        if ($user === null) {
+            throw new RuntimeException("Utilisateur #{$userId} non trouvé.");
+        }
+
+        // 2. Get all contacts for the user
+        // Note: findByUserId might need adjustment if it doesn't fetch all contacts by default
+        // Assuming it fetches all if limit/offset are not provided or handled internally.
+        // Let's fetch all contacts without pagination for this feature.
+        $contacts = $this->contactRepository->findByUserId($userId, -1); // Use -1 or a large number to signify 'all' if needed
+
+        if (empty($contacts)) {
+            return [
+                'status' => 'COMPLETED', // Or 'NO_CONTACTS'?
+                'message' => 'Aucun contact trouvé pour cet utilisateur.',
+                'summary' => ['total' => 0, 'successful' => 0, 'failed' => 0],
+                'results' => []
+            ];
+        }
+
+        // 3. Extract unique, valid phone numbers
+        $phoneNumbers = [];
+        foreach ($contacts as $contact) {
+            $number = $contact->getPhoneNumber();
+            if (!empty($number)) {
+                // Basic validation could be added here if needed
+                $phoneNumbers[$number] = true; // Use keys for uniqueness
+            }
+        }
+        $uniqueNumbers = array_keys($phoneNumbers);
+        $totalContacts = count($uniqueNumbers);
+
+        if ($totalContacts === 0) {
+            return [
+                'status' => 'COMPLETED', // Or 'NO_VALID_NUMBERS'?
+                'message' => 'Aucun numéro de téléphone valide trouvé parmi les contacts.',
+                'summary' => ['total' => 0, 'successful' => 0, 'failed' => 0],
+                'results' => []
+            ];
+        }
+
+
+        // 4. Check credits
+        if ($user->getSmsCredit() < $totalContacts) {
+            throw new RuntimeException("Crédits SMS insuffisants ({$user->getSmsCredit()} disponibles, {$totalContacts} requis).");
+        }
+        // TODO: Implement SMS limit check if needed
+
+        // 5. Call sendBulkSMS
+        // The sendBulkSMS method already handles individual sending, logging, and credit deduction per SMS.
+        $bulkResults = $this->sendBulkSMS($uniqueNumbers, $message, $userId);
+
+        // 6. Format the final result based on sendBulkSMS output
+        $successful = 0;
+        $failed = 0;
+        $formattedResults = [];
+        foreach ($bulkResults as $number => $result) {
+            $isSuccess = ($result['status'] === 'success');
+            if ($isSuccess) $successful++;
+            else $failed++;
+            $formattedResults[] = [
+                'phoneNumber' => $number,
+                'status' => $isSuccess ? 'SENT' : 'FAILED',
+                'message' => $result['message'] ?? ($isSuccess ? 'Envoyé' : 'Échec')
+            ];
+        }
+
+        return [
+            'status' => ($failed === 0) ? 'COMPLETED' : (($successful > 0) ? 'PARTIAL' : 'FAILED'),
+            'message' => 'Envoi à tous les contacts terminé.',
+            'summary' => ['total' => $totalContacts, 'successful' => $successful, 'failed' => $failed],
+            'results' => $formattedResults
+        ];
     }
 }

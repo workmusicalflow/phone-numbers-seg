@@ -119,7 +119,8 @@ $definitions = [
             $container->get(\App\Repositories\PhoneNumberRepository::class),
             $container->get(\App\Repositories\CustomSegmentRepository::class),
             $container->get(\App\Repositories\SMSHistoryRepository::class),
-            $container->get(\App\Repositories\UserRepository::class)
+            $container->get(\App\Repositories\UserRepository::class),
+            $container->get(\App\Repositories\ContactRepository::class) // Inject ContactRepository
         );
     }),
 

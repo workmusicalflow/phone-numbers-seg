@@ -127,7 +127,8 @@ Le projet est actuellement à environ **90%** de complétion. La plupart des fon
 
 ## Prochains Jalons (Fonctionnalités)
 
-- ⏳ **Phase 7.1** : Implémentation des modèles de SMS (en cours)
+- ⏳ **Priorité Actuelle : Envoi SMS à Tous les Contacts** (Nouvelle fonctionnalité)
+- 🔜 **Phase 7.1** : Implémentation des modèles de SMS
 - 🔜 **Phase 7.2** : Développement des fonctionnalités administrateur avancées
 - 🔜 **Phase 7.3** : Tests, optimisation et documentation finale
 - 🔜 **Phase 8** : Déploiement en production
