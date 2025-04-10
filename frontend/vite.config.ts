@@ -10,7 +10,7 @@ export default defineConfig({
       template: { transformAssetUrls },
     }),
     quasar({
-      sassVariables: "src/quasar-variables.sass",
+      sassVariables: "@/quasar-variables.sass", // Use alias for quasar sass variable path
     }),
   ],
   server: {
@@ -21,13 +21,14 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      src: resolve(__dirname, "src"),
+      // Correct the alias name from 'src' to '@'
+      '@': resolve(__dirname, "src"), 
     },
   },
   css: {
     preprocessorOptions: {
       sass: {
-        additionalData: `@import "src/quasar-variables.sass"\n`,
+        additionalData: `@import "@/quasar-variables.sass"\n`, // Use alias for sass variable path
       },
     },
   },
