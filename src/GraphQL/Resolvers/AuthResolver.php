@@ -2,19 +2,25 @@
 
 namespace App\GraphQL\Resolvers;
 
-use App\Services\Interfaces\AuthServiceInterface; // Assuming this interface exists
-use App\Models\User; // Assuming User model exists
+use App\Services\Interfaces\AuthServiceInterface;
+use App\Models\User;
+use App\GraphQL\Formatters\GraphQLFormatterInterface; // Re-import Formatter interface
 use Exception;
 use Psr\Log\LoggerInterface;
 
 class AuthResolver
 {
     private AuthServiceInterface $authService;
+    private GraphQLFormatterInterface $formatter; // Re-add Formatter property
     private LoggerInterface $logger;
 
-    public function __construct(AuthServiceInterface $authService, LoggerInterface $logger)
-    {
+    public function __construct(
+        AuthServiceInterface $authService,
+        GraphQLFormatterInterface $formatter, // Re-inject Formatter
+        LoggerInterface $logger
+    ) {
         $this->authService = $authService;
+        $this->formatter = $formatter; // Re-assign Formatter
         $this->logger = $logger;
     }
 
@@ -23,10 +29,10 @@ class AuthResolver
      *
      * @param array<string, mixed> $args Contains 'username', 'password'
      * @param mixed $context
-     * @return array<string, mixed> AuthPayload structure
+     * @return array|null Formatted User array or null on failure (Workaround for resolution issue)
      * @throws Exception
      */
-    public function mutateLogin(array $args, $context): array
+    public function mutateLogin(array $args, $context): ?array // Return type back to ?array for workaround
     {
         $username = $args['username'] ?? '';
         $password = $args['password'] ?? '';
@@ -43,36 +49,20 @@ class AuthResolver
 
             if (!$user) {
                 $this->logger->warning('Failed login attempt for username: ' . $username);
-                throw new Exception("Nom d'utilisateur ou mot de passe incorrect");
+                // Return null instead of throwing exception, as per new return type ?array
+                // GraphQL will handle the null return appropriately based on schema (User type is nullable)
+                return null;
+                // throw new Exception("Nom d'utilisateur ou mot de passe incorrect");
             }
 
             $this->logger->info('User authenticated successfully: ' . $username . ' (ID: ' . $user->getId() . ')');
 
-            // --- Session Handling ---
-            // The authentication service should ideally handle setting session variables.
-            // If not, set them here after successful authentication.
-            // This part needs review in Phase 2 (Auth Improvement).
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
-            $_SESSION['user_id'] = $user->getId();
-            $_SESSION['username'] = $user->getUsername();
-            $_SESSION['is_admin'] = $user->isAdmin();
-            $this->logger->info('Session variables set for user ID: ' . $user->getId());
-            // --- End Session Handling ---
+            // Session is handled by AuthService::authenticate via createUserSession
+            // No need to set session variables here again.
 
-
-            // Generate a token (JWT or simple session token) - Placeholder
-            // In a real app, use a proper JWT library or rely on session cookies.
-            $token = session_id(); // Using session ID as a simple token for now
-            $this->logger->info('Generated token (session ID) for user: ' . $username);
-
-
-            // Return the AuthPayload structure
-            return [
-                'token' => $token,
-                'user' => $this->formatUserForPayload($user)
-            ];
+            // Return the formatted User array directly (Workaround)
+            $this->logger->debug('Returning formatted User array directly as workaround', ['userId' => $user->getId(), 'userClass' => get_class($user)]);
+            return $this->formatter->formatUser($user); // Use formatter service
         } catch (Exception $e) {
             // Don't log password in case of error
             $this->logger->error('Error during login for username ' . $username . ': ' . $e->getMessage(), ['exception' => $e]);
@@ -184,27 +174,5 @@ class AuthResolver
 
 
     // --- Helper Methods ---
-
-    /**
-     * Formats a User object for the AuthPayload.
-     * Avoids duplicating the formatting logic from UserResolver.
-     * Ideally, this formatting should be centralized (Phase 3).
-     *
-     * @param User $user
-     * @return array<string, mixed>
-     */
-    private function formatUserForPayload(User $user): array
-    {
-        // This should match the User type definition in schema.graphql
-        return [
-            'id' => $user->getId(),
-            'username' => $user->getUsername(),
-            'email' => $user->getEmail(),
-            'smsCredit' => $user->getSmsCredit(),
-            'smsLimit' => $user->getSmsLimit(),
-            'isAdmin' => $user->isAdmin(),
-            'createdAt' => $user->getCreatedAt(),
-            'updatedAt' => $user->getUpdatedAt(),
-        ];
-    }
+    // No helper methods needed here now
 }

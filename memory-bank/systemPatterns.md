@@ -44,7 +44,7 @@ Pour améliorer la maintenabilité, le point d'entrée GraphQL (`public/graphql.
   - Les dépendances (Repositories, Services, Logger) sont injectées via le constructeur par le conteneur DI.
   - Chaque méthode publique correspond à un champ du schéma GraphQL (ex: `UserResolver::resolveUsers()`, `ContactResolver::mutateCreateContact()`).
   - La logique métier est contenue dans ces méthodes, appelant les services ou repositories nécessaires.
-  - **Note (Phase 3):** L'authentification/autorisation est gérée via `AuthServiceInterface` injecté. La conversion Objet -> Tableau est gérée par `GraphQLFormatterInterface` injecté, centralisant la logique de formatage qui était auparavant dans des méthodes `format*` privées au sein de chaque résolveur. L'accès direct à `$_SESSION` et les méthodes `format*` locales ont été supprimés des résolveurs. La prochaine étape (Phase 4) est d'externaliser la configuration (clés API, etc.).
+  - **Note (Phase 4 - Refactoring Terminé):** L'authentification/autorisation est gérée via `AuthServiceInterface` injecté. La conversion Objet -> Tableau est gérée par `GraphQLFormatterInterface` injecté. La configuration sensible (clés API Orange, etc.) est externalisée dans un fichier `.env` et chargée via `phpdotenv`, puis injectée dans les services appropriés (`OrangeAPIClient`, `SMSService`) par le conteneur DI. L'accès direct à `$_SESSION`, les méthodes `format*` locales et les valeurs de configuration codées en dur ont été supprimés des résolveurs et des définitions DI.
 
 ```mermaid
 graph TD
@@ -131,7 +131,7 @@ Les services encapsulent la logique métier complexe et orchestrent les opérati
 - **BatchSegmentationService** : Gère la segmentation par lot de plusieurs numéros.
 - **CSVImportService** : Gère l'import de numéros depuis des fichiers CSV ou du texte brut.
 - **ExportService** : Gère l'export des résultats de segmentation dans différents formats.
-- **SMSService** : Gère l'envoi de SMS et l'enregistrement dans l'historique.
+- **SMSService** : Gère l'envoi de SMS (en utilisant `OrangeAPIClientInterface` injecté) et l'enregistrement dans l'historique.
 - **UserService**: Gère la création, l'authentification et la gestion des utilisateurs.
 - **SenderNameService**: Gère les demandes de nom d'expéditeur.
 - **OrderService**: Gère la création et le traitement des commandes de crédits SMS.
@@ -477,11 +477,11 @@ L'application prend en charge plusieurs environnements :
 
 ### Configuration
 
-La configuration de l'application est gérée via des variables d'environnement ou des fichiers de configuration selon l'environnement :
+La configuration de l'application (base de données, clés API, etc.) est gérée via un fichier `.env` à la racine du projet, chargé par la bibliothèque `vlucas/phpdotenv`. Les valeurs sont ensuite lues via `getenv()` dans la configuration du conteneur DI (`src/config/di.php`) pour injecter les paramètres nécessaires dans les services.
 
-- **Développement** : Fichier `.env.local`
-- **Test** : Fichier `.env.test`
-- **Production** : Variables d'environnement du serveur
+- **Fichier `.env`** : Contient les variables spécifiques à l'environnement (ex: `DB_DRIVER`, `MYSQL_HOST`, `ORANGE_API_CLIENT_ID`, etc.). Ce fichier ne doit pas être versionné (présent dans `.gitignore`).
+- **Chargement** : Le fichier `.env` est chargé explicitement au début du script `public/graphql.php`.
+- **Utilisation** : Les définitions dans `src/config/di.php` utilisent `getenv('VARIABLE_NAME')` pour récupérer les valeurs et les passer aux constructeurs des services.
 
 ## Outils et Pratiques de Développement
 

@@ -48,6 +48,10 @@ set_exception_handler(function ($e) {
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Load environment variables from .env file
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..'); // Specify the directory containing .env
+$dotenv->load();
+
 // Start the session before any output or session access
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -107,6 +111,9 @@ try {
     // Create DI container
     $container = new \App\GraphQL\DIContainer();
 
+    // Get Logger from container (moved before other operations that might fail)
+    $logger = $container->get(LoggerInterface::class);
+
     // Get repositories from container
     $smsHistoryRepository = $container->get(\App\Repositories\SMSHistoryRepository::class);
     $userRepository = $container->get(\App\Repositories\UserRepository::class);
@@ -117,8 +124,7 @@ try {
     $schemaString = file_get_contents(__DIR__ . '/../src/GraphQL/schema.graphql');
     $schema = BuildSchema::build($schemaString);
 
-    // Get Logger from container
-    $logger = $container->get(LoggerInterface::class);
+    // Log request received after logger is confirmed available
     $logger->info('GraphQL endpoint request received.');
 
     // Get Resolver instances from container
@@ -129,79 +135,64 @@ try {
     $logger->info('Resolver instances obtained from DI container.');
 
     // --- Field Resolver Mapping ---
-    // This function tells GraphQL how to find the correct resolver method
-    // for each field in the Query or Mutation type.
+    // This function maps top-level Query/Mutation fields to our resolver methods.
+    // For nested fields, it falls back to the default resolver.
     $fieldResolver = function ($source, $args, $context, ResolveInfo $info) use (
         $userResolver,
         $contactResolver,
         $smsResolver,
         $authResolver,
         $logger,
-        $container // Add container here
+        $container
     ) {
         $fieldName = $info->fieldName;
-        $parentTypeName = $info->parentType->name; // Query or Mutation
+        $parentTypeName = $info->parentType->name;
 
-        $logger->debug("Resolving field: {$parentTypeName}.{$fieldName}");
+        $logger->debug("Attempting to resolve field: {$parentTypeName}.{$fieldName}");
 
-        // Map Query fields to resolver methods
+        // Handle top-level Query fields
         if ($parentTypeName === 'Query') {
+            $logger->debug("Handling Query field: {$fieldName}");
             switch ($fieldName) {
-                // User Queries
                 case 'users':
-                    return $userResolver->resolveUsers(); // No args needed here
+                    return $userResolver->resolveUsers();
                 case 'user':
                     return $userResolver->resolveUser($args);
                 case 'userByUsername':
                     return $userResolver->resolveUserByUsername($args);
                 case 'me':
-                    // 'me' needs the authenticated user, handle directly or via resolver
-                    // For now, let's assume it might be in UserResolver or AuthResolver
-                    // This highlights the need for Phase 2 (Auth Improvement)
-                    $userId = $_SESSION['user_id'] ?? null;
-                    if (!$userId) return null;
-                    return $userResolver->resolveUser(['id' => $userId]); // Example call
+                    return $userResolver->resolveMe(); // Use the dedicated 'me' resolver
                 case 'verifyToken':
                     return $authResolver->resolveVerifyToken($args, $context); // Placeholder
-
-                    // Contact Queries
                 case 'contacts':
                     return $contactResolver->resolveContacts($args, $context);
                 case 'contact':
                     return $contactResolver->resolveContact($args, $context);
                 case 'searchContacts':
                     return $contactResolver->resolveSearchContacts($args, $context);
-
-                    // SMS Queries
                 case 'smsHistory':
                     return $smsResolver->resolveSmsHistory($args, $context);
                 case 'smsHistoryCount':
                     return $smsResolver->resolveSmsHistoryCount($args, $context);
                 case 'segmentsForSMS':
                     return $smsResolver->resolveSegmentsForSMS($args, $context);
-
-                    // Other Queries (Keep existing simple ones or move them)
                 case 'test':
-                    return "GraphQL is working via Resolver!";
+                    return "GraphQL is working via FieldResolver!";
                 case 'hello':
-                    return "Hello, world via Resolver!";
+                    return "Hello, world via FieldResolver!";
                 case 'dashboardStats':
-                    // Placeholder - move to a dedicated resolver if complex
-                    return [
+                    return [ // Keep simple logic here for now
                         'usersCount' => $container->get(\App\Repositories\UserRepository::class)->count(),
                         'totalSmsCredits' => 0, // Implement logic
                         'lastUpdated' => date('Y-m-d H:i:s')
                     ];
-
-                default:
-                    $logger->warning("No Query resolver found for field: {$fieldName}");
-                    return null; // Or throw error
+                    // No default case needed, fall through to default resolver
             }
         }
-        // Map Mutation fields to resolver methods
+        // Handle top-level Mutation fields
         elseif ($parentTypeName === 'Mutation') {
+            $logger->debug("Handling Mutation field: {$fieldName}");
             switch ($fieldName) {
-                // User Mutations
                 case 'createUser':
                     return $userResolver->mutateCreateUser($args);
                 case 'updateUser':
@@ -212,8 +203,6 @@ try {
                     return $userResolver->mutateAddCredits($args);
                 case 'deleteUser':
                     return $userResolver->mutateDeleteUser($args);
-
-                    // Auth Mutations
                 case 'login':
                     return $authResolver->mutateLogin($args, $context);
                 case 'refreshToken':
@@ -224,16 +213,12 @@ try {
                     return $authResolver->mutateRequestPasswordReset($args, $context); // Placeholder
                 case 'resetPassword':
                     return $authResolver->mutateResetPassword($args, $context); // Placeholder
-
-                    // Contact Mutations
                 case 'createContact':
                     return $contactResolver->mutateCreateContact($args, $context);
                 case 'updateContact':
                     return $contactResolver->mutateUpdateContact($args, $context);
                 case 'deleteContact':
                     return $contactResolver->mutateDeleteContact($args, $context);
-
-                    // SMS Mutations
                 case 'sendSms':
                     return $smsResolver->mutateSendSms($args, $context);
                 case 'sendBulkSms':
@@ -242,32 +227,27 @@ try {
                     return $smsResolver->mutateSendSmsToSegment($args, $context);
                 case 'retrySms':
                     return $smsResolver->mutateRetrySms($args, $context);
-
-                default:
-                    $logger->warning("No Mutation resolver found for field: {$fieldName}");
-                    return null; // Or throw error
+                    // No default case needed, fall through to default resolver
             }
         }
-        // Handle resolvers for fields within Types if needed (e.g., Contact.groups)
-        // else if ($parentTypeName === 'Contact') { ... }
 
-        $logger->error("Unhandled field resolution request.", ['parentType' => $parentTypeName, 'field' => $fieldName]);
-        return null; // Should not happen if schema is covered
+        // If not a top-level Query or Mutation field handled above,
+        // use the default field resolver (handles properties/getters on objects).
+        $logger->debug("Falling back to default resolver for {$parentTypeName}.{$fieldName}");
+        return Executor::defaultFieldResolver($source, $args, $context, $info);
     };
     // --- End Field Resolver Mapping ---
 
 
-    // Execute the query using the field resolver mapping
-    // We no longer need the large $rootValue array
-    Executor::setDefaultFieldResolver($fieldResolver);
-    $logger->info('Default field resolver set.');
-
+    // Execute the query using the custom field resolver
     $result = GraphQL::executeQuery(
         $schema,
         $input['query'] ?? '',
-        null, // rootValue is now handled by the field resolver
-        null, // context can be used to pass request-specific data (like authenticated user)
-        $input['variables'] ?? []
+        null, // rootValue (logic is now entirely in fieldResolver)
+        null, // context
+        $input['variables'] ?? [],
+        null, // operationName
+        $fieldResolver // Use the custom field resolver
     );
     $logger->info('GraphQL query executed.');
 

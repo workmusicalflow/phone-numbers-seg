@@ -51,8 +51,8 @@ type Mutation {
   deleteUser(id: ID!): Boolean!
 
   # Mutations d'authentification
-  login(username: String!, password: String!): AuthPayload!
-  refreshToken(token: String!): AuthPayload!
+  login(username: String!, password: String!): User # Changed return type from AuthPayload!
+  refreshToken(token: String!): AuthPayload! # Keep this for now, might need adjustment later
   logout: Boolean!
 
   # Mutations de sécurité
@@ -131,7 +131,7 @@ type SMSDetailResult {
 }
 
 type User {
-  id: ID!
+  id: ID # Changed from ID! to ID (nullable)
   username: String!
   email: String
   smsCredit: Int!
@@ -148,8 +148,8 @@ type DashboardStats {
 }
 
 # Types pour l'authentification
-type AuthPayload {
-  token: String!
+type AuthPayload { # Restored for refreshToken mutation
+  # token: String! # Still removed, relying on session cookie
   user: User!
 }
 

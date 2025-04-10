@@ -102,14 +102,21 @@ export default defineComponent({
         const success = await authStore.login(username.value, password.value);
         
         if (success) {
+          console.log('Login successful in component, isAdmin:', authStore.isAdmin);
           // Wait for the next DOM update cycle before redirecting
           await nextTick(); 
+          console.log('After nextTick, attempting redirect...');
           // Rediriger vers la page d'accueil ou le tableau de bord
           if (authStore.isAdmin) {
+            console.log('Redirecting to /admin-dashboard');
             router.push('/admin-dashboard'); // Corrected path
           } else {
+            console.log('Redirecting to /');
             router.push('/');
           }
+          console.log('Redirect call finished.'); // Check if this log appears
+        } else {
+           console.log('Login failed in component (success variable is false)');
         }
       } finally {
         loading.value = false;

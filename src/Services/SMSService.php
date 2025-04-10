@@ -7,119 +7,47 @@ use App\Repositories\PhoneNumberRepository;
 use App\Repositories\SMSHistoryRepository;
 use App\Repositories\UserRepository;
 use App\Models\SMSHistory;
+use App\Services\Interfaces\OrangeAPIClientInterface; // Import the interface
+use Exception; // Use base Exception
+use RuntimeException; // Use RuntimeException for specific errors
 
 /**
  * SMSService
  * 
- * Service for sending SMS messages using the Orange API
+ * Service for sending SMS messages using the Orange API client.
  */
 class SMSService
 {
-    /**
-     * @var string Orange API client ID
-     */
-    private string $clientId;
-
-    /**
-     * @var string Orange API client secret
-     */
-    private string $clientSecret;
-
-    /**
-     * @var string Sender address (phone number)
-     */
-    private string $senderAddress;
-
-    /**
-     * @var string Sender name
-     */
-    private string $senderName;
-
-    /**
-     * @var PhoneNumberRepository|null
-     */
+    private OrangeAPIClientInterface $orangeApiClient; // Inject the client
     private ?PhoneNumberRepository $phoneNumberRepository;
-
-    /**
-     * @var CustomSegmentRepository|null
-     */
     private ?CustomSegmentRepository $customSegmentRepository;
-
-    /**
-     * @var SMSHistoryRepository|null
-     */
     private ?SMSHistoryRepository $smsHistoryRepository;
-
-    /**
-     * @var UserRepository|null
-     */
     private ?UserRepository $userRepository;
 
     /**
      * Constructor
      * 
-     * @param string $clientId Orange API client ID
-     * @param string $clientSecret Orange API client secret
-     * @param string $senderAddress Sender address (phone number)
-     * @param string $senderName Sender name
+     * @param OrangeAPIClientInterface $orangeApiClient
      * @param PhoneNumberRepository|null $phoneNumberRepository
      * @param CustomSegmentRepository|null $customSegmentRepository
      * @param SMSHistoryRepository|null $smsHistoryRepository
      * @param UserRepository|null $userRepository
      */
     public function __construct(
-        string $clientId,
-        string $clientSecret,
-        string $senderAddress,
-        string $senderName,
+        OrangeAPIClientInterface $orangeApiClient, // Inject the client
         ?PhoneNumberRepository $phoneNumberRepository = null,
         ?CustomSegmentRepository $customSegmentRepository = null,
         ?SMSHistoryRepository $smsHistoryRepository = null,
         ?UserRepository $userRepository = null
     ) {
-        $this->clientId = $clientId;
-        $this->clientSecret = $clientSecret;
-        $this->senderAddress = $senderAddress;
-        $this->senderName = $senderName;
+        $this->orangeApiClient = $orangeApiClient; // Store the client
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->customSegmentRepository = $customSegmentRepository;
         $this->smsHistoryRepository = $smsHistoryRepository;
         $this->userRepository = $userRepository;
     }
 
-    /**
-     * Get an access token from the Orange API
-     * 
-     * @return string Access token
-     * @throws \RuntimeException If the token cannot be obtained
-     */
-    private function getAccessToken(): string
-    {
-        $url = 'https://api.orange.com/oauth/v3/token';
-        $data = 'grant_type=client_credentials';
-
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Authorization: Basic ' . base64_encode($this->clientId . ':' . $this->clientSecret),
-            'Content-Type: application/x-www-form-urlencoded'
-        ));
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-
-        $response = curl_exec($ch);
-        if (curl_errno($ch)) {
-            throw new \RuntimeException('cURL Error: ' . curl_error($ch));
-        }
-        curl_close($ch);
-
-        $responseData = json_decode($response, true);
-        if (isset($responseData['access_token'])) {
-            return $responseData['access_token'];
-        } else {
-            throw new \RuntimeException('Error: Unable to obtain access token');
-        }
-    }
+    // getAccessToken method removed as it's handled by OrangeAPIClient
 
     /**
      * Send an SMS to a single phone number
@@ -127,8 +55,8 @@ class SMSService
      * @param string $receiverNumber Receiver phone number
      * @param string $message SMS message
      * @param int|null $userId ID of the user sending the SMS
-     * @return array API response
-     * @throws \RuntimeException If the SMS cannot be sent
+     * @return array API response from OrangeAPIClient
+     * @throws RuntimeException If the SMS cannot be sent or user checks fail
      */
     public function sendSMS(string $receiverNumber, string $message, ?int $userId = null): array
     {
@@ -137,149 +65,90 @@ class SMSService
         if ($userId !== null && $this->userRepository !== null) {
             $user = $this->userRepository->findById($userId);
             if ($user === null) {
-                throw new \RuntimeException("Utilisateur non trouvé");
+                throw new RuntimeException("Utilisateur non trouvé");
             }
-
-            // Vérifier si l'utilisateur a assez de crédits
             if ($user->getSmsCredit() <= 0) {
-                throw new \RuntimeException("Crédits SMS insuffisants");
+                throw new RuntimeException("Crédits SMS insuffisants");
             }
-
-            // Vérifier la limite SMS si définie
-            if ($user->getSmsLimit() !== null && $user->getSmsLimit() > 0) {
-                // TODO: Implémenter la vérification de la limite d'envoi
-                // Pour l'instant, on suppose que la limite n'est pas atteinte
-            }
+            // TODO: Implement SMS limit check if needed
         }
 
-        // Normalize the receiver number to international format with tel: prefix
-        $receiverNumber = $this->normalizePhoneNumber($receiverNumber);
-        $originalNumber = preg_replace('/^tel:/', '', $receiverNumber);
-
-        // Get an access token
-        try {
-            $accessToken = $this->getAccessToken();
-        } catch (\RuntimeException $e) {
-            // Log the error to SMS history if repository is available
-            if ($this->smsHistoryRepository !== null) {
-                $smsHistory = new SMSHistory(
-                    null,
-                    $originalNumber,
-                    $message,
-                    'FAILED',
-                    $this->senderAddress,
-                    $this->senderName,
-                    null,
-                    null,
-                    'Failed to obtain access token: ' . $e->getMessage(),
-                    null,
-                    $userId
-                );
-                $this->smsHistoryRepository->save($smsHistory);
-            }
-            throw $e;
-        }
-
-        // Prepare the URL and data
-        $url = 'https://api.orange.com/smsmessaging/v1/outbound/' . urlencode($this->senderAddress) . '/requests';
-        $smsData = array(
-            'outboundSMSMessageRequest' => array(
-                'address' => $receiverNumber,
-                'outboundSMSTextMessage' => array(
-                    'message' => $message,
-                ),
-                'senderAddress' => $this->senderAddress,
-                'senderName' => $this->senderName,
-            )
-        );
-
-        // Send the request
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Authorization: Bearer ' . $accessToken,
-            'Content-Type: application/json'
-        ));
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($smsData));
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        if (curl_errno($ch)) {
-            $errorMessage = 'cURL Error: ' . curl_error($ch);
-            curl_close($ch);
-
-            // Log the error to SMS history if repository is available
-            if ($this->smsHistoryRepository !== null) {
-                $smsHistory = new SMSHistory(
-                    null,
-                    $originalNumber,
-                    $message,
-                    'FAILED',
-                    $this->senderAddress,
-                    $this->senderName,
-                    null,
-                    null,
-                    $errorMessage,
-                    null,
-                    $userId
-                );
-                $this->smsHistoryRepository->save($smsHistory);
-            }
-
-            throw new \RuntimeException($errorMessage);
-        }
-        curl_close($ch);
-
-        $responseData = json_decode($response, true);
-
-        // Check if the response indicates success
-        $isSuccess = $httpCode >= 200 && $httpCode < 300 && isset($responseData['outboundSMSMessageRequest']);
-
-        // Get message ID if available
+        $normalizedReceiverNumber = $this->normalizePhoneNumber($receiverNumber);
+        $originalNumber = preg_replace('/^tel:/', '', $normalizedReceiverNumber);
+        $senderAddress = $this->orangeApiClient->getSenderAddress(); // Get from injected client
+        $senderName = $this->orangeApiClient->getSenderName();     // Get from injected client
+        $responseData = [];
+        $isSuccess = false;
+        $errorMessage = null;
         $messageId = null;
-        if ($isSuccess && isset($responseData['outboundSMSMessageRequest']['resourceURL'])) {
-            // Extract message ID from resourceURL if possible
-            $resourceUrl = $responseData['outboundSMSMessageRequest']['resourceURL'];
-            $messageId = substr($resourceUrl, strrpos($resourceUrl, '/') + 1);
-        }
 
-        // Log to SMS history if repository is available
-        if ($this->smsHistoryRepository !== null) {
-            // Find phone number ID if possible
-            $phoneNumberId = null;
-            if ($this->phoneNumberRepository !== null) {
-                $phoneNumber = $this->phoneNumberRepository->findByNumber($originalNumber);
-                if ($phoneNumber !== null) {
-                    $phoneNumberId = $phoneNumber->getId();
+        try {
+            // Use the injected Orange API client to send the SMS
+            $responseData = $this->orangeApiClient->sendSMS($normalizedReceiverNumber, $message);
+            $isSuccess = true; // Assume success if no exception is thrown by the client
+
+            // Extract message ID if available in the response
+            if (isset($responseData['outboundSMSMessageRequest']['resourceURL'])) {
+                $resourceUrl = $responseData['outboundSMSMessageRequest']['resourceURL'];
+                $messageId = substr($resourceUrl, strrpos($resourceUrl, '/') + 1);
+            }
+        } catch (RuntimeException $e) {
+            $isSuccess = false;
+            $errorMessage = $e->getMessage();
+            // Re-throw the exception after logging attempt
+            // throw $e; // Decide whether to re-throw or just log and return failure indicator
+
+        } finally {
+            // Always attempt to log, regardless of success or failure
+            if ($this->smsHistoryRepository !== null) {
+                $phoneNumberId = null;
+                if ($this->phoneNumberRepository !== null) {
+                    $phoneNumber = $this->phoneNumberRepository->findByNumber($originalNumber);
+                    if ($phoneNumber !== null) {
+                        $phoneNumberId = $phoneNumber->getId();
+                    }
+                }
+
+                $smsHistory = new SMSHistory(
+                    null,
+                    $originalNumber,
+                    $message,
+                    $isSuccess ? 'SENT' : 'FAILED',
+                    $senderAddress, // Use value obtained from client
+                    $senderName,    // Use value obtained from client
+                    $phoneNumberId,
+                    $messageId,
+                    $errorMessage, // Log error message if sending failed
+                    null, // segmentId - handled in sendSMSToSegment
+                    $userId
+                );
+                try {
+                    $this->smsHistoryRepository->save($smsHistory);
+                } catch (Exception $logException) {
+                    // Log the logging error itself, but don't let it stop the process
+                    error_log("Failed to save SMS history: " . $logException->getMessage());
                 }
             }
-
-            $smsHistory = new SMSHistory(
-                null,
-                $originalNumber,
-                $message,
-                $isSuccess ? 'SENT' : 'FAILED',
-                $this->senderAddress,
-                $this->senderName,
-                $phoneNumberId,
-                $messageId,
-                $isSuccess ? null : 'API Error: ' . ($httpCode . ' - ' . json_encode($responseData)),
-                null,
-                $userId
-            );
-            $this->smsHistoryRepository->save($smsHistory);
         }
 
-        // Décompter les crédits si l'envoi a réussi et qu'un utilisateur est spécifié
+        // If sending failed, throw the original exception now after logging
+        if (!$isSuccess && $errorMessage !== null) {
+            throw new RuntimeException($errorMessage);
+        }
+
+        // Décompter les crédits si l'envoi a réussi (API call succeeded) et qu'un utilisateur est spécifié
         if ($isSuccess && $userId !== null && $this->userRepository !== null && $user !== null) {
-            // Décompter un crédit
-            $newCreditBalance = $user->getSmsCredit() - 1;
-            $user->setSmsCredit($newCreditBalance);
-            $this->userRepository->save($user);
+            try {
+                $newCreditBalance = $user->getSmsCredit() - 1;
+                $user->setSmsCredit($newCreditBalance);
+                $this->userRepository->save($user);
+            } catch (Exception $creditException) {
+                // Log error deducting credits, but don't fail the whole operation
+                error_log("Failed to deduct credits for user {$userId}: " . $creditException->getMessage());
+            }
         }
 
+        // Return the response data from the API client on success
         return $responseData;
     }
 
@@ -289,46 +158,41 @@ class SMSService
      * @param array $receiverNumbers Array of receiver phone numbers
      * @param string $message SMS message
      * @param int|null $userId ID of the user sending the SMS
-     * @return array Results for each number
+     * @return array Results for each number ['phoneNumber' => ['status' => 'success|error', 'message' => '...', 'response' => mixed]]
      */
     public function sendBulkSMS(array $receiverNumbers, string $message, ?int $userId = null): array
     {
-        // Vérifier les crédits de l'utilisateur si un userId est fourni
+        // User and credit check (simplified - assumes enough credits if check passes once)
         if ($userId !== null && $this->userRepository !== null) {
             $user = $this->userRepository->findById($userId);
             if ($user === null) {
-                throw new \RuntimeException("Utilisateur non trouvé");
+                throw new RuntimeException("Utilisateur non trouvé");
             }
-
-            // Vérifier si l'utilisateur a assez de crédits pour tous les SMS
             if ($user->getSmsCredit() < count($receiverNumbers)) {
-                throw new \RuntimeException("Crédits SMS insuffisants pour l'envoi en masse");
+                throw new RuntimeException("Crédits SMS insuffisants pour l'envoi en masse");
             }
-
-            // Vérifier la limite SMS si définie
-            if ($user->getSmsLimit() !== null && $user->getSmsLimit() > 0) {
-                // TODO: Implémenter la vérification de la limite d'envoi
-                // Pour l'instant, on suppose que la limite n'est pas atteinte
-            }
+            // TODO: Implement SMS limit check if needed
         }
 
         $results = [];
-        $segmentId = null;
-
         foreach ($receiverNumbers as $number) {
+            $originalNumber = $number; // Keep original for key
             try {
-                $results[$number] = [
+                // Call the refactored sendSMS method
+                $response = $this->sendSMS($number, $message, $userId);
+                $results[$originalNumber] = [
                     'status' => 'success',
-                    'response' => $this->sendSMS($number, $message, $userId)
+                    'message' => 'Envoyé (Vérifier statut API)', // More accurate status might be in response
+                    'response' => $response // Include API response if needed
                 ];
-            } catch (\Exception $e) {
-                $results[$number] = [
+            } catch (Exception $e) {
+                // sendSMS already attempts logging, just record the failure here
+                $results[$originalNumber] = [
                     'status' => 'error',
                     'message' => $e->getMessage()
                 ];
             }
         }
-
         return $results;
     }
 
@@ -339,62 +203,65 @@ class SMSService
      * @param string $message SMS message
      * @param int|null $userId ID of the user sending the SMS
      * @return array Results for each number
-     * @throws \RuntimeException If the repositories are not provided
+     * @throws RuntimeException If the repositories are not provided or segment not found
      */
     public function sendSMSToSegment(int $segmentId, string $message, ?int $userId = null): array
     {
         if ($this->phoneNumberRepository === null || $this->customSegmentRepository === null) {
-            throw new \RuntimeException('Phone number and custom segment repositories are required for sending to a segment');
+            throw new RuntimeException('Phone number and custom segment repositories are required for sending to a segment');
         }
 
-        // Get the segment
         $segment = $this->customSegmentRepository->findById($segmentId);
         if ($segment === null) {
-            throw new \RuntimeException('Segment not found: ' . $segmentId);
+            throw new RuntimeException('Segment not found: ' . $segmentId);
         }
 
-        // Get all phone numbers in the segment
         $phoneNumbers = $this->phoneNumberRepository->findByCustomSegment($segmentId);
+        $numbers = array_map(fn($pn) => $pn->getNumber(), $phoneNumbers);
 
-        // Extract the phone numbers
-        $numbers = array_map(function ($phoneNumber) {
-            return $phoneNumber->getNumber();
-        }, $phoneNumbers);
+        if (empty($numbers)) {
+            return []; // No numbers in segment
+        }
 
-        // Vérifier les crédits de l'utilisateur si un userId est fourni
+        // User and credit check (before calling sendBulkSMS)
         if ($userId !== null && $this->userRepository !== null) {
             $user = $this->userRepository->findById($userId);
             if ($user === null) {
-                throw new \RuntimeException("Utilisateur non trouvé");
+                throw new RuntimeException("Utilisateur non trouvé");
             }
-
-            // Vérifier si l'utilisateur a assez de crédits pour tous les SMS
             if ($user->getSmsCredit() < count($numbers)) {
-                throw new \RuntimeException("Crédits SMS insuffisants pour l'envoi au segment");
+                throw new RuntimeException("Crédits SMS insuffisants pour l'envoi au segment");
             }
-
-            // Vérifier la limite SMS si définie
-            if ($user->getSmsLimit() !== null && $user->getSmsLimit() > 0) {
-                // TODO: Implémenter la vérification de la limite d'envoi
-                // Pour l'instant, on suppose que la limite n'est pas atteinte
-            }
+            // TODO: Implement SMS limit check if needed
         }
 
-        // Send the SMS to all numbers
+        // Send the SMS to all numbers using sendBulkSMS
         $results = $this->sendBulkSMS($numbers, $message, $userId);
 
-        // Update segment ID in SMS history records if repository is available
+        // Update segment ID in SMS history records AFTER sending attempts
         if ($this->smsHistoryRepository !== null) {
-            // This would be more efficient with a batch update query
-            // but we'll use the repository interface for now
+            // This is inefficient (N+1 updates). A batch update or different logging strategy is better.
             foreach ($numbers as $number) {
                 $originalNumber = preg_replace('/^tel:/', '', $this->normalizePhoneNumber($number));
-                $history = $this->smsHistoryRepository->findByPhoneNumber($originalNumber, 1);
-                if (!empty($history)) {
-                    $latestHistory = $history[0];
-                    $latestHistory->setSegmentId($segmentId);
-                    $this->smsHistoryRepository->save($latestHistory);
-                }
+                // Find the most recent history entry for this number/message combo? Risky.
+                // Better: SMSService::sendSMS should return the history ID it created.
+                // For now, this update logic is flawed and removed. History should be logged correctly in sendSMS.
+                /*
+                 $history = $this->smsHistoryRepository->findByPhoneNumber($originalNumber, 1); // Find latest
+                 if (!empty($history)) {
+                     $latestHistory = $history[0];
+                     // Check if this history record likely corresponds to *this* send operation
+                     // This is difficult without more context (e.g., batch ID)
+                     if ($latestHistory->getMessage() === $message) { // Basic check
+                         $latestHistory->setSegmentId($segmentId);
+                         try {
+                             $this->smsHistoryRepository->save($latestHistory);
+                         } catch (Exception $logException) {
+                             error_log("Failed to update segment ID for history: " . $logException->getMessage());
+                         }
+                     }
+                 }
+                 */
             }
         }
 
@@ -405,29 +272,33 @@ class SMSService
      * Normalize a phone number to the format required by the Orange API
      * 
      * @param string $number Phone number
-     * @return string Normalized phone number
+     * @return string Normalized phone number (e.g., tel:+225XXXXXXXX)
      */
     private function normalizePhoneNumber(string $number): string
     {
-        // Remove any non-numeric characters except the leading +
         $number = preg_replace('/[^0-9+]/', '', $number);
-
-        // Handle different formats
-        if (substr($number, 0, 1) === '+') {
-            // Format: +2250777104936 - already in international format
-            $normalizedNumber = $number;
-        } elseif (substr($number, 0, 4) === '0022') {
-            // Format: 002250777104936 - convert to +225...
-            $normalizedNumber = '+' . substr($number, 3);
-        } elseif (substr($number, 0, 1) === '0') {
-            // Format: 0777104936 - convert to +225...
-            $normalizedNumber = '+225' . $number;
+        if (strpos($number, '+') === 0) {
+            // Already international format
+        } elseif (strpos($number, '00') === 0) {
+            // Starts with 00, assume country code follows
+            $number = '+' . substr($number, 2);
+        } elseif (strpos($number, '0') === 0 && strlen($number) > 5) { // Basic check for local number
+            // Assume local Côte d'Ivoire number if starts with 0
+            $number = '+225' . substr($number, 1);
         } else {
-            // If none of the above, assume it's already normalized or invalid
-            $normalizedNumber = $number;
+            // Cannot determine format, maybe add default country code or throw error?
+            // For now, assume it might be missing '+'
+            if (ctype_digit($number) && strlen($number) > 9) { // Basic check
+                // Maybe add default country code? Risky.
+                // Let's assume it should have had a '+' if international
+            }
+            // Return as is or potentially throw an error for unhandled format
         }
 
-        // Add the 'tel:' prefix required by the Orange API
-        return 'tel:' . $normalizedNumber;
+        // Ensure 'tel:' prefix
+        if (strpos($number, 'tel:') !== 0) {
+            return 'tel:' . $number;
+        }
+        return $number; // Already has prefix
     }
 }

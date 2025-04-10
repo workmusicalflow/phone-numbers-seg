@@ -162,25 +162,27 @@ router.beforeEach(async (to, from, next) => {
 
     // If navigating away from login page immediately after successful login,
     // trust the store state set by the login action.
-    if (from.name === 'login' && isAuthenticated) {
-        // Already handled by the login component's redirect logic,
-        // but we ensure the guard allows it without re-checking auth immediately.
+    // If navigating away from login page immediately after successful login,
+    // trust the store state set by the login action.
+    if (from.name === 'login' && authStore.isAuthenticated) { // Check store directly again
+        // Check admin status for the specific target route
         if (requiresAdmin && !authStore.isAdmin) {
-             // This case should ideally not happen if login sets isAdmin correctly
-            next({ name: 'home' });
+             next({ name: 'home' }); // Redirect non-admin trying to access admin route
         } else {
-            next(); // Allow navigation
+             next(); // Allow navigation to intended route (admin or non-admin)
         }
         return; // Skip further checks for this specific transition
     }
 
     // For other navigations (refresh, direct access, etc.)
-    // If route requires auth and store says not authenticated, check backend
-    if (requiresAuth && !isAuthenticated) {
-        isAuthenticated = await authStore.checkAuth();
-    }
+    // If route requires auth and store says not authenticated, 
+    // the check below will redirect to login.
+    // We removed the explicit await authStore.checkAuth() call here.
+    // If a valid session cookie exists, subsequent API calls within the protected route
+    // should work. If not, they might fail, or the user might be redirected
+    // if those calls also check authentication.
 
-    // Final checks based on potentially updated isAuthenticated
+    // Final checks based on the current store state
     if (requiresAuth) {
         if (isAuthenticated) {
             // Authenticated: Check admin rights if needed

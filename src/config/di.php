@@ -90,21 +90,32 @@ $definitions = [
 
     // Services
     \App\Services\Interfaces\OrangeAPIClientInterface::class => factory(function () {
+        // Read Orange API credentials and defaults from environment variables using $_ENV
+        $clientId = $_ENV['ORANGE_API_CLIENT_ID'] ?? ''; // Provide default or handle error if missing
+        $clientSecret = $_ENV['ORANGE_API_CLIENT_SECRET'] ?? '';
+        $defaultSenderAddress = $_ENV['ORANGE_DEFAULT_SENDER_ADDRESS'] ?? '';
+        $defaultSenderName = $_ENV['ORANGE_DEFAULT_SENDER_NAME'] ?? '';
+
+        // Basic validation or logging for missing env vars could be added here
+        if (empty($clientId) || empty($clientSecret)) {
+            // Log an error or throw an exception if credentials are vital
+            error_log('Missing Orange API credentials in environment variables.');
+            // Depending on the application's needs, you might return a null object,
+            // throw an exception, or allow proceeding with empty credentials if applicable.
+        }
+
         return new \App\Services\OrangeAPIClient(
-            'DGxbQKd9JHXLdFaWGtv0FfqFFI7Gu03a',          // client ID
-            'S4ywfdZUjNvOXErMr5NyQwgliBCdXIAYp1DcibKThBXs',      // client secret
-            'tel:+2250595016840',      // numéro d'expéditeur
-            'Qualitas CI'              // Nom d'expéditeur par défaut
+            $clientId,
+            $clientSecret,
+            $defaultSenderAddress,
+            $defaultSenderName
         );
     }),
 
-    // SMSService with required parameters
+    // SMSService now injects OrangeAPIClientInterface
     \App\Services\SMSService::class => factory(function (Container $container) {
         return new \App\Services\SMSService(
-            'DGxbQKd9JHXLdFaWGtv0FfqFFI7Gu03a',          // client ID
-            'S4ywfdZUjNvOXErMr5NyQwgliBCdXIAYp1DcibKThBXs',      // client secret
-            'tel:+2250595016840',      // numéro d'expéditeur
-            'Qualitas CI',             // Nom d'expéditeur par défaut
+            $container->get(\App\Services\Interfaces\OrangeAPIClientInterface::class), // Inject the client
             $container->get(\App\Repositories\PhoneNumberRepository::class),
             $container->get(\App\Repositories\CustomSegmentRepository::class),
             $container->get(\App\Repositories\SMSHistoryRepository::class),

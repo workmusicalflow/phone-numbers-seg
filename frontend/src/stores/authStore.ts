@@ -14,47 +14,43 @@ export interface AuthState {
 // GraphQL queries and mutations
 const LOGIN = `
   mutation Login($username: String!, $password: String!) {
-    login(username: $username, password: $password) {
-      token
-      user {
-        id
-        username
+    # login mutation now returns User type directly
+    login(username: $username, password: $password) { 
+      id # Request fields directly on the returned User
+      username
         email
         smsCredit
         smsLimit
         isAdmin
         createdAt
         updatedAt
-      }
-    }
+    } 
   }
 `;
 
 const LOGOUT = `
   mutation Logout {
-    logout {
-      success
-    }
+    logout # Returns Boolean! directly, no sub-fields
   }
 `;
 
-const CHECK_AUTH = `
-  query CheckAuth {
-    checkAuth {
-      authenticated
-      user {
-        id
-        username
-        email
-        smsCredit
-        smsLimit
-        isAdmin
-        createdAt
-        updatedAt
-      }
-    }
-  }
-`;
+// const CHECK_AUTH = ` // Removed query as it doesn't exist in schema
+//   query CheckAuth {
+//     checkAuth {
+//       authenticated
+//       user {
+//         id
+//         username
+//         email
+//         smsCredit
+//         smsLimit
+//         isAdmin
+//         createdAt
+//         updatedAt
+//       }
+//     }
+//   }
+// `;
 
 const REQUEST_PASSWORD_RESET = `
   mutation RequestPasswordReset($email: String!) {
@@ -108,11 +104,13 @@ export const useAuthStore = defineStore('auth', () => {
       }
       
       // Mettre à jour l'état
-      isAuthenticated.value = !!result.data.login.token;
-      isAdmin.value = result.data.login.user.isAdmin;
+      // Consider login successful if no error and login data (which is the user) is returned
+      const loggedInUser = result.data.login; 
+      isAuthenticated.value = !!loggedInUser; 
+      isAdmin.value = loggedInUser?.isAdmin ?? false;
       
       // Mettre à jour l'utilisateur courant
-      userStore.currentUser = result.data.login.user;
+      userStore.currentUser = loggedInUser;
       
       notification.success('Connexion réussie');
       return true;
@@ -142,7 +140,8 @@ export const useAuthStore = defineStore('auth', () => {
         credentials: 'include' // Important pour inclure les cookies
       });
       
-      // Réinitialiser l'état
+      // Réinitialiser l'état (toujours faire même si l'appel échoue côté serveur,
+      // car l'intention est de se déconnecter)
       isAuthenticated.value = false;
       isAdmin.value = false;
       
@@ -163,53 +162,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
   
-  async function checkAuth(): Promise<boolean> {
-    loading.value = true;
-    error.value = null;
-    
-    try {
-      const response = await fetch('/graphql.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: CHECK_AUTH
-        }),
-        credentials: 'include' // Important pour inclure les cookies
-      });
-      
-      const result = await response.json();
-      
-      if (result.errors) {
-        throw new Error(result.errors[0].message);
-      }
-      
-      // Mettre à jour l'état
-      isAuthenticated.value = result.data.checkAuth.authenticated;
-      
-      if (isAuthenticated.value && result.data.checkAuth.user) {
-        isAdmin.value = result.data.checkAuth.user.isAdmin;
-        userStore.currentUser = result.data.checkAuth.user;
-      } else {
-        isAdmin.value = false;
-        userStore.currentUser = null;
-      }
-      
-      return isAuthenticated.value;
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la vérification de l\'authentification';
-      
-      // En cas d'erreur, considérer l'utilisateur comme non authentifié
-      isAuthenticated.value = false;
-      isAdmin.value = false;
-      userStore.currentUser = null;
-      
-      return false;
-    } finally {
-      loading.value = false;
-    }
-  }
+  // Removed checkAuth function as the query doesn't exist
+  // async function checkAuth(): Promise<boolean> { ... } 
   
   async function requestPasswordReset(email: string): Promise<boolean> {
     loading.value = true;
@@ -268,7 +222,8 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error(result.errors[0].message);
       }
       
-      if (!result.data.resetPassword.success) {
+      // resetPassword mutation returns Boolean! directly
+      if (!result.data.resetPassword) { 
         throw new Error('La réinitialisation du mot de passe a échoué');
       }
       
@@ -285,7 +240,10 @@ export const useAuthStore = defineStore('auth', () => {
   
   // Initialiser l'authentification au chargement de l'application
   async function init(): Promise<void> {
-    await checkAuth();
+    // await checkAuth(); // Removed as checkAuth function was removed
+    // We could potentially try a 'me' query here if a session cookie might exist,
+    // but for now, let the navigation guard handle redirection if needed.
+    console.log('Auth store initialized.');
   }
   
   return {
@@ -302,7 +260,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Actions
     login,
     logout,
-    checkAuth,
+    // checkAuth removed
     requestPasswordReset,
     resetPassword,
     init
