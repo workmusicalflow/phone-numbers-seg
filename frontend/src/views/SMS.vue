@@ -404,9 +404,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { gql } from "@apollo/client/core";
-import { useQuasar } from "quasar";
+import { useQuasar } from "quasar"; 
 import { useApolloClient } from "@vue/apollo-composable";
-import NotificationService from "../services/NotificationService";
+// Notification wrapper removed, using $q directly
 import { useSMSTemplateStore } from "../stores/smsTemplateStore";
 import { useAuthStore } from "../stores/authStore";
 import { useUserStore } from "../stores/userStore";
@@ -550,7 +550,7 @@ const fetchSmsHistory = async () => {
     smsHistory.value = data.smsHistory;
   } catch (error) {
     console.error("Error fetching SMS history:", error);
-    NotificationService.error("Erreur lors du chargement de l'historique");
+    $q.notify({ type: 'negative', message: "Erreur lors du chargement de l'historique" }); // Use $q
   } finally {
     loadingHistory.value = false;
   }
@@ -577,7 +577,7 @@ const fetchSegments = async () => {
     segments.value = data.segmentsForSMS;
   } catch (error) {
     console.error("Error fetching segments:", error);
-    NotificationService.error("Erreur lors du chargement des segments");
+    $q.notify({ type: 'negative', message: "Erreur lors du chargement des segments" }); // Use $q
   } finally {
     loadingSegments.value = false;
   }
@@ -638,7 +638,7 @@ const onSubmitSingle = async () => {
     };
 
     // Notification
-    NotificationService.success(smsResult.value.message);
+    $q.notify({ type: 'positive', message: smsResult.value.message }); // Use $q
 
     // Réinitialiser le formulaire en cas de succès
     if (data.sendSms.status === "SENT") {
@@ -664,7 +664,7 @@ const onSubmitSingle = async () => {
         : "Erreur lors de l'envoi du SMS",
     };
     
-    NotificationService.error(smsResult.value.message);
+    $q.notify({ type: 'negative', message: smsResult.value.message }); // Use $q
     
     // Si c'est une erreur de crédit, rafraîchir les informations de l'utilisateur
     if (isCreditError && userStore.currentUser) {
@@ -687,7 +687,7 @@ const onSubmitBulk = async () => {
     .filter((num) => num.length > 0);
 
     if (phoneNumbers.length === 0) {
-      NotificationService.warning("Aucun numéro valide trouvé");
+      $q.notify({ type: 'warning', message: "Aucun numéro valide trouvé" }); // Use $q
       loading.value = false;
       return;
     }
@@ -743,13 +743,15 @@ const onSubmitBulk = async () => {
     smsResult.value = data.sendBulkSms;
 
     // Notification
-    if (data.sendBulkSms.status === "success") {
-      NotificationService.success(`SMS envoyés avec succès (${data.sendBulkSms.summary.successful}/${data.sendBulkSms.summary.total})`);
+    if (data.sendBulkSms.status !== 'ERROR' && data.sendBulkSms.summary.failed === 0) {
+       $q.notify({ type: 'positive', message: `SMS envoyés avec succès (${data.sendBulkSms.summary.successful}/${data.sendBulkSms.summary.total})` }); // Use $q
+    } else if (data.sendBulkSms.status !== 'ERROR' && data.sendBulkSms.summary.failed > 0) {
+       $q.notify({ type: 'warning', message: `Envoi terminé avec ${data.sendBulkSms.summary.failed} échec(s). ${data.sendBulkSms.message}` }); // Use $q
     } else {
-      NotificationService.error(data.sendBulkSms.message);
+       $q.notify({ type: 'negative', message: data.sendBulkSms.message || 'Erreur lors de l\'envoi en masse.' }); // Use $q
     }
 
-    // Réinitialiser le formulaire en cas de succès
+    // Réinitialiser le formulaire en cas de succès (ou succès partiel)
     if (data.sendBulkSms.status === "success") {
       bulkSmsData.value = {
         phoneNumbers: "",
@@ -773,7 +775,7 @@ const onSubmitBulk = async () => {
         : "Erreur lors de l'envoi des SMS en masse",
     };
     
-    NotificationService.error(smsResult.value.message);
+    $q.notify({ type: 'negative', message: smsResult.value.message }); // Use $q
     
     // Si c'est une erreur de crédit, rafraîchir les informations de l'utilisateur
     if (isCreditError && userStore.currentUser) {
@@ -787,7 +789,7 @@ const onSubmitBulk = async () => {
 // Envoi de SMS à un segment
 const onSubmitSegment = async () => {
     if (!segmentSmsData.value.segmentId) {
-      NotificationService.warning("Veuillez sélectionner un segment");
+      $q.notify({ type: 'warning', message: "Veuillez sélectionner un segment" }); // Use $q
       return;
     }
 
@@ -849,13 +851,15 @@ const onSubmitSegment = async () => {
     smsResult.value = data.sendSmsToSegment;
 
     // Notification
-    if (data.sendSmsToSegment.status === "success") {
-      NotificationService.success(`SMS envoyés avec succès au segment ${data.sendSmsToSegment.segment.name} (${data.sendSmsToSegment.summary.successful}/${data.sendSmsToSegment.summary.total})`);
+     if (data.sendSmsToSegment.status !== 'ERROR' && data.sendSmsToSegment.summary.failed === 0) {
+       $q.notify({ type: 'positive', message: `SMS envoyés avec succès au segment ${data.sendSmsToSegment.segment.name} (${data.sendSmsToSegment.summary.successful}/${data.sendSmsToSegment.summary.total})` }); // Use $q
+    } else if (data.sendSmsToSegment.status !== 'ERROR' && data.sendSmsToSegment.summary.failed > 0) {
+       $q.notify({ type: 'warning', message: `Envoi au segment ${data.sendSmsToSegment.segment.name} terminé avec ${data.sendSmsToSegment.summary.failed} échec(s). ${data.sendSmsToSegment.message}` }); // Use $q
     } else {
-      NotificationService.error(data.sendSmsToSegment.message);
+       $q.notify({ type: 'negative', message: data.sendSmsToSegment.message || 'Erreur lors de l\'envoi au segment.' }); // Use $q
     }
 
-    // Réinitialiser le formulaire en cas de succès
+    // Réinitialiser le formulaire en cas de succès (ou succès partiel)
     if (data.sendSmsToSegment.status === "success") {
       segmentSmsData.value = {
         segmentId: null,
@@ -879,7 +883,7 @@ const onSubmitSegment = async () => {
         : "Erreur lors de l'envoi des SMS au segment",
     };
     
-    NotificationService.error(smsResult.value.message);
+    $q.notify({ type: 'negative', message: smsResult.value.message }); // Use $q
     
     // Si c'est une erreur de crédit, rafraîchir les informations de l'utilisateur
     if (isCreditError && userStore.currentUser) {
@@ -920,10 +924,11 @@ const onSubmitAllContacts = async () => {
     const resultData = data.sendSmsToAllContacts;
     smsResult.value = resultData; // Afficher le résumé
 
+    // Notification
     if (resultData.status === 'ERROR' || resultData.summary.failed > 0) {
-       NotificationService.warning(`Envoi terminé avec ${resultData.summary.failed} échec(s). ${resultData.message}`);
+       $q.notify({ type: 'warning', message: `Envoi terminé avec ${resultData.summary.failed} échec(s). ${resultData.message}` }); // Use $q
     } else {
-       NotificationService.success(`SMS envoyés avec succès à ${resultData.summary.successful} contacts.`);
+       $q.notify({ type: 'positive', message: `SMS envoyés avec succès à ${resultData.summary.successful} contacts.` }); // Use $q
        allContactsSmsData.value.message = ""; // Réinitialiser le message
        allContactsFormRef.value?.resetValidation(); // Réinitialiser la validation du formulaire
     }
@@ -946,7 +951,7 @@ const onSubmitAllContacts = async () => {
         : "Erreur lors de l'envoi à tous les contacts",
       summary: null // Pas de résumé en cas d'erreur avant envoi
     };
-    NotificationService.error(smsResult.value.message);
+    $q.notify({ type: 'negative', message: smsResult.value.message }); // Use $q
      if (isCreditError && userStore.currentUser) {
       userStore.fetchUser(userStore.currentUser.id);
     }

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useUserStore } from './userStore';
-import notification from '../services/NotificationService';
+// Notification logic moved to components
 
 // Types
 export interface AuthState {
@@ -129,7 +129,7 @@ export const useAuthStore = defineStore('auth', () => {
           if (meResult.data.me) {
              userStore.currentUser = meResult.data.me;
              isAdmin.value = meResult.data.me.isAdmin;
-             notification.success('Connexion réussie');
+             // notification.success('Connexion réussie'); // Removed
              return true;
           } else {
              // Should not happen if login succeeded and session is set
@@ -141,8 +141,10 @@ export const useAuthStore = defineStore('auth', () => {
            isAdmin.value = false;
            userStore.currentUser = null;
            error.value = meErr instanceof Error ? meErr.message : 'Erreur post-connexion';
-           notification.error(error.value);
-           return false;
+           // notification.error(error.value); // Removed
+           // Re-throw the error so the component knows login failed at this stage
+           throw new Error(error.value); 
+           // return false; // No longer needed
         }
       } else {
          // Login a retourné false (échec d'authentification)
@@ -150,8 +152,10 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la connexion';
-      notification.error(error.value);
-      return false;
+      // notification.error(error.value); // Removed
+      // Let the component handle displaying the error based on the thrown exception
+      throw err; // Re-throw the error
+      // return false; // No longer needed
     } finally {
       loading.value = false;
     }
@@ -182,7 +186,7 @@ export const useAuthStore = defineStore('auth', () => {
       // Réinitialiser l'utilisateur courant
       userStore.currentUser = null;
       
-      notification.success('Déconnexion réussie');
+      // notification.success('Déconnexion réussie'); // Removed - component can show this if needed
       return true;
     } catch (err) {
       // Même en cas d'erreur, on déconnecte l'utilisateur localement
@@ -222,12 +226,13 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error(result.errors[0].message);
       }
       
-      notification.success('Un email de réinitialisation a été envoyé si l\'adresse existe dans notre système');
+      // notification.success('Un email de réinitialisation a été envoyé...'); // Removed
       return true;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la demande de réinitialisation';
-      notification.error(error.value);
-      return false;
+      // notification.error(error.value); // Removed
+      throw err; // Re-throw
+      // return false; // No longer needed
     } finally {
       loading.value = false;
     }
@@ -261,12 +266,13 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('La réinitialisation du mot de passe a échoué');
       }
       
-      notification.success('Votre mot de passe a été réinitialisé avec succès');
+      // notification.success('Votre mot de passe a été réinitialisé avec succès'); // Removed
       return true;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la réinitialisation du mot de passe';
-      notification.error(error.value);
-      return false;
+      // notification.error(error.value); // Removed
+      throw err; // Re-throw
+      // return false; // No longer needed
     } finally {
       loading.value = false;
     }

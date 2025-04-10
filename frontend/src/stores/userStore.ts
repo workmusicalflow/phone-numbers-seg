@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import notification from '../services/NotificationService';
+// Notification logic moved to components
 import { useDashboardStore } from './dashboardStore';
 import { apolloClient, gql } from '../services/api'; // Ensure apolloClient and gql are imported
 
@@ -132,8 +132,6 @@ const DELETE_USER = `
 
 // Store definition
 export const useUserStore = defineStore('user', () => {
-  // notification est déjà importé en haut du fichier
-  
   // State
   const users = ref<User[]>([]);
   const loading = ref(false);
@@ -183,7 +181,8 @@ const isAdmin = computed(() => {
       console.log('Users fetched:', users.value);
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la récupération des utilisateurs';
-      notification.error(error.value);
+      // notifyError(error.value); // Removed
+      console.error(error.value); // Log error instead
     } finally {
       loading.value = false;
     }
@@ -209,7 +208,8 @@ const isAdmin = computed(() => {
       return data.user;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la récupération de l'utilisateur #${id}`;
-      notification.error(error.value);
+      // notifyError(error.value); // Removed
+      console.error(error.value); // Log error instead
       return null;
     } finally {
       loading.value = false;
@@ -251,7 +251,7 @@ const isAdmin = computed(() => {
       console.log('New user created:', newUser);
       users.value.push(newUser);
       console.log('Updated users array:', users.value);
-      notification.success(`L'utilisateur ${username} a été créé avec succès`);
+      // notifySuccess(`L'utilisateur ${username} a été créé avec succès`); // Removed
       
       // Refresh dashboard data after user creation
       const dashboardStore = useDashboardStore();
@@ -263,8 +263,10 @@ const isAdmin = computed(() => {
       return newUser;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la création de l\'utilisateur';
-      notification.error(error.value);
-      return null;
+      // notifyError(error.value); // Removed
+      console.error(error.value); // Log error instead
+      throw err; // Re-throw error for component to handle
+      // return null;
     } finally {
       loading.value = false;
     }
@@ -304,12 +306,14 @@ const isAdmin = computed(() => {
         users.value[index] = updatedUser;
       }
       
-      notification.success(`L'utilisateur a été mis à jour avec succès`);
+      // notifySuccess(`L'utilisateur a été mis à jour avec succès`); // Removed
       return updatedUser;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la mise à jour de l'utilisateur #${id}`;
-      notification.error(error.value);
-      return null;
+      // notifyError(error.value); // Removed
+      console.error(error.value); // Log error instead
+      throw err; // Re-throw error
+      // return null;
     } finally {
       loading.value = false;
     }
@@ -337,12 +341,14 @@ const isAdmin = computed(() => {
         throw new Error(result.errors[0].message);
       }
       
-      notification.success(`Le mot de passe a été changé avec succès`);
+      // notifySuccess(`Le mot de passe a été changé avec succès`); // Removed
       return true;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors du changement de mot de passe pour l'utilisateur #${id}`;
-      notification.error(error.value);
-      return false;
+      // notifyError(error.value); // Removed
+      console.error(error.value); // Log error instead
+      throw err; // Re-throw error
+      // return false;
     } finally {
       loading.value = false;
     }
@@ -401,13 +407,15 @@ const isAdmin = computed(() => {
         console.log(`Utilisateur courant mis à jour: ${updatedUser.smsCredit} crédits`);
       }
       
-      notification.success(`${amount} crédits SMS ont été ajoutés à l'utilisateur`);
+      // notifySuccess(`${amount} crédits SMS ont été ajoutés à l'utilisateur`); // Removed
       return updatedUser;
     } catch (err) {
       console.error('Erreur lors de l\'ajout de crédits:', err);
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de l'ajout de crédits à l'utilisateur #${id}`;
-      notification.error(error.value);
-      return null;
+      // notifyError(error.value); // Removed
+      console.error(error.value); // Log error instead
+      throw err; // Re-throw error
+      // return null;
     } finally {
       loading.value = false;
     }
@@ -439,7 +447,7 @@ const isAdmin = computed(() => {
       
       if (success) {
         users.value = users.value.filter(user => user.id !== id);
-        notification.success(`L'utilisateur a été supprimé avec succès`);
+        // notifySuccess(`L'utilisateur a été supprimé avec succès`); // Removed
       } else {
         throw new Error('La suppression a échoué');
       }
@@ -447,8 +455,10 @@ const isAdmin = computed(() => {
       return success;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la suppression de l'utilisateur #${id}`;
-      notification.error(error.value);
-      return false;
+      // notifyError(error.value); // Removed
+      console.error(error.value); // Log error instead
+      throw err; // Re-throw error
+      // return false;
     } finally {
       loading.value = false;
     }
