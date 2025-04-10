@@ -4,23 +4,23 @@ namespace App\GraphQL\Resolvers;
 
 use App\Services\Interfaces\AuthServiceInterface;
 use App\Models\User;
-use App\GraphQL\Formatters\GraphQLFormatterInterface; // Re-import Formatter interface
+use App\GraphQL\Formatters\GraphQLFormatterInterface; // Restore Formatter interface
 use Exception;
 use Psr\Log\LoggerInterface;
 
 class AuthResolver
 {
     private AuthServiceInterface $authService;
-    private GraphQLFormatterInterface $formatter; // Re-add Formatter property
+    private GraphQLFormatterInterface $formatter; // Restore Formatter property
     private LoggerInterface $logger;
 
     public function __construct(
         AuthServiceInterface $authService,
-        GraphQLFormatterInterface $formatter, // Re-inject Formatter
+        GraphQLFormatterInterface $formatter, // Restore Formatter injection
         LoggerInterface $logger
     ) {
         $this->authService = $authService;
-        $this->formatter = $formatter; // Re-assign Formatter
+        $this->formatter = $formatter; // Restore Formatter assignment
         $this->logger = $logger;
     }
 
