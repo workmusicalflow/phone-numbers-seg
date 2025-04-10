@@ -97,32 +97,23 @@
             </q-card-section>
 
             <q-card-section>
-              <!-- Display logic adjusted for BulkSMSResult and single SMSResult -->
-              <!-- Use 'in' operator for type guarding -->
-              <div v-if="'summary' in smsResult && smsResult.summary"> <!-- Check if it's a bulk/segment/all result -->
-                <div v-if="smsResult.status === 'COMPLETED' && smsResult.summary.failed === 0" class="text-positive">
-                   <q-icon name="check_circle" size="md" />
-                   <span class="q-ml-sm">{{ smsResult.message || 'Envoi terminé avec succès.' }}</span>
+              <!-- Display logic using standardized FrontendStatus -->
+              <div v-if="smsResult">
+                <!-- Success status -->
+                <div v-if="smsResult.status === 'success'" class="text-positive">
+                  <q-icon name="check_circle" size="md" />
+                  <span class="q-ml-sm">{{ smsResult.message || 'Opération réussie.' }}</span>
                 </div>
-                 <div v-else-if="smsResult.status === 'PARTIAL' || (smsResult.status === 'COMPLETED' && smsResult.summary.failed > 0)" class="text-warning">
-                   <q-icon name="warning" size="md" />
-                   <span class="q-ml-sm">{{ smsResult.message || `Envoi terminé avec ${smsResult.summary.failed} échec(s).` }}</span>
+                <!-- Warning status -->
+                <div v-else-if="smsResult.status === 'warning'" class="text-warning">
+                  <q-icon name="warning" size="md" />
+                  <span class="q-ml-sm">{{ smsResult.message || 'Opération terminée avec des avertissements.' }}</span>
                 </div>
+                <!-- Error status -->
                 <div v-else class="text-negative">
-                   <q-icon name="error" size="md" />
-                   <span class="q-ml-sm">{{ smsResult.message || 'Échec de l\'envoi.' }}</span>
+                  <q-icon name="error" size="md" />
+                  <span class="q-ml-sm">{{ smsResult.message || 'Échec de l\'opération.' }}</span>
                 </div>
-              </div>
-              <!-- Use 'else if' to ensure this block only runs if 'summary' is NOT present -->
-              <div v-else-if="!('summary' in smsResult)"> <!-- Handling single SMS result -->
-                 <div v-if="smsResult.status === 'success' || smsResult.status === 'SENT'" class="text-positive">
-                   <q-icon name="check_circle" size="md" />
-                   <span class="q-ml-sm">{{ smsResult.message || 'SMS envoyé avec succès' }}</span>
-                 </div>
-                 <div v-else class="text-negative">
-                   <q-icon name="error" size="md" />
-                   <span class="q-ml-sm">{{ smsResult.message || 'Échec de l\'envoi' }}</span>
-                 </div>
               </div>
 
               <!-- Résumé pour l'envoi en masse, par segment ou à tous -->
@@ -295,44 +286,41 @@ const columns = [
 
 // --- Submit Handlers (Wrap composable functions) ---
 
-// Renamed from onSubmitSingle to handleSingleSubmit to reflect it's handling the child's event
+// Submit handlers using standardized FrontendStatus
 const handleSingleSubmit = async (payload: { phoneNumber: string; message: string }) => {
   const result = await sendSingleSms(payload);
-  if (result && (result.status === 'SENT' || result.status === 'success')) {
+  if (result && result.status === 'success') {
     // Reset the child form upon successful submission
     singleSmsFormRef.value?.reset();
   }
   // Notification and error handling are done within the composable
 };
 
-// Renamed from onSubmitBulk to handleBulkSubmit
 const handleBulkSubmit = async (payload: { phoneNumbers: string[]; message: string }) => {
   // Phone number processing is now done in the child component
   const result = await sendBulkSms(payload);
 
-  if (result && result.status !== 'ERROR') {
-    // Reset the child form upon successful submission
+  if (result && (result.status === 'success' || result.status === 'warning')) {
+    // Reset the child form upon successful or partial submission
     bulkSmsFormRef.value?.reset();
   }
 };
 
-// Renamed from onSubmitSegment to handleSegmentSubmit
 const handleSegmentSubmit = async (payload: { segmentId: number; message: string }) => {
   // Segment ID check is now done in the child component
   const result = await sendSegmentSms(payload);
 
-   if (result && result.status !== 'ERROR') {
-     // Reset the child form upon successful submission
-     segmentSmsFormRef.value?.reset();
-   }
+  if (result && (result.status === 'success' || result.status === 'warning')) {
+    // Reset the child form upon successful or partial submission
+    segmentSmsFormRef.value?.reset();
+  }
 };
 
-// Renamed from onSubmitAllContacts to handleAllContactsSubmit
 const handleAllContactsSubmit = async (payload: { message: string }) => {
   const result = await sendSmsToAllContacts(payload);
 
-  if (result && result.status !== 'ERROR') {
-    // Reset the child form upon successful submission
+  if (result && (result.status === 'success' || result.status === 'warning')) {
+    // Reset the child form upon successful or partial submission
     allContactsSmsFormRef.value?.reset();
   }
 };

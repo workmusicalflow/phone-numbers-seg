@@ -1,19 +1,15 @@
 import { ref, computed } from 'vue';
 import { useQuasar } from 'quasar';
-import { useApolloClient } from '@vue/apollo-composable';
-import { gql } from '@apollo/client/core';
-import { useUserStore, type User } from '../stores/userStore'; // Assuming User type is exported
-import { useAuthStore } from '../stores/authStore'; // Needed? Maybe just userStore is enough
+import { apolloClient, gql } from '../services/api'; // Import directly from api service
+import { useUserStore } from '../stores/userStore';
 
-// --- Define Interfaces (Consider moving to a types file) ---
-
+// --- Define Interfaces ---
 interface HistoryItem {
   id: string;
   phoneNumber: string;
   message: string;
-  status: 'SENT' | 'FAILED' | 'PENDING'; // Adjust as per actual status values
+  status: 'SENT' | 'FAILED' | 'PENDING'; // Backend status for history items
   createdAt: string;
-  // Add other fields if needed by the history table
 }
 
 interface Segment {
@@ -29,41 +25,59 @@ interface SmsResultSummary {
   failed: number;
 }
 
+// Frontend status types for consistent UI handling
+type FrontendStatus = 'success' | 'warning' | 'error';
+
 interface BaseSmsResult {
-  status: string; // e.g., 'COMPLETED', 'PARTIAL', 'ERROR', 'SENT', 'FAILED'
-  message?: string;
+  status: FrontendStatus; // Standardized frontend status
+  originalStatus?: string; // Original backend status if needed
+  message?: string; // Backend message or derived message
 }
 
 interface SingleSmsResult extends BaseSmsResult {
-  id?: string; // History ID
+  id?: string;
   phoneNumber?: string;
   createdAt?: string;
 }
 
 interface BulkSmsResult extends BaseSmsResult {
   summary: SmsResultSummary;
-  results?: { phoneNumber: string; status: string; message?: string }[];
+  results?: { phoneNumber: string; status: string; message?: string }[]; // Individual results if provided by backend
 }
 
 interface SegmentSmsResult extends BulkSmsResult {
   segment?: { id: number; name: string };
 }
 
-// Type for the smsResult ref
+// Combined type for the reactive ref
 type CombinedSmsResult = SingleSmsResult | BulkSmsResult | SegmentSmsResult | null;
 
+// Interfaces for raw backend mutation responses (useful for typing data before mapping)
+interface RawSingleSmsResponse {
+    id: string;
+    status: 'SENT' | 'FAILED' | string; // Allow other backend statuses
+}
+
+interface RawBulkSmsResponse {
+    status: string;
+    message?: string;
+    summary: SmsResultSummary;
+    results?: { phoneNumber: string; status: string; message?: string }[];
+}
+
+interface RawSegmentSmsResponse extends RawBulkSmsResponse {
+    segment?: { id: number; name: string };
+}
 
 // --- GraphQL Operations ---
-
 const GET_SMS_HISTORY = gql`
   query GetSmsHistory($userId: ID) {
-    smsHistory(userId: $userId, limit: 10, offset: 0) { # Fetch more for initial display?
+    smsHistory(userId: $userId, limit: 10, offset: 0) {
       id
       phoneNumber
       message
       status
       createdAt
-      # Add other fields displayed in the table
     }
   }
 `;
@@ -80,34 +94,33 @@ const GET_SEGMENTS_FOR_SMS = gql`
 `;
 
 const SEND_SINGLE_SMS = gql`
-  mutation SendSms($phoneNumber: String!, $message: String!, $userId: ID) {
+  mutation SendSms($phoneNumber: String!, $message: String!, $userId: ID = null) {
     sendSms(phoneNumber: $phoneNumber, message: $message, userId: $userId) {
       id
-      status # Only need status to determine success/failure message
-      # Potentially add error message field if schema supports it
+      status # Expect 'SENT' or 'FAILED' primarily
     }
   }
 `;
 
 const SEND_BULK_SMS = gql`
-  mutation SendBulkSms($phoneNumbers: [String!]!, $message: String!, $userId: ID) {
+  mutation SendBulkSms($phoneNumbers: [String!]!, $message: String!, $userId: ID = null) {
     sendBulkSms(phoneNumbers: $phoneNumbers, message: $message, userId: $userId) {
-      status
+      status # e.g., 'SENT', 'PARTIAL', 'FAILED', 'ERROR'
       message
       summary { total successful failed }
-      # results not needed for summary notification
+      # results { phoneNumber status message } # Optionally include if needed
     }
   }
 `;
 
 const SEND_SMS_TO_SEGMENT = gql`
-  mutation SendSmsToSegment($segmentId: ID!, $message: String!, $userId: ID) {
+  mutation SendSmsToSegment($segmentId: ID!, $message: String!, $userId: ID = null) {
     sendSmsToSegment(segmentId: $segmentId, message: $message, userId: $userId) {
-      status
+      status # e.g., 'SENT', 'PARTIAL', 'FAILED', 'ERROR'
       message
       segment { id name }
       summary { total successful failed }
-      # results not needed for summary notification
+      # results { phoneNumber status message } # Optionally include if needed
     }
   }
 `;
@@ -115,131 +128,174 @@ const SEND_SMS_TO_SEGMENT = gql`
 const SEND_SMS_TO_ALL_CONTACTS = gql`
   mutation SendSmsToAllContacts($message: String!) {
     sendSmsToAllContacts(message: $message) {
-      status
+      status # e.g., 'SENT', 'PARTIAL', 'FAILED', 'ERROR'
       message
       summary { total successful failed }
-      # results not needed for summary notification
+      # results { phoneNumber status message } # Optionally include if needed
     }
   }
 `;
 
 
 // --- Composable ---
-
 export function useSmsSender() {
   const $q = useQuasar();
-  const { client: apolloClient } = useApolloClient();
   const userStore = useUserStore();
-  // const authStore = useAuthStore(); // Probably not needed if userStore has currentUser
 
   // --- State ---
-  const loading = ref(false); // Global loading state for any send operation
+  const loading = ref(false);
   const loadingHistory = ref(false);
   const loadingSegments = ref(false);
   const smsHistory = ref<HistoryItem[]>([]);
   const segments = ref<Segment[]>([]);
-  const smsResult = ref<CombinedSmsResult>(null); // Stores the result of the last operation
+  const smsResult = ref<CombinedSmsResult>(null); // Holds the mapped result
+
+  const getUserId = (): number | undefined => userStore.currentUser?.id;
+  const getUserIdForGraphQL = (): string | null => getUserId()?.toString() ?? null;
 
   // --- Computed ---
-  const hasInsufficientCredits = computed(() => {
-    // Provide a default check, component might override with specific amount check
-    return userStore.currentUser ? userStore.currentUser.smsCredit <= 0 : true;
-  });
+  const hasInsufficientCredits = computed(() => userStore.currentUser ? userStore.currentUser.smsCredit <= 0 : true);
 
   // --- Methods ---
-
-  // Error Handling Helper
-  const handleError = (error: unknown, contextMessage: string) => {
-    console.error(`${contextMessage}:`, error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const isCreditError = errorMessage.includes('Crédits SMS insuffisants');
-    
-    // Update smsResult to show error state
-    smsResult.value = { 
-      status: 'ERROR', // Generic error status
-      message: isCreditError ? 'Crédits SMS insuffisants.' : contextMessage 
-    };
-
-    $q.notify({ type: 'negative', message: smsResult.value.message });
-
-    // Refresh user credits if it was a credit error
-    if (isCreditError && userStore.currentUser) {
-      // Use fetchUser from userStore (already uses apolloClient)
-      userStore.fetchUser(userStore.currentUser.id); 
+  const notify = (type: 'positive' | 'negative' | 'warning', message: string) => {
+    console.log(`[${type}] ${message}`);
+    if ($q?.notify) {
+      try {
+        $q.notify({ 
+          type, 
+          message, 
+          multiLine: message.length > 50, // Example: Use multiLine for longer messages
+          html: true // Allow basic HTML if needed for formatting
+        });
+      } catch (error) {
+        console.error('Error showing Quasar notification:', error);
+      }
     }
   };
 
-  // History Fetching
+  const handleError = (error: unknown, contextMessage: string) => {
+    console.error(`${contextMessage}:`, error);
+    let specificMessage = contextMessage;
+    let isCreditError = false;
+
+    // Try to get a more specific message from GraphQL errors
+    if (error && typeof error === 'object') {
+        if ('graphQLErrors' in error && Array.isArray(error.graphQLErrors) && error.graphQLErrors.length > 0) {
+            // Use the first GraphQL error message
+            specificMessage = error.graphQLErrors[0]?.message || specificMessage;
+        } else if ('networkError' in error && error.networkError) {
+             specificMessage = (error.networkError as Error).message || 'Erreur réseau';
+        } else if ('message' in error) {
+            specificMessage = (error as Error).message || specificMessage;
+        }
+    } else {
+        specificMessage = String(error) || specificMessage;
+    }
+
+
+    isCreditError = specificMessage.includes('Crédits SMS insuffisants');
+    const displayMessage = isCreditError ? 'Crédits SMS insuffisants.' : specificMessage;
+
+    smsResult.value = {
+      status: 'error',
+      originalStatus: 'ERROR', // Indicate it came from a catch block
+      message: displayMessage,
+    };
+
+    notify('negative', displayMessage);
+
+    if (isCreditError) {
+      const userId = getUserId();
+      if (userId !== undefined) {
+        userStore.fetchUser(userId).catch(e => console.error("Failed to refresh user after credit error:", e));
+      }
+    }
+  };
+
   const fetchSmsHistory = async () => {
-    if (!userStore.currentUser?.id) return; // Don't fetch if no user
+    const userId = getUserIdForGraphQL();
+    if (!userId) return; // No need to fetch if no user logged in
+
     loadingHistory.value = true;
     try {
-      const { data, errors } = await apolloClient.query({
+      const { data } = await apolloClient.query<{ smsHistory: HistoryItem[] }>({
         query: GET_SMS_HISTORY,
-        variables: { userId: userStore.currentUser.id },
+        variables: { userId },
         fetchPolicy: "network-only",
       });
-      if (errors) throw errors;
-      smsHistory.value = data.smsHistory;
+      smsHistory.value = data?.smsHistory || [];
     } catch (error) {
-      handleError(error, "Erreur lors du chargement de l'historique");
+      console.error("Error fetching SMS history:", error);
     } finally {
       loadingHistory.value = false;
     }
   };
 
-  // Segments Fetching
   const fetchSegments = async () => {
     loadingSegments.value = true;
     try {
-      const { data, errors } = await apolloClient.query({
+      const { data } = await apolloClient.query<{ segmentsForSMS: Segment[] }>({
         query: GET_SEGMENTS_FOR_SMS,
         fetchPolicy: "network-only",
       });
-       if (errors) throw errors;
-      segments.value = data.segmentsForSMS;
+      segments.value = data?.segmentsForSMS || [];
     } catch (error) {
-      handleError(error, "Erreur lors du chargement des segments");
+      console.error("Error fetching segments:", error);
     } finally {
       loadingSegments.value = false;
     }
   };
 
-  // Generic Mutation Executor (Optional but good for DRY)
-  // This is a more advanced pattern, let's stick to individual functions for now
-  // for clarity, mirroring the original structure.
-
   // --- Send Actions ---
+
+  // Helper to refresh user credits and history after successful/partial sends
+  const refreshUserDataAndHistory = async () => {
+    const userId = getUserId();
+    const promises = [];
+    if (userId !== undefined) {
+        promises.push(userStore.fetchUser(userId).catch(e => console.error("Failed to refresh user:", e)));
+    }
+    promises.push(fetchSmsHistory().catch(e => console.error("Failed to refresh history:", e)));
+    await Promise.all(promises);
+  };
 
   const sendSingleSms = async (payload: { phoneNumber: string; message: string }): Promise<SingleSmsResult | null> => {
     loading.value = true;
     smsResult.value = null;
+
     try {
-      const { data, errors } = await apolloClient.mutate({
+      const { data } = await apolloClient.mutate<{ sendSms: RawSingleSmsResponse }>({
         mutation: SEND_SINGLE_SMS,
-        variables: { ...payload, userId: userStore.currentUser?.id },
-        refetchQueries: [{ query: GET_SMS_HISTORY, variables: { userId: userStore.currentUser?.id }, fetchPolicy: "network-only" }],
-        awaitRefetchQueries: true,
+        variables: { ...payload, userId: getUserIdForGraphQL() },
       });
 
-      if (errors) throw errors;
+      if (!data?.sendSms) throw new Error("Aucune donnée retournée par le serveur pour sendSms");
 
       const resultData = data.sendSms;
       const isSuccess = resultData.status === 'SENT';
-      smsResult.value = { // Store simplified result for display
-          status: isSuccess ? 'success' : 'error', // Map backend status to simple display status
-          message: isSuccess ? 'SMS envoyé avec succès' : 'Échec de l\'envoi',
-          id: resultData.id // Pass along history ID if needed
+
+      const mappedResult: SingleSmsResult = {
+        status: isSuccess ? 'success' : 'error',
+        originalStatus: resultData.status,
+        message: isSuccess ? 'SMS envoyé avec succès.' : 'Échec de l\'envoi du SMS.',
+        id: resultData.id,
+        phoneNumber: payload.phoneNumber, // Include context
+        createdAt: new Date().toISOString() // Add timestamp of operation completion
       };
-      $q.notify({ type: isSuccess ? 'positive' : 'negative', message: smsResult.value.message });
+      smsResult.value = mappedResult;
 
-      if (isSuccess && userStore.currentUser) {
-          userStore.fetchUser(userStore.currentUser.id); // Refresh credits
+      notify(isSuccess ? 'positive' : 'negative', mappedResult.message || 'Opération terminée');
+
+      // Refresh only if successful, as failure might not consume credits
+      if (isSuccess) {
+        await refreshUserDataAndHistory();
+      } else {
+          // Optionally still refresh history even on failure?
+          await fetchSmsHistory();
       }
-      // fetchSmsHistory(); // Already refetched by refetchQueries
 
-      return resultData; // Return raw mutation result
 
+      return mappedResult; // Return the mapped result
     } catch (error) {
       handleError(error, "Erreur lors de l'envoi du SMS");
       return null;
@@ -248,35 +304,90 @@ export function useSmsSender() {
     }
   };
 
+  // Common logic for processing bulk/segment results
+  const processBulkResult = (
+    resultData: RawBulkSmsResponse | RawSegmentSmsResponse,
+    successMessagePrefix: string,
+    warningMessagePrefix: string,
+    errorMessagePrefix: string
+  ): BulkSmsResult | SegmentSmsResult => { // Return type depends on input but structure is compatible
+      let frontendStatus: FrontendStatus;
+      let notificationType: 'positive' | 'warning' | 'negative';
+      let notificationMessage: string;
+      let resultMessage = resultData.message ?? ''; // Base message from backend
+
+      const summary = resultData.summary;
+      const isSegment = 'segment' in resultData && resultData.segment;
+      const segmentName = isSegment ? ` au segment ${resultData.segment?.name ?? ''}` : '';
+
+      if (resultData.status === 'ERROR' || (summary.failed === summary.total && summary.total > 0)) {
+          frontendStatus = 'error';
+          notificationType = 'negative';
+          // Prioritize credit error message if applicable
+          if (resultMessage.includes('Crédits SMS insuffisants')) {
+              notificationMessage = 'Crédits SMS insuffisants.';
+          } else {
+            notificationMessage = `${errorMessagePrefix}${segmentName}. ${resultMessage}`;
+          }
+      } else if (summary.failed > 0) {
+          frontendStatus = 'warning';
+          notificationType = 'warning';
+          notificationMessage = `${warningMessagePrefix}${segmentName}: ${summary.successful} succès, ${summary.failed} échec(s) sur ${summary.total}. ${resultMessage}`;
+      } else if (summary.successful === summary.total && summary.total > 0) {
+          frontendStatus = 'success';
+          notificationType = 'positive';
+          notificationMessage = `${successMessagePrefix}${segmentName} (${summary.successful}/${summary.total}). ${resultMessage}`;
+      } else if (summary.total === 0) {
+          frontendStatus = 'warning'; // Or 'success'? debatable. Let's use warning.
+          notificationType = 'warning';
+          notificationMessage = `Aucun SMS n'a été envoyé${segmentName} (0 destinataire). ${resultMessage}`;
+      }
+      else { // Should not happen if backend status is reliable, but handle as warning
+          frontendStatus = 'warning';
+          notificationType = 'warning';
+          notificationMessage = `Statut d'envoi indéterminé${segmentName}. ${resultMessage}`;
+      }
+
+      // Construct the final mapped result object
+      const mappedResult = {
+          ...resultData, // Spread original data (summary, segment?, results?)
+          status: frontendStatus,
+          originalStatus: resultData.status,
+          message: resultMessage || notificationMessage, // Use backend message or generated one
+      };
+
+      // Show the derived notification
+      notify(notificationType, notificationMessage);
+
+      return mappedResult;
+  };
+
+
   const sendBulkSms = async (payload: { phoneNumbers: string[]; message: string }): Promise<BulkSmsResult | null> => {
     loading.value = true;
     smsResult.value = null;
-     try {
-      const { data, errors } = await apolloClient.mutate({
+
+    try {
+      const { data } = await apolloClient.mutate<{ sendBulkSms: RawBulkSmsResponse }>({
         mutation: SEND_BULK_SMS,
-        variables: { ...payload, userId: userStore.currentUser?.id },
-        refetchQueries: [{ query: GET_SMS_HISTORY, variables: { userId: userStore.currentUser?.id }, fetchPolicy: "network-only" }],
-        awaitRefetchQueries: true,
+        variables: { ...payload, userId: getUserIdForGraphQL() },
       });
 
-      if (errors) throw errors;
+      if (!data?.sendBulkSms) throw new Error("Aucune donnée retournée par le serveur pour sendBulkSms");
 
-      const resultData = data.sendBulkSms;
-      smsResult.value = resultData; // Store full bulk result
+      const mappedResult = processBulkResult(
+        data.sendBulkSms,
+        "SMS envoyés avec succès",
+        "Envoi en masse terminé avec des échecs",
+        "Échec de l'envoi en masse"
+      ) as BulkSmsResult; // Cast to specific type
 
-      if (resultData.status === 'ERROR' || resultData.summary.failed > 0) {
-         $q.notify({ type: 'warning', message: `Envoi terminé avec ${resultData.summary.failed} échec(s). ${resultData.message || ''}` });
-      } else {
-         $q.notify({ type: 'positive', message: `SMS envoyés avec succès (${resultData.summary.successful}/${resultData.summary.total})` });
-      }
+      smsResult.value = mappedResult;
 
-      if (userStore.currentUser) {
-          userStore.fetchUser(userStore.currentUser.id); // Refresh credits
-      }
-      // fetchSmsHistory(); // Already refetched
+      // Refresh user/history regardless of partial success/failure for bulk sends
+      await refreshUserDataAndHistory();
 
-      return resultData;
-
+      return mappedResult; // Return the mapped result
     } catch (error) {
       handleError(error, "Erreur lors de l'envoi des SMS en masse");
       return null;
@@ -286,34 +397,35 @@ export function useSmsSender() {
   };
 
   const sendSegmentSms = async (payload: { segmentId: number; message: string }): Promise<SegmentSmsResult | null> => {
-     loading.value = true;
-     smsResult.value = null;
-     try {
-      const { data, errors } = await apolloClient.mutate({
+    loading.value = true;
+    smsResult.value = null;
+
+    try {
+      const { data } = await apolloClient.mutate<{ sendSmsToSegment: RawSegmentSmsResponse }>({
         mutation: SEND_SMS_TO_SEGMENT,
-        variables: { ...payload, userId: userStore.currentUser?.id },
-         refetchQueries: [{ query: GET_SMS_HISTORY, variables: { userId: userStore.currentUser?.id }, fetchPolicy: "network-only" }],
-         awaitRefetchQueries: true,
+        variables: {
+          segmentId: payload.segmentId.toString(), // Ensure string for ID type
+          message: payload.message,
+          userId: getUserIdForGraphQL()
+        },
       });
 
-       if (errors) throw errors;
+      if (!data?.sendSmsToSegment) throw new Error("Aucune donnée retournée par le serveur pour sendSmsToSegment");
 
-      const resultData = data.sendSmsToSegment;
-      smsResult.value = resultData;
+      // Use the common processing logic
+      const mappedResult = processBulkResult(
+        data.sendSmsToSegment,
+         "SMS envoyés avec succès", // Prefix will be augmented with segment name
+         "Envoi terminé avec des échecs",
+         "Échec de l'envoi"
+      ) as SegmentSmsResult; // Cast to specific type
 
-       if (resultData.status === 'ERROR' || resultData.summary.failed > 0) {
-         $q.notify({ type: 'warning', message: `Envoi au segment ${resultData.segment?.name || ''} terminé avec ${resultData.summary.failed} échec(s). ${resultData.message || ''}` });
-      } else {
-         $q.notify({ type: 'positive', message: `SMS envoyés avec succès au segment ${resultData.segment?.name || ''} (${resultData.summary.successful}/${resultData.summary.total})` });
-      }
+      smsResult.value = mappedResult;
 
-       if (userStore.currentUser) {
-          userStore.fetchUser(userStore.currentUser.id); // Refresh credits
-      }
-      // fetchSmsHistory(); // Already refetched
+      // Refresh user/history regardless of partial success/failure for segment sends
+      await refreshUserDataAndHistory();
 
-      return resultData;
-
+      return mappedResult; // Return the mapped result
     } catch (error) {
       handleError(error, "Erreur lors de l'envoi des SMS au segment");
       return null;
@@ -323,34 +435,32 @@ export function useSmsSender() {
   };
 
   const sendSmsToAllContacts = async (payload: { message: string }): Promise<BulkSmsResult | null> => {
-     loading.value = true;
-     smsResult.value = null;
-     try {
-      const { data, errors } = await apolloClient.mutate({
+    loading.value = true;
+    smsResult.value = null;
+
+    try {
+      // Note: Assuming sendSmsToAllContacts implicitly uses the logged-in user context on the backend
+      const { data } = await apolloClient.mutate<{ sendSmsToAllContacts: RawBulkSmsResponse }>({
         mutation: SEND_SMS_TO_ALL_CONTACTS,
-        variables: { ...payload, userId: userStore.currentUser?.id }, // userId might not be needed if backend uses session
-         refetchQueries: [{ query: GET_SMS_HISTORY, variables: { userId: userStore.currentUser?.id }, fetchPolicy: "network-only" }],
-         awaitRefetchQueries: true,
+        variables: payload,
       });
 
-       if (errors) throw errors;
+      if (!data?.sendSmsToAllContacts) throw new Error("Aucune donnée retournée par le serveur pour sendSmsToAllContacts");
 
-      const resultData = data.sendSmsToAllContacts;
-      smsResult.value = resultData;
+      // Use the common processing logic
+       const mappedResult = processBulkResult(
+        data.sendSmsToAllContacts,
+        "SMS envoyés avec succès à tous les contacts",
+        "Envoi à tous les contacts terminé avec des échecs",
+        "Échec de l'envoi à tous les contacts"
+      ) as BulkSmsResult; // No segment info here
 
-       if (resultData.status === 'ERROR' || resultData.summary.failed > 0) {
-         $q.notify({ type: 'warning', message: `Envoi terminé avec ${resultData.summary.failed} échec(s). ${resultData.message || ''}` });
-      } else {
-         $q.notify({ type: 'positive', message: `SMS envoyés avec succès à ${resultData.summary.successful} contacts.` });
-      }
+      smsResult.value = mappedResult;
 
-       if (userStore.currentUser) {
-          userStore.fetchUser(userStore.currentUser.id); // Refresh credits
-      }
-      // fetchSmsHistory(); // Already refetched
+      // Refresh user/history regardless of partial success/failure
+      await refreshUserDataAndHistory();
 
-      return resultData;
-
+      return mappedResult; // Return the mapped result
     } catch (error) {
       handleError(error, "Erreur lors de l'envoi à tous les contacts");
       return null;
@@ -359,15 +469,14 @@ export function useSmsSender() {
     }
   };
 
-
   // --- Exposed Data and Methods ---
   return {
-    loading,
-    loadingHistory,
-    loadingSegments,
+    loading: computed(() => loading.value), // Expose as readonly computed if preferred
+    loadingHistory: computed(() => loadingHistory.value),
+    loadingSegments: computed(() => loadingSegments.value),
     smsHistory,
     segments,
-    smsResult,
+    smsResult, // Consumers read this reactive state
     hasInsufficientCredits,
 
     fetchSmsHistory,
