@@ -78,6 +78,12 @@ export const useContactStore = defineStore('contact', () => {
     }
   `;
 
+  const COUNT_CONTACTS = gql`
+    query CountContacts {
+      contactsCount
+    }
+  `;
+
   const CREATE_CONTACT = gql`
     mutation CreateContact($name: String!, $phoneNumber: String!, $email: String, $notes: String) {
       createContact(name: $name, phoneNumber: $phoneNumber, email: $email, notes: $notes) {
@@ -338,6 +344,24 @@ export const useContactStore = defineStore('contact', () => {
     fetchContacts();
   }
 
+  async function fetchContactsCount() {
+    loading.value = true;
+    try {
+      const response = await apolloClient.query({
+        query: COUNT_CONTACTS,
+        fetchPolicy: 'network-only' // Force a network request to get the latest count
+      });
+      totalCount.value = response.data.contactsCount;
+      return totalCount.value;
+    } catch (err: any) {
+      console.error('Erreur lors du comptage des contacts:', err);
+      error.value = err.message || 'Erreur lors du comptage des contacts';
+      return 0;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     contacts,
     loading,
@@ -349,6 +373,7 @@ export const useContactStore = defineStore('contact', () => {
     paginatedContacts,
     pageCount,
     fetchContacts,
+    fetchContactsCount,
     createContact,
     updateContact,
     deleteContact,

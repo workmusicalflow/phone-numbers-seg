@@ -4,18 +4,17 @@
       <h1 class="text-h4 q-mb-md">Import / Export</h1>
 
       <div class="row q-col-gutter-md">
-        <div class="col-12 col-md-6">
-          <q-card>
+        <!-- Formulaire d'import -->
+        <div class="col-12 col-md-6 import-form-container">
+          <q-card class="import-card">
             <q-card-section>
-              <div class="text-h6">
-                Importer des numéros depuis un fichier CSV
-              </div>
+              <div class="text-h6">Importer des numéros depuis un fichier CSV</div>
               <div class="text-caption q-mt-sm">
                 Le fichier CSV peut contenir les colonnes suivantes : number
                 (obligatoire), civility, firstName, name, company, sector, notes, email
               </div>
               <div class="text-caption q-mt-sm">
-                <a href="#" @click.prevent="downloadTemplate">Télécharger un modèle CSV</a>
+                <a href="#" @click.prevent="onDownloadTemplate">Télécharger un modèle CSV</a>
               </div>
             </q-card-section>
 
@@ -30,7 +29,7 @@
                 </ul>
               </div>
               
-              <q-form ref="importFormRef" @submit="onImport" class="q-gutter-md">
+              <q-form @submit="onImport" class="q-gutter-md">
                 <q-file
                   v-model="csvFile"
                   label="Fichier CSV"
@@ -46,6 +45,24 @@
                 <q-checkbox
                   v-model="importOptions.hasHeader"
                   label="Le fichier contient une ligne d'en-tête"
+                />
+
+                <q-checkbox
+                  v-model="importOptions.createContacts"
+                  label="Créer des contacts à partir des numéros importés"
+                  class="q-mt-sm"
+                />
+
+                <q-select
+                  v-if="importOptions.createContacts"
+                  v-model="importOptions.userId"
+                  :options="userOptions"
+                  label="Associer les contacts à l'utilisateur"
+                  outlined
+                  emit-value
+                  map-options
+                  class="q-mt-sm"
+                  hint="Si non spécifié, les contacts seront associés à l'utilisateur par défaut (AfricaQSHE)"
                 />
 
                 <q-input
@@ -120,488 +137,125 @@
           </q-card>
         </div>
 
+        <!-- Formulaire d'export -->
         <div class="col-12 col-md-6">
-          <q-card>
-            <q-card-section>
-              <div class="text-h6">Exporter les données</div>
-              <div class="text-caption q-mt-sm">
-                Exportez les numéros de téléphone et leurs segments au format
-                CSV ou Excel
-              </div>
-            </q-card-section>
-
-            <q-card-section>
-              <q-form @submit="onExport" class="q-gutter-md">
-                <q-select
-                  v-model="exportOptions.format"
-                  :options="[
-                    { label: 'CSV', value: 'csv' },
-                    { label: 'Excel', value: 'excel' },
-                  ]"
-                  label="Format d'export"
-                  outlined
-                  emit-value
-                  map-options
-                />
-
-                <q-input
-                  v-model="exportOptions.search"
-                  label="Recherche (optionnel)"
-                  outlined
-                  clearable
-                  hint="Filtrer par numéro, nom, entreprise, etc."
-                >
-                  <template v-slot:prepend>
-                    <q-icon name="search" />
-                  </template>
-                </q-input>
-
-                <q-input
-                  v-model.number="exportOptions.limit"
-                  type="number"
-                  label="Nombre maximum de résultats"
-                  outlined
-                  :rules="[
-                    (val) => val > 0 || 'La limite doit être supérieure à 0',
-                  ]"
-                  hint="Maximum 5000 résultats recommandé"
-                />
-
-                <q-expansion-item
-                  label="Filtres avancés"
-                  header-class="text-primary"
-                  expand-icon-class="text-primary"
-                >
-                  <q-card>
-                    <q-card-section>
-                      <q-select
-                        v-model="exportOptions.operator"
-                        :options="operatorOptions"
-                        label="Opérateur"
-                        outlined
-                        clearable
-                        emit-value
-                        map-options
-                        class="q-mb-md"
-                      />
-
-                      <q-select
-                        v-model="exportOptions.country"
-                        :options="countryOptions"
-                        label="Pays"
-                        outlined
-                        clearable
-                        emit-value
-                        map-options
-                        class="q-mb-md"
-                      />
-
-                      <q-select
-                        v-model="exportOptions.segment"
-                        :options="segmentOptions"
-                        label="Segment personnalisé"
-                        outlined
-                        clearable
-                        emit-value
-                        map-options
-                        class="q-mb-md"
-                      />
-
-                      <div class="row q-col-gutter-md">
-                        <div class="col-12 col-md-6">
-                          <q-input
-                            v-model="exportOptions.dateFrom"
-                            label="Date de début"
-                            outlined
-                            type="date"
-                          />
-                        </div>
-                        <div class="col-12 col-md-6">
-                          <q-input
-                            v-model="exportOptions.dateTo"
-                            label="Date de fin"
-                            outlined
-                            type="date"
-                          />
-                        </div>
-                      </div>
-                    </q-card-section>
-                  </q-card>
-                </q-expansion-item>
-
-                <q-expansion-item
-                  label="Options d'export"
-                  header-class="text-primary"
-                  expand-icon-class="text-primary"
-                >
-                  <q-card>
-                    <q-card-section>
-                      <q-checkbox
-                        v-model="exportOptions.includeHeaders"
-                        label="Inclure les en-têtes"
-                      />
-
-                      <q-checkbox
-                        v-model="exportOptions.includeContactInfo"
-                        label="Inclure les informations de contact"
-                        class="q-mt-sm"
-                      />
-
-                      <q-checkbox
-                        v-model="exportOptions.includeSegments"
-                        label="Inclure les segments"
-                        class="q-mt-sm"
-                      />
-
-                      <q-input
-                        v-if="exportOptions.format === 'csv'"
-                        v-model="exportOptions.delimiter"
-                        label="Délimiteur"
-                        outlined
-                        class="q-mt-md"
-                        maxlength="1"
-                      />
-
-                      <q-input
-                        v-model="exportOptions.filename"
-                        label="Nom du fichier"
-                        outlined
-                        class="q-mt-md"
-                      />
-                    </q-card-section>
-                  </q-card>
-                </q-expansion-item>
-
-                <div>
-                  <q-btn
-                    label="Exporter"
-                    type="submit"
-                    color="primary"
-                    :loading="loadingExport"
-                    icon="download"
-                  />
-                </div>
-              </q-form>
-            </q-card-section>
-          </q-card>
+          <export-data-form
+            v-model:options="exportOptions"
+            :operator-options="operatorOptions"
+            :country-options="countryOptions"
+            :segment-options="segmentOptions"
+            :loading="loadingExport"
+            @submit="onExport"
+          />
         </div>
       </div>
 
-      <!-- Résultats d'import -->
-      <q-dialog v-model="showImportResults" persistent>
-        <q-card style="min-width: 500px">
-          <q-card-section>
-            <div class="text-h6">Résultats de l'import</div>
-          </q-card-section>
-
-          <q-card-section>
-            <p>Nombre total de lignes: {{ importResults.totalRows }}</p>
-            <p>Lignes importées avec succès: {{ importResults.successRows }}</p>
-            <p>Lignes en erreur: {{ importResults.errorRows }}</p>
-            <p v-if="importResults.duplicateCount">Doublons détectés: {{ importResults.duplicateCount }}</p>
-            
-            <!-- Affichage des erreurs détaillées -->
-            <div v-if="importResults.detailedErrors && importResults.detailedErrors.length > 0">
-              <p class="text-subtitle1 q-mt-md">Aperçu des erreurs:</p>
-              <q-list bordered separator>
-                <q-item v-for="(error, index) in importResults.detailedErrors" :key="index">
-                  <q-item-section>
-                    <q-item-label>Ligne {{ error.line }}: {{ error.message }}</q-item-label>
-                    <q-item-label caption v-if="error.value">Valeur: {{ error.value }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-              </q-list>
-              <p v-if="importResults.errorRows > importResults.detailedErrors.length" class="text-caption">
-                Et {{ importResults.errorRows - importResults.detailedErrors.length }} autres erreurs...
-              </p>
-            </div>
-          </q-card-section>
-
-          <q-card-actions align="right">
-            <q-btn flat label="Fermer" color="primary" v-close-popup />
-          </q-card-actions>
-        </q-card>
-      </q-dialog>
+      <!-- Dialogue des résultats d'import -->
+      <import-result-dialog
+        v-model="showImportResults"
+        :results="importResults"
+      />
     </div>
   </q-page>
 </template>
 
+<style scoped>
+.import-form-container {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.import-card {
+  width: 100%;
+  max-width: 100%;
+}
+</style>
+
 <script setup lang="ts">
-import { ref } from "vue";
-import { useApolloClient } from "@vue/apollo-composable";
-import { gql } from "@apollo/client/core";
-import { useQuasar, QForm } from "quasar";
+import { useImport } from '../components/import-export/composables/useImport';
+import { useExport } from '../components/import-export/composables/useExport';
+import ImportCSVForm from '../components/import-export/ImportCSVForm.vue';
+import ExportDataForm from '../components/import-export/ExportDataForm.vue';
+import ImportResultDialog from '../components/import-export/ImportResultDialog.vue';
+import { defineComponent, ref, onMounted, onErrorCaptured } from 'vue';
 
-const apolloClient = useApolloClient();
-const $q = useQuasar();
-
-const csvFile = ref(null);
-const loading = ref(false);
-const loadingExport = ref(false);
-const showImportResults = ref(false);
-// Interface pour les erreurs détaillées
-interface DetailedError {
-  line: string | number;
-  value: string;
-  message: string;
-}
-
-// Interface pour les résultats d'import
-interface ImportResults {
-  totalRows: number;
-  successRows: number;
-  errorRows: number;
-  duplicateCount?: number;
-  detailedErrors?: DetailedError[];
-}
-
-const importResults = ref<ImportResults>({
-  totalRows: 0,
-  successRows: 0,
-  errorRows: 0,
-  duplicateCount: 0,
-  detailedErrors: []
+// This helps TypeScript recognize that the imported components are used in the template
+defineComponent({
+  components: {
+    ImportCSVForm,
+    ExportDataForm,
+    ImportResultDialog
+  }
 });
 
-const importOptions = ref({
-  hasHeader: true,
-  delimiter: ",",
-  phoneColumn: 0, // Par défaut, première colonne
-  nameColumn: null,
-  emailColumn: null,
-  notesColumn: null
-});
+// Variables pour le débogage
+const importComponentLoaded = ref(false);
+const exportComponentLoaded = ref(false);
+const runtimeErrors = ref<string[]>([]);
 
-// Options pour les colonnes du CSV avec libellés plus clairs
-const columnOptions = ref([
-  { label: "Colonne A (1ère colonne)", value: 0 },
-  { label: "Colonne B (2ème colonne)", value: 1 },
-  { label: "Colonne C (3ème colonne)", value: 2 },
-  { label: "Colonne D (4ème colonne)", value: 3 },
-  { label: "Colonne E (5ème colonne)", value: 4 },
-  { label: "Colonne F (6ème colonne)", value: 5 },
-  { label: "Colonne G (7ème colonne)", value: 6 },
-]);
+// Utiliser les composables
+const { 
+  csvFile, 
+  loading, 
+  showImportResults, 
+  importResults, 
+  importOptions, 
+  columnOptions,
+  userOptions,
+  importFormRef,
+  downloadTemplate,
+  importCSV 
+} = useImport();
 
-// Fonction pour télécharger un modèle CSV
-const downloadTemplate = () => {
-  const header = "phoneNumber,firstName,lastName,organization,email,notes\n";
-  const example = "+2250123456789,John,Doe,ACME Inc.,john.doe@example.com,Contact important\n";
-  const blob = new Blob([header, example], { type: 'text/csv' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'contacts_template.csv';
-  link.click();
-  URL.revokeObjectURL(link.href);
+const { 
+  loadingExport, 
+  exportOptions, 
+  operatorOptions,
+  countryOptions,
+  segmentOptions,
+  exportData 
+} = useExport();
+
+// Fonctions de gestion des événements
+const onImport = () => {
+  importCSV();
 };
 
-// Options pour les filtres avancés
-const operatorOptions = ref([
-  { label: "Orange", value: "Orange" },
-  { label: "MTN", value: "MTN" },
-  { label: "Moov", value: "Moov" },
-  { label: "Autre", value: "Autre" },
-]);
+const onExport = () => {
+  exportData();
+};
 
-const countryOptions = ref([
-  { label: "Côte d'Ivoire", value: "CI" },
-  { label: "Sénégal", value: "SN" },
-  { label: "Mali", value: "ML" },
-  { label: "Burkina Faso", value: "BF" },
-  { label: "Autre", value: "Autre" },
-]);
+// Fonction pour télécharger le modèle CSV
+const onDownloadTemplate = () => {
+  downloadTemplate();
+};
 
-// Segments personnalisés (version simplifiée pour le MVP)
-const segmentOptions = ref([
-  { label: "Segment 1", value: 1 },
-  { label: "Segment 2", value: 2 },
-  { label: "Segment 3", value: 3 },
-]);
-
-// Note: Dans une version complète, nous chargerions les segments depuis l'API GraphQL
-// mais pour le MVP, nous utilisons des données statiques
-
-const exportOptions = ref({
-  format: "csv",
-  search: "",
-  limit: 1000,
-  includeHeaders: true,
-  includeContactInfo: true,
-  includeSegments: true,
-  delimiter: ",",
-  filename: `phone_numbers_export_${new Date().toISOString().slice(0, 10)}`,
-  // Options de filtrage avancées
-  operator: null,
-  country: null,
-  segment: null,
-  dateFrom: null,
-  dateTo: null,
+// Capturer les erreurs
+onErrorCaptured((err, instance, info) => {
+  const errorMessage = `Erreur: ${err.message || 'Erreur inconnue'} (${info})`;
+  console.error(errorMessage, err);
+  runtimeErrors.value.push(errorMessage);
+  return false; // Ne pas propager l'erreur
 });
 
-// Référence au formulaire pour pouvoir réinitialiser la validation
-const importFormRef = ref<QForm | null>(null);
-
-const onImport = async () => {
-  if (!csvFile.value) return;
-
-  // Réinitialiser la validation du formulaire avant de soumettre
-  importFormRef.value?.resetValidation();
+// Vérifier le chargement des composants
+onMounted(() => {
+  // Vérifier si les composants sont chargés
+  importComponentLoaded.value = true;
+  exportComponentLoaded.value = true;
   
-  loading.value = true;
-  try {
-    console.log("Uploading file:", csvFile.value);
+  // Surveiller les erreurs de console
+  const originalConsoleError = console.error;
+  console.error = (...args) => {
+    const errorMessage = args.map(arg => 
+      typeof arg === 'string' ? arg : JSON.stringify(arg)
+    ).join(' ');
     
-    // Créer un FormData pour l'upload du fichier
-    const formData = new FormData();
-    formData.append("csv_file", csvFile.value); // Nom du fichier attendu par le backend
-    formData.append("has_header", importOptions.value.hasHeader.toString());
-    formData.append("delimiter", importOptions.value.delimiter);
-    formData.append("phone_column", importOptions.value.phoneColumn.toString());
-    
-    // Ajouter les colonnes optionnelles
-    if (importOptions.value.nameColumn !== null && importOptions.value.nameColumn !== undefined) {
-      formData.append("name_column", String(importOptions.value.nameColumn));
+    if (errorMessage.includes('runtime.lastError')) {
+      runtimeErrors.value.push(`Console: ${errorMessage}`);
     }
     
-    if (importOptions.value.emailColumn !== null && importOptions.value.emailColumn !== undefined) {
-      formData.append("email_column", String(importOptions.value.emailColumn));
-    }
-    
-    if (importOptions.value.notesColumn !== null && importOptions.value.notesColumn !== undefined) {
-      formData.append("notes_column", String(importOptions.value.notesColumn));
-    }
-
-    console.log("FormData prepared, sending request...");
-
-    // Utiliser fetch pour l'upload du fichier avec l'endpoint correct
-    const response = await fetch("/api.php?endpoint=import-csv", {
-      method: "POST",
-      body: formData,
-    });
-
-    console.log("Response received:", response);
-
-    if (!response.ok) {
-      throw new Error("Erreur lors de l'import");
-    }
-
-    const result = await response.json();
-    console.log("Import result:", result);
-
-    // Afficher les résultats
-    importResults.value = {
-      totalRows: result.totalRows || 0,
-      successRows: result.successRows || 0,
-      errorRows: result.errorRows || 0,
-      duplicateCount: result.duplicateCount || 0,
-      detailedErrors: result.detailedErrors || []
-    };
-    showImportResults.value = true;
-
-    // Réinitialiser le formulaire seulement en cas de succès
-    if (result.status === 'success') {
-      csvFile.value = null;
-      // Ne pas réinitialiser la validation ici, car cela pourrait réafficher le message d'erreur
-    }
-  } catch (error) {
-    console.error("Error importing file:", error);
-    $q.notify({
-      color: "negative",
-      message: "Erreur lors de l'import du fichier",
-      icon: "error",
-    });
-  } finally {
-    loading.value = false;
-  }
-};
-
-const onExport = async () => {
-  loadingExport.value = true;
-  try {
-    // Construire l'URL d'export avec tous les paramètres
-    const params = new URLSearchParams();
-
-    // Paramètre de base
-    params.append(
-      "endpoint",
-      exportOptions.value.format === "csv" ? "export-csv" : "export-excel",
-    );
-
-    // Options de filtrage de base
-    if (exportOptions.value.search) {
-      params.append("search", exportOptions.value.search);
-    }
-    params.append("limit", exportOptions.value.limit.toString());
-
-    // Options de filtrage avancées
-    if (exportOptions.value.operator) {
-      params.append("operator", exportOptions.value.operator);
-    }
-
-    if (exportOptions.value.country) {
-      params.append("country", exportOptions.value.country);
-    }
-
-    if (exportOptions.value.segment) {
-      params.append("segment", exportOptions.value.segment);
-    }
-
-    if (exportOptions.value.dateFrom) {
-      params.append("dateFrom", exportOptions.value.dateFrom);
-    }
-
-    if (exportOptions.value.dateTo) {
-      params.append("dateTo", exportOptions.value.dateTo);
-    }
-
-    // Options d'inclusion
-    params.append(
-      "include_headers",
-      exportOptions.value.includeHeaders.toString(),
-    );
-    params.append(
-      "include_contact_info",
-      exportOptions.value.includeContactInfo.toString(),
-    );
-    params.append(
-      "include_segments",
-      exportOptions.value.includeSegments.toString(),
-    );
-
-    // Options spécifiques au format CSV
-    if (exportOptions.value.format === "csv") {
-      params.append("delimiter", exportOptions.value.delimiter);
-    }
-
-    // Nom du fichier
-    if (exportOptions.value.filename) {
-      params.append(
-        "filename",
-        exportOptions.value.filename +
-          (exportOptions.value.format === "csv" ? ".csv" : ".xlsx"),
-      );
-    }
-
-    // Construire l'URL complète
-    const url = `/api.php?${params.toString()}`;
-
-    // Ouvrir l'URL dans un nouvel onglet pour télécharger le fichier
-    window.open(url, "_blank");
-
-    $q.notify({
-      color: "positive",
-      message: `Export en ${exportOptions.value.format.toUpperCase()} lancé avec succès`,
-      icon: "check_circle",
-    });
-  } catch (error) {
-    console.error("Error exporting data:", error);
-    $q.notify({
-      color: "negative",
-      message: "Erreur lors de l'export",
-      icon: "error",
-    });
-  } finally {
-    loadingExport.value = false;
-  }
-};
+    originalConsoleError(...args);
+  };
+});
 </script>

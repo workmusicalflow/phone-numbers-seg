@@ -243,7 +243,8 @@ $definitions = [
     \App\Services\CSVImportService::class => factory(function (Container $container) {
         return new \App\Services\CSVImportService(
             $container->get(\App\Repositories\PhoneNumberRepository::class),
-            $container->get(\App\Services\Interfaces\PhoneSegmentationServiceInterface::class)
+            $container->get(\App\Services\Interfaces\PhoneSegmentationServiceInterface::class),
+            $container->get(\App\Repositories\ContactRepository::class)
         );
     }),
 

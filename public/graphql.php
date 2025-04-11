@@ -170,6 +170,8 @@ try {
                     return $contactResolver->resolveContact($args, $context);
                 case 'searchContacts':
                     return $contactResolver->resolveSearchContacts($args, $context);
+                case 'contactsCount':
+                    return $contactResolver->resolveContactsCount($args, $context);
                 case 'smsHistory':
                     return $smsResolver->resolveSmsHistory($args, $context);
                 case 'smsHistoryCount':

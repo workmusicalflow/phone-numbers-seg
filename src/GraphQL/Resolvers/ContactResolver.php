@@ -345,4 +345,37 @@ class ContactResolver
 
 
     // --- Helper Methods (Removed formatContact) ---
+
+    /**
+     * Resolver for the 'contactsCount' query.
+     * Returns the total number of contacts for the currently authenticated user.
+     *
+     * @param array<string, mixed> $args
+     * @param mixed $context
+     * @return int
+     * @throws Exception
+     */
+    public function resolveContactsCount(array $args, $context): int
+    {
+        $this->logger->info('Executing ContactResolver::resolveContactsCount');
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveContactsCount.');
+                throw new Exception("User not authenticated");
+            }
+            $userId = $currentUser->getId();
+            // --- End Authentication Handling ---
+
+            $count = $this->contactRepository->count($userId);
+            $this->logger->info('Found ' . $count . ' contacts for user ' . $userId);
+
+            return $count;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveContactsCount: ' . $e->getMessage(), ['exception' => $e]);
+            throw $e;
+        }
+    }
 }

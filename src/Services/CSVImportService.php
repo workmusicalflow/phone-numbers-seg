@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Contact;
 use App\Models\PhoneNumber;
+use App\Repositories\ContactRepository;
 use App\Repositories\PhoneNumberRepository;
 use App\Services\Interfaces\PhoneSegmentationServiceInterface;
 
@@ -20,6 +22,16 @@ class CSVImportService
      * @var PhoneSegmentationServiceInterface
      */
     private PhoneSegmentationServiceInterface $segmentationService;
+
+    /**
+     * @var ContactRepository
+     */
+    private ContactRepository $contactRepository;
+
+    /**
+     * @var array Current import options
+     */
+    private array $options = [];
 
     /**
      * @var int Maximum number of phone numbers to process in a single batch
@@ -54,7 +66,9 @@ class CSVImportService
         'valid' => 0,
         'invalid' => 0,
         'duplicates' => 0,
-        'processed' => 0
+        'processed' => 0,
+        'contactsCreated' => 0,
+        'contactsDuplicates' => 0
     ];
 
     /**
@@ -62,13 +76,16 @@ class CSVImportService
      * 
      * @param PhoneNumberRepository $phoneNumberRepository
      * @param PhoneSegmentationServiceInterface $segmentationService
+     * @param ContactRepository $contactRepository
      */
     public function __construct(
         PhoneNumberRepository $phoneNumberRepository,
-        PhoneSegmentationServiceInterface $segmentationService
+        PhoneSegmentationServiceInterface $segmentationService,
+        ContactRepository $contactRepository
     ) {
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->segmentationService = $segmentationService;
+        $this->contactRepository = $contactRepository;
     }
 
     /**
@@ -108,7 +125,7 @@ class CSVImportService
         }
 
         // Set default options
-        $options = array_merge([
+        $this->options = array_merge([
             'delimiter' => ',',
             'enclosure' => '"',
             'escape' => '\\',
@@ -123,7 +140,10 @@ class CSVImportService
             'emailColumn' => -1, // -1 means not specified
             'skipInvalid' => true,
             'batchSize' => 200, // Reduced default batch size
-            'segmentImmediately' => true
+            'segmentImmediately' => true,
+            'createContacts' => true, // Create contacts by default
+            'userId' => null, // User ID to associate contacts with
+            'defaultUserId' => 2 // Default to AfricaQSHE (ID 2)
         ], $options);
 
         try {
@@ -135,23 +155,23 @@ class CSVImportService
             }
 
             // Skip header if needed
-            if ($options['hasHeader']) {
-                fgetcsv($handle, 0, $options['delimiter'], $options['enclosure'], $options['escape']);
+            if ($this->options['hasHeader']) {
+                fgetcsv($handle, 0, $this->options['delimiter'], $this->options['enclosure'], $this->options['escape']);
                 $this->currentLine = 1; // Set to 1 after skipping header
             }
 
             $batch = [];
-            $lineNumber = $options['hasHeader'] ? 2 : 1;
+            $lineNumber = $this->options['hasHeader'] ? 2 : 1;
             $this->currentLine = $lineNumber - 1; // Initialize current line
 
             // Process each line
-            while (($data = fgetcsv($handle, 0, $options['delimiter'], $options['enclosure'], $options['escape'])) !== false) {
+            while (($data = fgetcsv($handle, 0, $this->options['delimiter'], $this->options['enclosure'], $this->options['escape'])) !== false) {
                 $this->stats['total']++;
                 $this->currentLine++; // Increment line counter for each processed line
 
                 // Validate column indices against actual data
                 $columnCount = count($data);
-                $phoneColumnIndex = $options['phoneColumn'];
+                $phoneColumnIndex = $this->options['phoneColumn'];
 
                 // Check if phone column index is valid
                 if ($phoneColumnIndex < 0 || $phoneColumnIndex >= $columnCount) {
@@ -173,7 +193,7 @@ class CSVImportService
                 // Validate phone number
                 if (empty($phoneNumber)) {
                     $this->stats['invalid']++;
-                    if (!$options['skipInvalid']) {
+                    if (!$this->options['skipInvalid']) {
                         $this->errors[] = "Line {$lineNumber}: Empty phone number";
                     }
 
@@ -194,7 +214,7 @@ class CSVImportService
                 $normalizedNumber = $this->normalizePhoneNumber($phoneNumber);
                 if ($normalizedNumber === null) {
                     $this->stats['invalid']++;
-                    if (!$options['skipInvalid']) {
+                    if (!$this->options['skipInvalid']) {
                         $this->errors[] = "Line {$lineNumber}: Invalid phone number format: {$phoneNumber}";
                     }
 
@@ -214,7 +234,7 @@ class CSVImportService
                 // Check for duplicates in the current batch
                 if (in_array($normalizedNumber, array_column($batch, 'number'))) {
                     $this->stats['duplicates']++;
-                    if (!$options['skipInvalid']) {
+                    if (!$this->options['skipInvalid']) {
                         $this->errors[] = "Line {$lineNumber}: Duplicate phone number: {$normalizedNumber}";
                     }
 
@@ -233,13 +253,13 @@ class CSVImportService
 
                 // Extract additional fields if columns are specified
                 $additionalFields = [
-                    'civility' => $this->getColumnValue($data, $options['civilityColumn'], $columnCount),
-                    'firstName' => $this->getColumnValue($data, $options['firstNameColumn'], $columnCount),
-                    'name' => $this->getColumnValue($data, $options['nameColumn'], $columnCount),
-                    'company' => $this->getColumnValue($data, $options['companyColumn'], $columnCount),
-                    'sector' => $this->getColumnValue($data, $options['sectorColumn'], $columnCount),
-                    'notes' => $this->getColumnValue($data, $options['notesColumn'], $columnCount),
-                    'email' => $this->getColumnValue($data, $options['emailColumn'], $columnCount)
+                    'civility' => $this->getColumnValue($data, $this->options['civilityColumn'], $columnCount),
+                    'firstName' => $this->getColumnValue($data, $this->options['firstNameColumn'], $columnCount),
+                    'name' => $this->getColumnValue($data, $this->options['nameColumn'], $columnCount),
+                    'company' => $this->getColumnValue($data, $this->options['companyColumn'], $columnCount),
+                    'sector' => $this->getColumnValue($data, $this->options['sectorColumn'], $columnCount),
+                    'notes' => $this->getColumnValue($data, $this->options['notesColumn'], $columnCount),
+                    'email' => $this->getColumnValue($data, $this->options['emailColumn'], $columnCount)
                 ];
 
                 // Add to batch with additional fields
@@ -250,8 +270,8 @@ class CSVImportService
                 $this->stats['valid']++;
 
                 // Process batch if it reaches the maximum size
-                if (count($batch) >= $options['batchSize']) {
-                    $this->processBatch($batch, $options['segmentImmediately']);
+                if (count($batch) >= $this->options['batchSize']) {
+                    $this->processBatch($batch, $this->options['segmentImmediately']);
                     $batch = [];
                 }
 
@@ -260,7 +280,7 @@ class CSVImportService
 
             // Process remaining batch
             if (!empty($batch)) {
-                $this->processBatch($batch, $options['segmentImmediately']);
+                $this->processBatch($batch, $this->options['segmentImmediately']);
             }
 
             fclose($handle);
@@ -293,10 +313,13 @@ class CSVImportService
         $this->resetStats();
 
         // Set default options
-        $options = array_merge([
+        $this->options = array_merge([
             'skipInvalid' => true,
             'batchSize' => self::MAX_BATCH_SIZE,
-            'segmentImmediately' => true
+            'segmentImmediately' => true,
+            'createContacts' => true, // Create contacts by default
+            'userId' => null, // User ID to associate contacts with
+            'defaultUserId' => 2 // Default to AfricaQSHE (ID 2)
         ], $options);
 
         try {
@@ -310,7 +333,7 @@ class CSVImportService
                 // Validate phone number
                 if (empty($phoneNumber)) {
                     $this->stats['invalid']++;
-                    if (!$options['skipInvalid']) {
+                    if (!$this->options['skipInvalid']) {
                         $this->errors[] = "Index {$index}: Empty phone number";
                     }
                     continue;
@@ -320,35 +343,46 @@ class CSVImportService
                 $normalizedNumber = $this->normalizePhoneNumber($phoneNumber);
                 if ($normalizedNumber === null) {
                     $this->stats['invalid']++;
-                    if (!$options['skipInvalid']) {
+                    if (!$this->options['skipInvalid']) {
                         $this->errors[] = "Index {$index}: Invalid phone number format: {$phoneNumber}";
                     }
                     continue;
                 }
 
                 // Check for duplicates in the current batch
-                if (in_array($normalizedNumber, $batch)) {
+                if (in_array($normalizedNumber, array_column($batch, 'number'))) {
                     $this->stats['duplicates']++;
-                    if (!$options['skipInvalid']) {
+                    if (!$this->options['skipInvalid']) {
                         $this->errors[] = "Index {$index}: Duplicate phone number: {$normalizedNumber}";
                     }
                     continue;
                 }
 
-                // Add to batch
-                $batch[] = $normalizedNumber;
+                // Add to batch with empty additional fields
+                $batch[] = [
+                    'number' => $normalizedNumber,
+                    'fields' => [
+                        'civility' => null,
+                        'firstName' => null,
+                        'name' => null,
+                        'company' => null,
+                        'sector' => null,
+                        'notes' => null,
+                        'email' => null
+                    ]
+                ];
                 $this->stats['valid']++;
 
                 // Process batch if it reaches the maximum size
-                if (count($batch) >= $options['batchSize']) {
-                    $this->processBatch($batch, $options['segmentImmediately']);
+                if (count($batch) >= $this->options['batchSize']) {
+                    $this->processBatch($batch, $this->options['segmentImmediately']);
                     $batch = [];
                 }
             }
 
             // Process remaining batch
             if (!empty($batch)) {
-                $this->processBatch($batch, $options['segmentImmediately']);
+                $this->processBatch($batch, $this->options['segmentImmediately']);
             }
         } catch (\Exception $e) {
             $this->errors[] = "Error processing phone numbers: " . $e->getMessage();
@@ -357,13 +391,6 @@ class CSVImportService
         return $this->getResults();
     }
 
-    /**
-     * Process a batch of phone numbers
-     * 
-     * @param array $batch Array of normalized phone numbers with additional fields
-     * @param bool $segment Whether to segment the numbers immediately
-     * @return void
-     */
     /**
      * Helper method to safely get a value from a column
      * 
@@ -381,6 +408,13 @@ class CSVImportService
         return null;
     }
 
+    /**
+     * Process a batch of phone numbers
+     * 
+     * @param array $batch Array of normalized phone numbers with additional fields
+     * @param bool $segment Whether to segment the numbers immediately
+     * @return void
+     */
     private function processBatch(array $batch, bool $segment = true): void
     {
         // Store phone numbers in the database
@@ -391,6 +425,8 @@ class CSVImportService
 
                 // Check if the number already exists in the database
                 $existingNumber = $this->phoneNumberRepository->findByNumber($number);
+                $phoneNumber = null;
+
                 if ($existingNumber === null) {
                     // Create a new phone number with additional fields
                     $phoneNumber = new PhoneNumber(
@@ -416,6 +452,7 @@ class CSVImportService
                 } else {
                     // Number already exists, increment duplicates count
                     $this->stats['duplicates']++;
+                    $phoneNumber = $existingNumber;
 
                     // Add detailed error for duplicate
                     if (count($this->detailedErrors) < $this->maxDetailedErrors) {
@@ -458,6 +495,60 @@ class CSVImportService
 
                         if ($updated) {
                             $this->phoneNumberRepository->save($existingNumber);
+                        }
+                    }
+                }
+
+                // Create contact if option is enabled and we have a user ID
+                $createContacts = $this->options['createContacts'] ?? true;
+                $userId = $this->options['userId'] ?? $this->options['defaultUserId'] ?? null;
+
+                if ($createContacts && $userId && $phoneNumber) {
+                    try {
+                        // Check if a contact with this number exists already for this user
+                        $existingContacts = $this->contactRepository->findBy([
+                            'user_id' => $userId,
+                            'phone_number' => $number
+                        ]);
+
+                        if (empty($existingContacts)) {
+                            // Prepare the name for the contact
+                            $firstName = $fields['firstName'] ?? '';
+                            $lastName = $fields['name'] ?? '';
+                            $name = trim("$firstName $lastName");
+
+                            if (empty($name)) {
+                                // Generate a name from the number if no name is provided
+                                $lastDigits = substr($number, -6);
+                                $name = "Contact " . $lastDigits;
+                            }
+
+                            // Create the contact
+                            $contact = new Contact(
+                                0, // ID will be generated
+                                $userId,
+                                $name,
+                                $number,
+                                $fields['email'] ?? null,
+                                $fields['notes'] ?? null
+                            );
+
+                            $this->contactRepository->create($contact);
+                            $this->stats['contactsCreated']++;
+                        } else {
+                            $this->stats['contactsDuplicates']++;
+                        }
+                    } catch (\Exception $e) {
+                        // Log the error but continue processing
+                        error_log("Error creating contact for number {$number}: " . $e->getMessage());
+
+                        // Add detailed error for contact creation exception
+                        if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                            $this->detailedErrors[] = [
+                                'line' => 'unknown',
+                                'value' => $number,
+                                'message' => "Erreur lors de la création du contact: " . $e->getMessage()
+                            ];
                         }
                     }
                 }
@@ -529,7 +620,9 @@ class CSVImportService
             'valid' => 0,
             'invalid' => 0,
             'duplicates' => 0,
-            'processed' => 0
+            'processed' => 0,
+            'contactsCreated' => 0,
+            'contactsDuplicates' => 0
         ];
         $this->errors = [];
         $this->detailedErrors = [];

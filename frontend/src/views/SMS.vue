@@ -4,11 +4,13 @@
       <div class="row items-center q-mb-md">
         <h1 class="text-h4 q-my-none">Envoi de SMS</h1>
         <q-space />
-        <div v-if="userStore.currentUser">
+        <div v-if="userStore.currentUser" class="row items-center">
+          <!-- Badge crédits SMS -->
           <q-chip
             :color="getCreditColor(userStore.currentUser.smsCredit)"
             text-color="white"
             icon="sms"
+            class="q-mr-sm"
           >
             {{ userStore.currentUser.smsCredit }} crédit{{ userStore.currentUser.smsCredit !== 1 ? 's' : '' }} SMS
           </q-chip>
@@ -22,6 +24,18 @@
             <div v-else>
               Crédit SMS disponible.
             </div>
+          </q-tooltip>
+          
+          <!-- Badge nombre de contacts -->
+          <q-chip
+            color="primary"
+            text-color="white"
+            icon="contacts"
+          >
+            {{ contactsCount }} contact{{ contactsCount !== 1 ? 's' : '' }}
+          </q-chip>
+          <q-tooltip>
+            Nombre total de contacts disponibles pour l'envoi de SMS.
           </q-tooltip>
         </div>
       </div>
@@ -215,6 +229,7 @@ import { ref, onMounted, computed } from "vue";
 // Template store is now used only within SingleSmsForm
 // import { useSMSTemplateStore } from "../stores/smsTemplateStore";
 import { useUserStore } from "../stores/userStore";
+import { useContactStore } from "../stores/contactStore"; // Import contactStore
 import { useSmsSender } from "../composables/useSmsSender"; // Import the composable
 // QForm type is no longer needed here
 // import type { QForm } from 'quasar';
@@ -229,6 +244,8 @@ import AllContactsSmsForm from '@/components/sms/forms/AllContactsSmsForm.vue';
 // smsTemplateStore is removed
 // Utiliser le store utilisateur pour accéder à l'utilisateur courant
 const userStore = useUserStore();
+const contactStore = useContactStore(); // Use contactStore
+const contactsCount = ref(0); // Add contactsCount variable
 
 // --- Use the Composable ---
 const {
@@ -287,11 +304,18 @@ const columns = [
 // --- Submit Handlers (Wrap composable functions) ---
 
 // Submit handlers using standardized FrontendStatus
+// Fonction pour rafraîchir le nombre de contacts
+const refreshContactsCount = async () => {
+  contactsCount.value = await contactStore.fetchContactsCount();
+};
+
 const handleSingleSubmit = async (payload: { phoneNumber: string; message: string }) => {
   const result = await sendSingleSms(payload);
   if (result && result.status === 'success') {
     // Reset the child form upon successful submission
     singleSmsFormRef.value?.reset();
+    // Rafraîchir le nombre de contacts (au cas où un nouveau contact a été créé)
+    refreshContactsCount();
   }
   // Notification and error handling are done within the composable
 };
@@ -303,6 +327,8 @@ const handleBulkSubmit = async (payload: { phoneNumbers: string[]; message: stri
   if (result && (result.status === 'success' || result.status === 'warning')) {
     // Reset the child form upon successful or partial submission
     bulkSmsFormRef.value?.reset();
+    // Rafraîchir le nombre de contacts
+    refreshContactsCount();
   }
 };
 
@@ -313,6 +339,8 @@ const handleSegmentSubmit = async (payload: { segmentId: number; message: string
   if (result && (result.status === 'success' || result.status === 'warning')) {
     // Reset the child form upon successful or partial submission
     segmentSmsFormRef.value?.reset();
+    // Rafraîchir le nombre de contacts
+    refreshContactsCount();
   }
 };
 
@@ -322,6 +350,8 @@ const handleAllContactsSubmit = async (payload: { message: string }) => {
   if (result && (result.status === 'success' || result.status === 'warning')) {
     // Reset the child form upon successful or partial submission
     allContactsSmsFormRef.value?.reset();
+    // Rafraîchir le nombre de contacts
+    refreshContactsCount();
   }
 };
 
@@ -334,9 +364,11 @@ const getCreditColor = (credit: number | undefined) => {
 };
 
 // Initialisation (Use composable functions)
-onMounted(() => {
+onMounted(async () => {
   fetchSmsHistory();
   fetchSegments();
+  // Récupérer le nombre de contacts
+  contactsCount.value = await contactStore.fetchContactsCount();
   // smsTemplateStore.fetchTemplates(); // Template fetching might be needed in the child component now, or handled globally
   // User fetching should be handled globally or by userStore itself
 });

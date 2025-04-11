@@ -119,6 +119,9 @@ class ImportExportController
             'skipInvalid' => isset($data['skip_invalid']) ? (bool)$data['skip_invalid'] : true,
             'segmentImmediately' => isset($data['segment_immediately']) ? (bool)$data['segment_immediately'] : true,
             'batchSize' => isset($data['batch_size']) ? (int)$data['batch_size'] : 200,
+            'createContacts' => isset($data['create_contacts']) ? (bool)$data['create_contacts'] : true,
+            'userId' => isset($data['user_id']) ? (int)$data['user_id'] : null,
+            'defaultUserId' => 2, // Default to AfricaQSHE (ID 2)
         ];
 
         // Process the file
@@ -168,7 +171,10 @@ class ImportExportController
         // Prepare import options
         $options = [
             'skipInvalid' => isset($data['skip_invalid']) ? (bool)$data['skip_invalid'] : true,
-            'segmentImmediately' => isset($data['segment_immediately']) ? (bool)$data['segment_immediately'] : true
+            'segmentImmediately' => isset($data['segment_immediately']) ? (bool)$data['segment_immediately'] : true,
+            'createContacts' => isset($data['create_contacts']) ? (bool)$data['create_contacts'] : true,
+            'userId' => isset($data['user_id']) ? (int)$data['user_id'] : null,
+            'defaultUserId' => 2, // Default to AfricaQSHE (ID 2)
         ];
 
         // Process the numbers

@@ -15,6 +15,7 @@ type Query {
   contacts(limit: Int, offset: Int): [Contact!]!
   contact(id: ID!): Contact
   searchContacts(query: String!, limit: Int, offset: Int): [Contact!]!
+  contactsCount: Int!
 }
 
 type Segment {

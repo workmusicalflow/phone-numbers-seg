@@ -154,6 +154,58 @@ Le projet est actuellement à environ **90%** de complétion. La plupart des fon
    - ✅ Erreur de type GraphQL dans userStore.ts (Int! vs ID!) - Résolu en modifiant les types et en convertissant les IDs en chaînes
    - ✅ Séparation des préoccupations dans les stores et composants - Implémenté un service de notification propre et adapté les stores pour retourner des résultats clairs
    - ✅ Messages de validation persistants après envoi de SMS - Résolu en utilisant `nextTick()` dans les méthodes de réinitialisation des formulaires pour assurer la séquence correcte des opérations
+   - ✅ Numéros importés non visibles dans l'interface - Résolu en créant des scripts de conversion des numéros de téléphone en contacts liés à l'utilisateur
+   - ✅ Formulaire d'importation CSV non visible - Résolu en corrigeant les erreurs de compilation Vue.js, en implémentant un rendu direct du formulaire dans le composant principal, et en ajoutant une gestion d'erreurs robuste
+
+## Améliorations Récentes (11/04/2025)
+
+### Badge de Nombre de Contacts dans l'Interface SMS
+
+Une amélioration de l'interface utilisateur a été implémentée pour afficher le nombre total de contacts disponibles pour l'envoi de SMS.
+
+**Fonctionnalités implémentées :**
+
+1. **Backend GraphQL :**
+
+   - ✅ Ajout de la requête `contactsCount` au schéma GraphQL
+   - ✅ Implémentation du resolver correspondant dans `ContactResolver.php`
+   - ✅ Utilisation de la méthode `count()` existante du repository
+
+2. **Frontend :**
+
+   - ✅ Ajout de la requête GraphQL `COUNT_CONTACTS` dans le store `contactStore`
+   - ✅ Implémentation de la méthode `fetchContactsCount()` pour récupérer le nombre total de contacts
+   - ✅ Ajout d'un badge "contacts" à côté du badge de crédits SMS existant
+   - ✅ Mise à jour automatique du compteur après chaque envoi de SMS réussi
+
+3. **Avantages :**
+   - ✅ Visibilité immédiate du nombre de contacts disponibles
+   - ✅ Amélioration de l'expérience utilisateur
+   - ✅ Cohérence avec l'affichage des crédits SMS
+
+### Conversion des numéros de téléphone en contacts
+
+Un problème architectural a été identifié et résolu : lors de l'importation CSV, les numéros étaient enregistrés dans la table `phone_numbers` sans lien avec un utilisateur spécifique, ce qui les rendait invisibles dans l'interface utilisateur qui affiche les données de la table `contacts`.
+
+**Solution implémentée :**
+
+1. **Scripts de conversion :**
+
+   - ✅ Script en ligne de commande `convert_phone_numbers_to_contacts.php` pour convertir les numéros en contacts
+   - ✅ Interface web `convert-phone-numbers.php` pour une conversion via navigateur
+   - ✅ Documentation détaillée dans `scripts/utils/README_convert_phone_numbers.md`
+
+2. **Fonctionnalités des scripts :**
+
+   - ✅ Mode simulation (dry-run) pour tester sans modifier la base de données
+   - ✅ Association des numéros à un utilisateur spécifique (par défaut : AfricaQSHE)
+   - ✅ Gestion des doublons pour éviter les contacts en double
+   - ✅ Rapport détaillé sur les opérations effectuées
+
+3. **Améliorations futures prévues :**
+   - 🔜 Intégration de la conversion automatique lors de l'importation CSV
+   - 🔜 Association des numéros à des groupes de contacts
+   - 🔜 Amélioration de la gestion des doublons avec option de mise à jour
 
 ## Conclusion
 
