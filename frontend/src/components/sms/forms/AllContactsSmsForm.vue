@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import type { QForm } from 'quasar';
 
 // Define Props
@@ -62,9 +62,22 @@ const onSubmit = () => {
 };
 
 // Function to reset the form
-const reset = () => {
+const reset = async () => {
+    console.log('Reset called on AllContactsSmsForm');
+    
+    // 1. Réinitialiser les données
     message.value = "";
-    formRef.value?.resetValidation(); // Reset Quasar form validation
+    
+    // 2. Attendre le prochain cycle de rendu
+    await nextTick();
+    
+    // 3. Réinitialiser la validation
+    if (formRef.value) {
+        formRef.value.resetValidation();
+        console.log('Validation reset completed for AllContactsSmsForm');
+    } else {
+        console.warn('formRef not available during reset in AllContactsSmsForm');
+    }
 };
 
 // Expose the reset function

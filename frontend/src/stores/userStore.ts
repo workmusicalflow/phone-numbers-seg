@@ -61,7 +61,7 @@ const GET_USERS = `
 `;
 
 const GET_USER = `
-  query GetUser($id: Int!) {
+  query GetUser($id: ID!) {
     user(id: $id) {
       id
       username
@@ -91,7 +91,7 @@ const CREATE_USER = `
 `;
 
 const UPDATE_USER = `
-  mutation UpdateUser($id: Int!, $email: String, $smsLimit: Int, $isAdmin: Boolean) {
+  mutation UpdateUser($id: ID!, $email: String, $smsLimit: Int, $isAdmin: Boolean) {
     updateUser(id: $id, email: $email, smsLimit: $smsLimit, isAdmin: $isAdmin) {
       id
       username
@@ -106,7 +106,7 @@ const UPDATE_USER = `
 `;
 
 const CHANGE_PASSWORD = `
-  mutation ChangePassword($id: Int!, $newPassword: String!) {
+  mutation ChangePassword($id: ID!, $newPassword: String!) {
     changePassword(id: $id, newPassword: $newPassword) {
       id
       username
@@ -125,7 +125,7 @@ const ADD_CREDITS = `
 `;
 
 const DELETE_USER = `
-  mutation DeleteUser($id: Int!) {
+  mutation DeleteUser($id: ID!) {
     deleteUser(id: $id)
   }
 `;
@@ -196,7 +196,7 @@ const isAdmin = computed(() => {
       // Use apolloClient instead of fetch
       const { data, errors } = await apolloClient.query({
         query: gql(GET_USER), // Use gql tag
-        variables: { id },
+        variables: { id: id.toString() }, // Convert number to string for ID! type
         fetchPolicy: 'network-only' // Ensure fresh data is fetched
       });
 
@@ -285,7 +285,7 @@ const isAdmin = computed(() => {
         body: JSON.stringify({
           query: UPDATE_USER,
           variables: { 
-            id, 
+            id: id.toString(), // Convert to string for ID! type
             email: email || null, 
             smsLimit: smsLimit || null,
             isAdmin: isAdmin
@@ -331,7 +331,7 @@ const isAdmin = computed(() => {
         },
         body: JSON.stringify({
           query: CHANGE_PASSWORD,
-          variables: { id, newPassword }
+          variables: { id: id.toString(), newPassword }
         }),
       });
       
@@ -363,7 +363,7 @@ const isAdmin = computed(() => {
     try {
       const requestBody = JSON.stringify({
         query: ADD_CREDITS,
-        variables: { id, amount }
+        variables: { id: id.toString(), amount }
       });
       
       console.log('Requête GraphQL:', requestBody);
@@ -433,7 +433,7 @@ const isAdmin = computed(() => {
         },
         body: JSON.stringify({
           query: DELETE_USER,
-          variables: { id }
+          variables: { id: id.toString() }
         }),
       });
       

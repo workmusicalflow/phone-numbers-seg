@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import notification from '../services/NotificationService';
 import { SMSOrder } from './userStore';
 
 // GraphQL queries and mutations
@@ -140,9 +139,11 @@ export const useSMSOrderStore = defineStore('smsOrder', () => {
       }
       
       smsOrders.value = result.data.smsOrders;
+      return true;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la récupération des commandes SMS';
-      notification.error(error.value);
+      console.error(error.value);
+      return false;
     } finally {
       loading.value = false;
     }
@@ -173,7 +174,7 @@ export const useSMSOrderStore = defineStore('smsOrder', () => {
       return result.data.smsOrdersByUser;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la récupération des commandes SMS pour l'utilisateur #${userId}`;
-      notification.error(error.value);
+      console.error(error.value);
       return [];
     } finally {
       loading.value = false;
@@ -206,7 +207,7 @@ export const useSMSOrderStore = defineStore('smsOrder', () => {
       return result.data.smsOrder;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la récupération de la commande SMS #${id}`;
-      notification.error(error.value);
+      console.error(error.value);
       return null;
     } finally {
       loading.value = false;
@@ -237,11 +238,10 @@ export const useSMSOrderStore = defineStore('smsOrder', () => {
       
       const newSMSOrder = result.data.createSMSOrder;
       smsOrders.value.push(newSMSOrder);
-      notification.success(`La commande de ${quantity} crédits SMS a été créée avec succès`);
       return newSMSOrder;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la création de la commande SMS';
-      notification.error(error.value);
+      console.error(error.value);
       return null;
     } finally {
       loading.value = false;
@@ -277,12 +277,10 @@ export const useSMSOrderStore = defineStore('smsOrder', () => {
         smsOrders.value[index] = updatedSMSOrder;
       }
       
-      const statusText = status === 'completed' ? 'complétée' : 'en attente';
-      notification.success(`Le statut de la commande SMS a été mis à jour à "${statusText}"`);
       return updatedSMSOrder;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la mise à jour du statut de la commande SMS #${id}`;
-      notification.error(error.value);
+      console.error(error.value);
       return null;
     } finally {
       loading.value = false;
@@ -315,7 +313,6 @@ export const useSMSOrderStore = defineStore('smsOrder', () => {
       
       if (success) {
         smsOrders.value = smsOrders.value.filter(smsOrder => smsOrder.id !== id);
-        notification.success(`La commande SMS a été supprimée avec succès`);
       } else {
         throw new Error('La suppression a échoué');
       }
@@ -323,7 +320,7 @@ export const useSMSOrderStore = defineStore('smsOrder', () => {
       return success;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la suppression de la commande SMS #${id}`;
-      notification.error(error.value);
+      console.error(error.value);
       return false;
     } finally {
       loading.value = false;

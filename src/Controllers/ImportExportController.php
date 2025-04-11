@@ -40,26 +40,72 @@ class ImportExportController
      */
     public function importCSV(array $data): array
     {
+        // Augmenter les limites pour cette requête
+        ini_set('max_execution_time', 300); // 5 minutes
+        ini_set('memory_limit', '256M');    // Augmenter la limite de mémoire
+
+        // Log pour déboguer
+        error_log("ImportCSV called with data: " . print_r($data, true));
+        error_log("FILES content: " . print_r($_FILES, true));
+
         // Validate request
         if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+            $errorMessage = 'No file uploaded or upload error occurred';
+            if (isset($_FILES['csv_file'])) {
+                $errorCode = $_FILES['csv_file']['error'];
+                $errorMessage .= " (Error code: $errorCode)";
+
+                // Traduire le code d'erreur
+                switch ($errorCode) {
+                    case UPLOAD_ERR_INI_SIZE:
+                        $errorMessage .= " - File exceeds upload_max_filesize directive in php.ini";
+                        break;
+                    case UPLOAD_ERR_FORM_SIZE:
+                        $errorMessage .= " - File exceeds MAX_FILE_SIZE directive in HTML form";
+                        break;
+                    case UPLOAD_ERR_PARTIAL:
+                        $errorMessage .= " - File was only partially uploaded";
+                        break;
+                    case UPLOAD_ERR_NO_FILE:
+                        $errorMessage .= " - No file was uploaded";
+                        break;
+                    case UPLOAD_ERR_NO_TMP_DIR:
+                        $errorMessage .= " - Missing a temporary folder";
+                        break;
+                    case UPLOAD_ERR_CANT_WRITE:
+                        $errorMessage .= " - Failed to write file to disk";
+                        break;
+                    case UPLOAD_ERR_EXTENSION:
+                        $errorMessage .= " - A PHP extension stopped the file upload";
+                        break;
+                }
+            }
+            error_log("Import error: " . $errorMessage);
             return [
                 'status' => 'error',
-                'message' => 'No file uploaded or upload error occurred'
+                'message' => $errorMessage
             ];
         }
 
         $file = $_FILES['csv_file'];
+        error_log("File details: " . print_r($file, true));
+        error_log("File tmp_name exists: " . (file_exists($file['tmp_name']) ? 'Yes' : 'No'));
 
-        // Check file type
+        // Check file type - plus permissif
         $mimeType = mime_content_type($file['tmp_name']);
-        if (!in_array($mimeType, ['text/csv', 'text/plain', 'application/vnd.ms-excel'])) {
+        error_log("Detected MIME type: " . $mimeType);
+
+        $allowedMimeTypes = ['text/csv', 'text/plain', 'application/vnd.ms-excel', 'application/octet-stream', 'text/comma-separated-values'];
+        if (!in_array($mimeType, $allowedMimeTypes)) {
+            $errorMessage = "Invalid file type: $mimeType. Only CSV files are allowed.";
+            error_log("Import error: " . $errorMessage);
             return [
                 'status' => 'error',
-                'message' => 'Invalid file type. Only CSV files are allowed.'
+                'message' => $errorMessage
             ];
         }
 
-        // Prepare import options
+        // Prepare import options with new column mappings
         $options = [
             'hasHeader' => isset($data['has_header']) ? (bool)$data['has_header'] : true,
             'phoneColumn' => isset($data['phone_column']) ? (int)$data['phone_column'] : 0,
@@ -69,14 +115,27 @@ class ImportExportController
             'companyColumn' => isset($data['company_column']) ? (int)$data['company_column'] : -1,
             'sectorColumn' => isset($data['sector_column']) ? (int)$data['sector_column'] : -1,
             'notesColumn' => isset($data['notes_column']) ? (int)$data['notes_column'] : -1,
+            'emailColumn' => isset($data['email_column']) ? (int)$data['email_column'] : -1,
             'skipInvalid' => isset($data['skip_invalid']) ? (bool)$data['skip_invalid'] : true,
-            'segmentImmediately' => isset($data['segment_immediately']) ? (bool)$data['segment_immediately'] : true
+            'segmentImmediately' => isset($data['segment_immediately']) ? (bool)$data['segment_immediately'] : true,
+            'batchSize' => isset($data['batch_size']) ? (int)$data['batch_size'] : 200,
         ];
 
         // Process the file
         $result = $this->csvImportService->importFromFile($file['tmp_name'], $options);
 
-        return $result;
+        // Transformer les résultats pour le frontend
+        $response = [
+            'status' => $result['status'],
+            'message' => $result['status'] === 'success' ? 'Import réussi' : 'Des erreurs sont survenues lors de l\'import',
+            'totalRows' => $result['stats']['total'],
+            'successRows' => $result['stats']['processed'],
+            'errorRows' => $result['stats']['invalid'],
+            'duplicateCount' => $result['stats']['duplicates'],
+            'detailedErrors' => $result['detailedErrors'] ?? []
+        ];
+
+        return $response;
     }
 
     /**

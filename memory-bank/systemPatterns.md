@@ -199,6 +199,127 @@ class PhoneNumberRepository
 }
 ```
 
+### Separation of Concerns (Frontend)
+
+Le pattern de Séparation des Préoccupations est utilisé dans le frontend pour séparer clairement la logique métier (stores) de la logique d'interface utilisateur (composants).
+
+#### Stores (Logique Métier)
+
+Les stores Pinia sont responsables de la gestion de l'état et de la logique métier, sans se préoccuper de l'affichage ou des notifications UI.
+
+```typescript
+// Exemple de store avec séparation des préoccupations
+export const useSenderNameStore = defineStore("senderName", () => {
+  // État
+  const senderNames = ref<SenderName[]>([]);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+
+  // Actions
+  async function updateSenderNameStatus(
+    id: number,
+    status: "approved" | "rejected"
+  ) {
+    loading.value = true;
+    try {
+      const result = await apiCall(/* ... */);
+      // Mise à jour de l'état local
+      return result; // Retourne le résultat pour que le composant puisse réagir
+    } catch (err) {
+      error.value = err.message;
+      console.error(error.value);
+      return null; // Indique l'échec
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  return { senderNames, loading, error, updateSenderNameStatus };
+});
+```
+
+#### Composants (Logique UI)
+
+Les composants Vue sont responsables de l'interface utilisateur, y compris l'affichage des notifications basées sur les résultats des actions des stores.
+
+```typescript
+// Exemple de composant utilisant un store et gérant les notifications
+const senderNameStore = useSenderNameStore();
+const { showSuccess, showError } = useNotification(); // Composable pour les notifications
+
+const approveSenderName = async (id: number) => {
+  const result = await senderNameStore.updateSenderNameStatus(id, "approved");
+  if (result) {
+    showSuccess("Nom d'expéditeur approuvé avec succès");
+  } else {
+    showError("Erreur lors de l'approbation du nom d'expéditeur");
+  }
+};
+```
+
+#### Service de Notification (Composable)
+
+Un service de notification sous forme de composable Vue pour gérer les notifications UI de manière cohérente.
+
+```typescript
+// NotificationService.ts
+export function useNotification() {
+  const $q = useQuasar(); // Accès à l'API Quasar UI
+
+  const showSuccess = (message: string) => {
+    $q.notify({ type: "positive", message });
+  };
+
+  const showError = (message: string) => {
+    $q.notify({ type: "negative", message });
+  };
+
+  return { showSuccess, showError };
+}
+```
+
+Cette séparation des préoccupations offre plusieurs avantages :
+
+- **Testabilité** : Les stores peuvent être testés sans dépendance à l'UI
+- **Réutilisabilité** : La logique métier peut être réutilisée dans différents composants
+- **Maintenabilité** : Les changements dans l'UI n'affectent pas la logique métier et vice versa
+
+### Gestion du Cycle de Vie des Composants avec nextTick
+
+Vue.js fournit une fonction utilitaire `nextTick()` qui permet d'attendre que Vue ait terminé de mettre à jour le DOM après une modification de données réactives. Ce pattern est particulièrement utile pour gérer correctement la séquence des opérations qui dépendent de l'état du DOM.
+
+```typescript
+// Exemple d'utilisation de nextTick pour la réinitialisation de formulaire
+import { ref, nextTick } from "vue";
+import type { QForm } from "quasar";
+
+// Définition des données du formulaire
+const formData = ref({ field1: "", field2: "" });
+const formRef = ref<QForm | null>(null);
+
+// Fonction de réinitialisation avec nextTick
+const reset = async () => {
+  // 1. Réinitialiser les données
+  formData.value = { field1: "", field2: "" };
+
+  // 2. Attendre que Vue ait mis à jour le DOM
+  await nextTick();
+
+  // 3. Effectuer des opérations qui dépendent de l'état du DOM
+  if (formRef.value) {
+    formRef.value.resetValidation();
+  }
+};
+```
+
+Ce pattern est utilisé dans notre application pour résoudre le problème des messages de validation qui persistaient après un envoi réussi de SMS. En attendant que Vue ait terminé de mettre à jour le DOM après la réinitialisation des données du formulaire, nous nous assurons que la validation est réinitialisée correctement.
+
+Avantages par rapport à d'autres approches (comme `setTimeout`) :
+
+- **Précision** : `nextTick()` attend exactement le bon moment, après la mise à jour du DOM par Vue
+- **Fiabilité** : Ne dépend pas d'un délai arbitraire qui pourrait être trop court sur certains appareils
+- **Idiomatique** : C'est la méthode recommandée par Vue pour ce type de scénario
+
 ### Service Pattern
 
 Le pattern Service est utilisé pour encapsuler la logique métier complexe et orchestrer les opérations impliquant plusieurs repositories.

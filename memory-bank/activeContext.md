@@ -10,6 +10,21 @@
   - Initial workaround: Modified `AuthResolver::mutateLogin` to return a formatted array.
   - Final Solution: Corrected the `LOGIN` query in `authStore.ts` to match the schema. Removed the `checkAuth` query/function calls from frontend. Reverted `AuthResolver::mutateLogin` to return the `User` object directly (type hint `?User`). Removed the unnecessary formatter injection from `AuthResolver`. Login and redirection now work correctly via the browser.
 - Frontend login flow is now working.
+- Fixed GraphQL type mismatch issues in userStore.ts:
+  - Identified cause: GraphQL queries/mutations in userStore.ts were using `Int!` type for ID parameters, but the backend schema expected `ID!` type (which is treated as a string).
+  - Solution: Changed all GraphQL queries/mutations in userStore.ts to use `ID!` instead of `Int!` for ID parameters, and modified all methods to convert numeric IDs to strings using `id.toString()`.
+- Implemented proper notification service with separation of concerns:
+  - Created a new `NotificationService.ts` file with a `useNotification` composable that returns functions like `showSuccess`, `showError`, etc.
+  - Modified stores (`senderNameStore.ts`, `smsOrderStore.ts`) to remove notification calls and return clear results.
+  - Updated components to handle UI concerns like showing notifications based on the results returned by stores.
+  - This follows the best practice of separating responsibilities: stores handle state and business logic, components handle UI concerns.
+- Fixed validation messages persisting after successful SMS submission:
+  - Identified cause: Form validation messages were still displayed after successful form submission because the validation reset was happening before Vue had finished updating the DOM.
+  - Solution: Modified the `reset()` method in all SMS form components (`SingleSmsForm.vue`, `BulkSmsForm.vue`, `SegmentSmsForm.vue`, `AllContactsSmsForm.vue`) to use Vue's `nextTick()` function to ensure proper sequencing:
+    1. Reset form data values
+    2. Wait for Vue to update the DOM using `await nextTick()`
+    3. Reset form validation with `formRef.value?.resetValidation()`
+  - This ensures that validation is reset only after Vue has processed the data changes, preventing validation messages from persisting.
 
 **User Story Summary:** As a logged-in user, I want to send a single SMS message to all my contacts at once, after checking for sufficient credits.
 

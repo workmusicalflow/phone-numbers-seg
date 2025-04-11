@@ -32,6 +32,21 @@ class CSVImportService
     private array $errors = [];
 
     /**
+     * @var array Detailed errors with line numbers and values
+     */
+    private array $detailedErrors = [];
+
+    /**
+     * @var int Maximum number of detailed errors to collect
+     */
+    private int $maxDetailedErrors = 20;
+
+    /**
+     * @var int Current line being processed
+     */
+    private int $currentLine = 0;
+
+    /**
      * @var array Import statistics
      */
     private array $stats = [
@@ -65,19 +80,30 @@ class CSVImportService
      */
     public function importFromFile(string $filePath, array $options = []): array
     {
-        // Reset statistics and errors
+        // Log pour déboguer
+        error_log("CSVImportService::importFromFile called with filePath: {$filePath}");
+        error_log("Import options: " . print_r($options, true));
+
+        // Reset statistics, errors and line counter
         $this->resetStats();
+        $this->currentLine = 0;
+        $this->detailedErrors = [];
 
         // Check if file exists
         if (!file_exists($filePath)) {
-            $this->errors[] = "File not found: {$filePath}";
+            $errorMessage = "File not found: {$filePath}";
+            error_log("Import error: " . $errorMessage);
+            $this->errors[] = $errorMessage;
             return $this->getResults();
         }
 
-        // Check file extension
+        // Check file extension - plus permissif, accepte les fichiers sans extension
         $extension = pathinfo($filePath, PATHINFO_EXTENSION);
-        if (strtolower($extension) !== 'csv') {
-            $this->errors[] = "Invalid file format. Only CSV files are supported.";
+        error_log("File extension: " . $extension);
+        if ($extension && strtolower($extension) !== 'csv') {
+            $errorMessage = "Invalid file format. Only CSV files are supported. Extension detected: {$extension}";
+            error_log("Import error: " . $errorMessage);
+            $this->errors[] = $errorMessage;
             return $this->getResults();
         }
 
@@ -94,8 +120,9 @@ class CSVImportService
             'companyColumn' => -1, // -1 means not specified
             'sectorColumn' => -1, // -1 means not specified
             'notesColumn' => -1, // -1 means not specified
+            'emailColumn' => -1, // -1 means not specified
             'skipInvalid' => true,
-            'batchSize' => self::MAX_BATCH_SIZE,
+            'batchSize' => 200, // Reduced default batch size
             'segmentImmediately' => true
         ], $options);
 
@@ -110,17 +137,38 @@ class CSVImportService
             // Skip header if needed
             if ($options['hasHeader']) {
                 fgetcsv($handle, 0, $options['delimiter'], $options['enclosure'], $options['escape']);
+                $this->currentLine = 1; // Set to 1 after skipping header
             }
 
             $batch = [];
             $lineNumber = $options['hasHeader'] ? 2 : 1;
+            $this->currentLine = $lineNumber - 1; // Initialize current line
 
             // Process each line
             while (($data = fgetcsv($handle, 0, $options['delimiter'], $options['enclosure'], $options['escape'])) !== false) {
                 $this->stats['total']++;
+                $this->currentLine++; // Increment line counter for each processed line
+
+                // Validate column indices against actual data
+                $columnCount = count($data);
+                $phoneColumnIndex = $options['phoneColumn'];
+
+                // Check if phone column index is valid
+                if ($phoneColumnIndex < 0 || $phoneColumnIndex >= $columnCount) {
+                    if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                        $this->detailedErrors[] = [
+                            'line' => $this->currentLine,
+                            'value' => 'N/A',
+                            'message' => "Index de colonne téléphone invalide: {$phoneColumnIndex}. Le fichier n'a que {$columnCount} colonnes."
+                        ];
+                    }
+                    $this->stats['invalid']++;
+                    $lineNumber++;
+                    continue;
+                }
 
                 // Get phone number from the specified column
-                $phoneNumber = isset($data[$options['phoneColumn']]) ? trim($data[$options['phoneColumn']]) : '';
+                $phoneNumber = isset($data[$phoneColumnIndex]) ? trim($data[$phoneColumnIndex]) : '';
 
                 // Validate phone number
                 if (empty($phoneNumber)) {
@@ -128,6 +176,16 @@ class CSVImportService
                     if (!$options['skipInvalid']) {
                         $this->errors[] = "Line {$lineNumber}: Empty phone number";
                     }
+
+                    // Add detailed error
+                    if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                        $this->detailedErrors[] = [
+                            'line' => $this->currentLine,
+                            'value' => 'empty',
+                            'message' => "Numéro de téléphone vide"
+                        ];
+                    }
+
                     $lineNumber++;
                     continue;
                 }
@@ -139,6 +197,16 @@ class CSVImportService
                     if (!$options['skipInvalid']) {
                         $this->errors[] = "Line {$lineNumber}: Invalid phone number format: {$phoneNumber}";
                     }
+
+                    // Add detailed error
+                    if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                        $this->detailedErrors[] = [
+                            'line' => $this->currentLine,
+                            'value' => $phoneNumber,
+                            'message' => "Format de numéro invalide"
+                        ];
+                    }
+
                     $lineNumber++;
                     continue;
                 }
@@ -149,24 +217,29 @@ class CSVImportService
                     if (!$options['skipInvalid']) {
                         $this->errors[] = "Line {$lineNumber}: Duplicate phone number: {$normalizedNumber}";
                     }
+
+                    // Add detailed error
+                    if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                        $this->detailedErrors[] = [
+                            'line' => $this->currentLine,
+                            'value' => $normalizedNumber,
+                            'message' => "Doublon détecté dans le fichier"
+                        ];
+                    }
+
                     $lineNumber++;
                     continue;
                 }
 
                 // Extract additional fields if columns are specified
                 $additionalFields = [
-                    'civility' => $options['civilityColumn'] >= 0 && isset($data[$options['civilityColumn']]) ?
-                        trim($data[$options['civilityColumn']]) : null,
-                    'firstName' => $options['firstNameColumn'] >= 0 && isset($data[$options['firstNameColumn']]) ?
-                        trim($data[$options['firstNameColumn']]) : null,
-                    'name' => $options['nameColumn'] >= 0 && isset($data[$options['nameColumn']]) ?
-                        trim($data[$options['nameColumn']]) : null,
-                    'company' => $options['companyColumn'] >= 0 && isset($data[$options['companyColumn']]) ?
-                        trim($data[$options['companyColumn']]) : null,
-                    'sector' => $options['sectorColumn'] >= 0 && isset($data[$options['sectorColumn']]) ?
-                        trim($data[$options['sectorColumn']]) : null,
-                    'notes' => $options['notesColumn'] >= 0 && isset($data[$options['notesColumn']]) ?
-                        trim($data[$options['notesColumn']]) : null
+                    'civility' => $this->getColumnValue($data, $options['civilityColumn'], $columnCount),
+                    'firstName' => $this->getColumnValue($data, $options['firstNameColumn'], $columnCount),
+                    'name' => $this->getColumnValue($data, $options['nameColumn'], $columnCount),
+                    'company' => $this->getColumnValue($data, $options['companyColumn'], $columnCount),
+                    'sector' => $this->getColumnValue($data, $options['sectorColumn'], $columnCount),
+                    'notes' => $this->getColumnValue($data, $options['notesColumn'], $columnCount),
+                    'email' => $this->getColumnValue($data, $options['emailColumn'], $columnCount)
                 ];
 
                 // Add to batch with additional fields
@@ -193,6 +266,15 @@ class CSVImportService
             fclose($handle);
         } catch (\Exception $e) {
             $this->errors[] = "Error processing CSV file: " . $e->getMessage();
+
+            // Add detailed error for exception
+            if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                $this->detailedErrors[] = [
+                    'line' => $this->currentLine,
+                    'value' => 'N/A',
+                    'message' => "Erreur système: " . $e->getMessage()
+                ];
+            }
         }
 
         return $this->getResults();
@@ -282,6 +364,23 @@ class CSVImportService
      * @param bool $segment Whether to segment the numbers immediately
      * @return void
      */
+    /**
+     * Helper method to safely get a value from a column
+     * 
+     * @param array $data Row data
+     * @param int $columnIndex Column index
+     * @param int $columnCount Total number of columns
+     * @return string|null Column value or null if not available
+     */
+    private function getColumnValue(array $data, int $columnIndex, int $columnCount): ?string
+    {
+        if ($columnIndex >= 0 && $columnIndex < $columnCount && isset($data[$columnIndex])) {
+            $value = trim($data[$columnIndex]);
+            return !empty($value) ? $value : null;
+        }
+        return null;
+    }
+
     private function processBatch(array $batch, bool $segment = true): void
     {
         // Store phone numbers in the database
@@ -304,6 +403,10 @@ class CSVImportService
                         $fields['sector'],
                         $fields['notes']
                     );
+
+                    // Note: Email field is collected but PhoneNumber model doesn't have email property
+                    // If needed in the future, extend the PhoneNumber model to include email
+
                     $this->phoneNumberRepository->save($phoneNumber);
 
                     // Segment the number if requested
@@ -313,6 +416,15 @@ class CSVImportService
                 } else {
                     // Number already exists, increment duplicates count
                     $this->stats['duplicates']++;
+
+                    // Add detailed error for duplicate
+                    if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                        $this->detailedErrors[] = [
+                            'line' => 'unknown', // Line number not available in batch context
+                            'value' => $number,
+                            'message' => "Numéro déjà existant dans la base de données"
+                        ];
+                    }
 
                     // Optionally update existing record with new information if provided
                     $updated = false;
@@ -353,6 +465,15 @@ class CSVImportService
                 $this->stats['processed']++;
             } catch (\Exception $e) {
                 $this->errors[] = "Error processing number {$item['number']}: " . $e->getMessage();
+
+                // Add detailed error for processing exception
+                if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                    $this->detailedErrors[] = [
+                        'line' => 'unknown', // Line number not available in batch context
+                        'value' => $item['number'],
+                        'message' => "Erreur de traitement: " . $e->getMessage()
+                    ];
+                }
             }
         }
     }
@@ -411,6 +532,8 @@ class CSVImportService
             'processed' => 0
         ];
         $this->errors = [];
+        $this->detailedErrors = [];
+        $this->currentLine = 0;
     }
 
     /**
@@ -423,7 +546,8 @@ class CSVImportService
         return [
             'status' => empty($this->errors) ? 'success' : 'error',
             'stats' => $this->stats,
-            'errors' => $this->errors
+            'errors' => $this->errors,
+            'detailedErrors' => $this->detailedErrors
         ];
     }
 }

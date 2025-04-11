@@ -5,7 +5,7 @@
     </q-card-section>
 
     <q-card-section>
-      <q-form @submit.prevent="onSubmit" class="q-gutter-md">
+      <q-form @submit.prevent="onSubmit" ref="formRef" class="q-gutter-md">
         <q-input
           v-model="singleSmsData.phoneNumber"
           label="Numéro de téléphone"
@@ -86,8 +86,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { useSMSTemplateStore } from '@/stores/smsTemplateStore'; // Adjust path as needed
+import type { QForm } from 'quasar';
 
 // Define Interfaces (Matching store definition)
 interface SmsTemplate {
@@ -121,6 +122,7 @@ const singleSmsData = ref({
   phoneNumber: "",
   message: "",
 });
+const formRef = ref<QForm | null>(null);
 
 // Template Logic
 const selectedTemplateId = ref<string | null>(null);
@@ -168,12 +170,25 @@ const onSubmit = () => {
 };
 
 // Function to reset the form (can be called by parent if needed)
-const reset = () => {
+const reset = async () => {
+    console.log('Reset called on SingleSmsForm');
+    
+    // 1. Réinitialiser les données
     singleSmsData.value = { phoneNumber: "", message: "" };
     selectedTemplateId.value = null;
     selectedTemplate.value = null;
     templateVariableValues.value = {};
-    // Reset Quasar form validation if needed (requires ref on q-form)
+    
+    // 2. Attendre le prochain cycle de rendu
+    await nextTick();
+    
+    // 3. Réinitialiser la validation
+    if (formRef.value) {
+        formRef.value.resetValidation();
+        console.log('Validation reset completed for SingleSmsForm');
+    } else {
+        console.warn('formRef not available during reset in SingleSmsForm');
+    }
 };
 
 // Expose the reset function if parent needs to call it

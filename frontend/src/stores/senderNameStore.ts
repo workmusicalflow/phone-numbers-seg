@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import notification from '../services/NotificationService';
 import { SenderName } from './userStore';
 
 // GraphQL queries and mutations
@@ -132,9 +131,11 @@ export const useSenderNameStore = defineStore('senderName', () => {
       }
       
       senderNames.value = result.data.senderNames;
+      return true;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la récupération des noms d\'expéditeur';
-      notification.error(error.value);
+      console.error(error.value);
+      return false;
     } finally {
       loading.value = false;
     }
@@ -165,7 +166,7 @@ export const useSenderNameStore = defineStore('senderName', () => {
       return result.data.senderNamesByUser;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la récupération des noms d'expéditeur pour l'utilisateur #${userId}`;
-      notification.error(error.value);
+      console.error(error.value);
       return [];
     } finally {
       loading.value = false;
@@ -198,7 +199,7 @@ export const useSenderNameStore = defineStore('senderName', () => {
       return result.data.senderName;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la récupération du nom d'expéditeur #${id}`;
-      notification.error(error.value);
+      console.error(error.value);
       return null;
     } finally {
       loading.value = false;
@@ -229,11 +230,10 @@ export const useSenderNameStore = defineStore('senderName', () => {
       
       const newSenderName = result.data.createSenderName;
       senderNames.value.push(newSenderName);
-      notification.success(`Le nom d'expéditeur "${name}" a été créé avec succès`);
       return newSenderName;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la création du nom d\'expéditeur';
-      notification.error(error.value);
+      console.error(error.value);
       return null;
     } finally {
       loading.value = false;
@@ -269,12 +269,10 @@ export const useSenderNameStore = defineStore('senderName', () => {
         senderNames.value[index] = updatedSenderName;
       }
       
-      const statusText = status === 'approved' ? 'approuvé' : status === 'rejected' ? 'rejeté' : 'en attente';
-      notification.success(`Le statut du nom d'expéditeur a été mis à jour à "${statusText}"`);
       return updatedSenderName;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la mise à jour du statut du nom d'expéditeur #${id}`;
-      notification.error(error.value);
+      console.error(error.value);
       return null;
     } finally {
       loading.value = false;
@@ -307,7 +305,6 @@ export const useSenderNameStore = defineStore('senderName', () => {
       
       if (success) {
         senderNames.value = senderNames.value.filter(senderName => senderName.id !== id);
-        notification.success(`Le nom d'expéditeur a été supprimé avec succès`);
       } else {
         throw new Error('La suppression a échoué');
       }
@@ -315,7 +312,7 @@ export const useSenderNameStore = defineStore('senderName', () => {
       return success;
     } catch (err) {
       error.value = err instanceof Error ? err.message : `Une erreur est survenue lors de la suppression du nom d'expéditeur #${id}`;
-      notification.error(error.value);
+      console.error(error.value);
       return false;
     } finally {
       loading.value = false;

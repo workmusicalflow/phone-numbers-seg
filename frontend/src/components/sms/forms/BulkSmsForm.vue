@@ -5,7 +5,7 @@
     </q-card-section>
 
     <q-card-section>
-      <q-form @submit.prevent="onSubmit" class="q-gutter-md">
+      <q-form @submit.prevent="onSubmit" ref="formRef" class="q-gutter-md">
         <q-input
           v-model="bulkSmsData.phoneNumbers"
           type="textarea"
@@ -43,8 +43,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
+import type { QForm } from 'quasar';
 
 // Define Props
 const props = defineProps<{
@@ -64,6 +65,7 @@ const bulkSmsData = ref({
   phoneNumbers: "", // Keep as raw string input
   message: "",
 });
+const formRef = ref<QForm | null>(null);
 
 // Submit Handler
 const onSubmit = () => {
@@ -85,9 +87,22 @@ const onSubmit = () => {
 };
 
 // Function to reset the form
-const reset = () => {
+const reset = async () => {
+    console.log('Reset called on BulkSmsForm');
+    
+    // 1. Réinitialiser les données
     bulkSmsData.value = { phoneNumbers: "", message: "" };
-    // Reset Quasar form validation if needed (requires ref on q-form)
+    
+    // 2. Attendre le prochain cycle de rendu
+    await nextTick();
+    
+    // 3. Réinitialiser la validation
+    if (formRef.value) {
+        formRef.value.resetValidation();
+        console.log('Validation reset completed for BulkSmsForm');
+    } else {
+        console.warn('formRef not available during reset in BulkSmsForm');
+    }
 };
 
 // Expose the reset function

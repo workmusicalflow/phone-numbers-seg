@@ -44,6 +44,11 @@ class PhoneController
     private BatchSegmentationService $batchSegmentationService;
 
     /**
+     * @var \App\Services\Formatters\BatchResultFormatterInterface
+     */
+    private \App\Services\Formatters\BatchResultFormatterInterface $resultFormatter;
+
+    /**
      * Constructor
      * 
      * @param PDO $db
@@ -57,12 +62,29 @@ class PhoneController
             $this->technicalSegmentRepository,
             $this->customSegmentRepository
         );
-        $this->phoneSegmentationService = new PhoneSegmentationService();
+
+        // Créer les dépendances nécessaires pour PhoneSegmentationService
+        $phoneNumberValidator = new \App\Services\Validators\PhoneNumberValidator($this->phoneNumberRepository);
+        $segmentationStrategyFactory = new \App\Services\Factories\SegmentationStrategyFactory();
+
+        // Instancier PhoneSegmentationService avec ses dépendances
+        $this->phoneSegmentationService = new PhoneSegmentationService(
+            $phoneNumberValidator,
+            $segmentationStrategyFactory
+        );
+
+        // Créer le formateur de résultats pour BatchSegmentationService
+        $batchResultFormatter = new \App\Services\Formatters\BatchResultFormatter();
+
         $this->batchSegmentationService = new BatchSegmentationService(
             $this->phoneSegmentationService,
             $this->phoneNumberRepository,
-            $this->technicalSegmentRepository
+            $this->technicalSegmentRepository,
+            $batchResultFormatter
         );
+
+        // Stocker le formateur pour l'utiliser dans les méthodes batchSegment et batchCreate
+        $this->resultFormatter = $batchResultFormatter;
     }
 
     /**
@@ -451,7 +473,7 @@ class PhoneController
         }
 
         $result = $this->batchSegmentationService->processPhoneNumbers($numbers);
-        return $this->batchSegmentationService->formatResults($result);
+        return $this->resultFormatter->formatResults($result);
     }
 
     /**
@@ -467,6 +489,6 @@ class PhoneController
         }
 
         $result = $this->batchSegmentationService->processAndSavePhoneNumbers($numbers);
-        return $this->batchSegmentationService->formatResults($result);
+        return $this->resultFormatter->formatResults($result);
     }
 }

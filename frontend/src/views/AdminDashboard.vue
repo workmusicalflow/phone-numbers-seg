@@ -262,7 +262,7 @@ const router = useRouter();
 const dashboardStore = useDashboardStore();
 const senderNameStore = useSenderNameStore();
 const smsOrderStore = useSMSOrderStore();
-const notification = useNotification();
+const { showSuccess, showError } = useNotification();
 
 // État local
 const pendingTab = ref('senderNames');
@@ -372,7 +372,7 @@ onMounted(async () => {
     initSMSChart();
   } catch (error) {
     console.error('Erreur lors du chargement des données du tableau de bord:', error);
-    notification.showError('Erreur lors du chargement des données du tableau de bord');
+    showError('Erreur lors du chargement des données du tableau de bord');
   }
 });
 
@@ -441,40 +441,52 @@ const getActivityColor = (type: string) => {
 
 const approveSenderName = async (id: number) => {
   try {
-    await senderNameStore.updateSenderNameStatus(id, 'approved');
-    notification.showSuccess('Nom d\'expéditeur approuvé avec succès');
+    const result = await senderNameStore.updateSenderNameStatus(id, 'approved');
+    if (result) {
+      showSuccess('Nom d\'expéditeur approuvé avec succès');
+    } else {
+      showError('Erreur lors de l\'approbation du nom d\'expéditeur');
+    }
 
     // Mettre à jour la liste des demandes en attente
     await dashboardStore.fetchPendingSenderNames();
   } catch (error) {
     console.error('Erreur lors de l\'approbation du nom d\'expéditeur:', error);
-    notification.showError('Erreur lors de l\'approbation du nom d\'expéditeur');
+    showError('Erreur lors de l\'approbation du nom d\'expéditeur');
   }
 };
 
 const rejectSenderName = async (id: number) => {
   try {
-    await senderNameStore.updateSenderNameStatus(id, 'rejected');
-    notification.showSuccess('Nom d\'expéditeur rejeté');
+    const result = await senderNameStore.updateSenderNameStatus(id, 'rejected');
+    if (result) {
+      showSuccess('Nom d\'expéditeur rejeté');
+    } else {
+      showError('Erreur lors du rejet du nom d\'expéditeur');
+    }
 
     // Mettre à jour la liste des demandes en attente
     await dashboardStore.fetchPendingSenderNames();
   } catch (error) {
     console.error('Erreur lors du rejet du nom d\'expéditeur:', error);
-    notification.showError('Erreur lors du rejet du nom d\'expéditeur');
+    showError('Erreur lors du rejet du nom d\'expéditeur');
   }
 };
 
 const completeOrder = async (id: number) => {
   try {
-    await smsOrderStore.updateSMSOrderStatus(id, 'completed');
-    notification.showSuccess('Commande complétée avec succès');
+    const result = await smsOrderStore.updateSMSOrderStatus(id, 'completed');
+    if (result) {
+      showSuccess('Commande complétée avec succès');
+    } else {
+      showError('Erreur lors de la complétion de la commande');
+    }
 
     // Mettre à jour la liste des commandes en attente
     await dashboardStore.fetchPendingOrders();
   } catch (error) {
     console.error('Erreur lors de la complétion de la commande:', error);
-    notification.showError('Erreur lors de la complétion de la commande');
+    showError('Erreur lors de la complétion de la commande');
   }
 };
 

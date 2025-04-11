@@ -146,8 +146,14 @@ Le projet est actuellement à environ **90%** de complétion. La plupart des fon
    - Solution prévue : augmentation de la couverture de tests dans la Phase 7.3
 
 3. **Documentation incomplète**
+
    - La documentation utilisateur n'est pas à jour avec les dernières fonctionnalités
    - Solution prévue : mise à jour complète dans la Phase 7.3
+
+4. **Problèmes d'interface utilisateur résolus**
+   - ✅ Erreur de type GraphQL dans userStore.ts (Int! vs ID!) - Résolu en modifiant les types et en convertissant les IDs en chaînes
+   - ✅ Séparation des préoccupations dans les stores et composants - Implémenté un service de notification propre et adapté les stores pour retourner des résultats clairs
+   - ✅ Messages de validation persistants après envoi de SMS - Résolu en utilisant `nextTick()` dans les méthodes de réinitialisation des formulaires pour assurer la séquence correcte des opérations
 
 ## Conclusion
 

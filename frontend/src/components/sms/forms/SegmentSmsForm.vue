@@ -5,7 +5,7 @@
     </q-card-section>
 
     <q-card-section>
-      <q-form @submit.prevent="onSubmit" class="q-gutter-md">
+      <q-form @submit.prevent="onSubmit" ref="formRef" class="q-gutter-md">
         <div class="q-mb-md">
           <div class="text-subtitle2 q-mb-sm">
             Sélectionnez un segment
@@ -71,8 +71,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
+import type { QForm } from 'quasar';
 
 // Define Segment type locally or import if available globally
 interface Segment {
@@ -102,6 +103,7 @@ const segmentSmsData = ref<{ segmentId: number | null; message: string }>({
   segmentId: null,
   message: "",
 });
+const formRef = ref<QForm | null>(null);
 
 // Submit Handler
 const onSubmit = () => {
@@ -116,9 +118,22 @@ const onSubmit = () => {
 };
 
 // Function to reset the form
-const reset = () => {
+const reset = async () => {
+    console.log('Reset called on SegmentSmsForm');
+    
+    // 1. Réinitialiser les données
     segmentSmsData.value = { segmentId: null, message: "" };
-    // Reset Quasar form validation if needed
+    
+    // 2. Attendre le prochain cycle de rendu
+    await nextTick();
+    
+    // 3. Réinitialiser la validation
+    if (formRef.value) {
+        formRef.value.resetValidation();
+        console.log('Validation reset completed for SegmentSmsForm');
+    } else {
+        console.warn('formRef not available during reset in SegmentSmsForm');
+    }
 };
 
 // Expose the reset function

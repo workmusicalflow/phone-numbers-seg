@@ -218,6 +218,41 @@ $definitions = [
         return new \App\Services\EmailService();
     }),
 
+    // Controllers
+    \App\Controllers\PhoneController::class => factory(function (Container $container) {
+        return new \App\Controllers\PhoneController($container->get(PDO::class));
+    }),
+
+    \App\Controllers\SMSController::class => factory(function (Container $container) {
+        return new \App\Controllers\SMSController(
+            $container->get(PDO::class),
+            $container->get(\App\Services\SMSService::class),
+            $container->get(\App\Repositories\PhoneNumberRepository::class),
+            $container->get(\App\Repositories\CustomSegmentRepository::class)
+        );
+    }),
+
+    \App\Controllers\ImportExportController::class => factory(function (Container $container) {
+        return new \App\Controllers\ImportExportController(
+            $container->get(\App\Services\CSVImportService::class),
+            $container->get(\App\Services\ExportService::class)
+        );
+    }),
+
+    // Services for ImportExportController
+    \App\Services\CSVImportService::class => factory(function (Container $container) {
+        return new \App\Services\CSVImportService(
+            $container->get(\App\Repositories\PhoneNumberRepository::class),
+            $container->get(\App\Services\Interfaces\PhoneSegmentationServiceInterface::class)
+        );
+    }),
+
+    \App\Services\ExportService::class => factory(function (Container $container) {
+        return new \App\Services\ExportService(
+            $container->get(\App\Repositories\PhoneNumberRepository::class)
+        );
+    }),
+
     // Services d'authentification
     \App\Services\Interfaces\AuthServiceInterface::class => factory(function (Container $container) {
         return new \App\Services\AuthService(

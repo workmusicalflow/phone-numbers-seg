@@ -33,26 +33,35 @@ class SMSController
      * Constructor
      * 
      * @param PDO $db
+     * @param SMSService $smsService
+     * @param PhoneNumberRepository|null $phoneNumberRepository
+     * @param CustomSegmentRepository|null $customSegmentRepository
      */
-    public function __construct(PDO $db)
-    {
-        // Initialize repositories
-        $this->customSegmentRepository = new CustomSegmentRepository($db);
-        $this->phoneNumberRepository = new PhoneNumberRepository(
-            $db,
-            null,
-            $this->customSegmentRepository
-        );
+    public function __construct(
+        PDO $db,
+        SMSService $smsService,
+        ?PhoneNumberRepository $phoneNumberRepository = null,
+        ?CustomSegmentRepository $customSegmentRepository = null
+    ) {
+        // Initialize repositories if not injected
+        if ($customSegmentRepository === null) {
+            $this->customSegmentRepository = new CustomSegmentRepository($db);
+        } else {
+            $this->customSegmentRepository = $customSegmentRepository;
+        }
 
-        // Initialize SMS service with Orange API credentials
-        $this->smsService = new SMSService(
-            'DGxbQKd9JHXLdFaWGtv0FfqFFI7Gu03a',  // Client ID
-            'S4ywfdZUjNvOXErMr5NyQwgliBCdXIAYp1DcibKThBXs',  // Client Secret
-            'tel:+2250595016840',  // Sender address
-            'Qualitas CI',  // Sender name
-            $this->phoneNumberRepository,
-            $this->customSegmentRepository
-        );
+        if ($phoneNumberRepository === null) {
+            $this->phoneNumberRepository = new PhoneNumberRepository(
+                $db,
+                null,
+                $this->customSegmentRepository
+            );
+        } else {
+            $this->phoneNumberRepository = $phoneNumberRepository;
+        }
+
+        // Use the injected SMS service
+        $this->smsService = $smsService;
     }
 
     /**

@@ -57,32 +57,25 @@ function jsonEncode($data)
     return $json;
 }
 
-// Connect to the database
-try {
-    $dbFile = APP_ROOT . '/src/database/database.sqlite';
-    if (!file_exists($dbFile)) {
-        throw new Exception('Database file not found. Please run the database initialization script first.');
-    }
-
-    $pdo = new PDO("sqlite:$dbFile");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (Exception $e) {
-    http_response_code(500);
-    echo jsonEncode(['error' => 'Database connection failed: ' . $e->getMessage()]);
-    exit;
+// Load environment variables from .env file if not already loaded
+if (!isset($_ENV['APP_ENV'])) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..'); // Specify the directory containing .env
+    $dotenv->load();
 }
 
-// Initialize the controllers
-$phoneController = new App\Controllers\PhoneController($pdo);
-$smsController = new App\Controllers\SMSController($pdo);
+// Create DI container
+try {
+    $container = new \App\GraphQL\DIContainer();
 
-// Initialize the import/export controller
-$phoneNumberRepository = new App\Repositories\PhoneNumberRepository($pdo);
-$segmentRepository = new App\Repositories\SegmentRepository($pdo);
-$phoneSegmentationService = new App\Services\PhoneSegmentationService();
-$csvImportService = new App\Services\CSVImportService($phoneNumberRepository, $phoneSegmentationService);
-$exportService = new App\Services\ExportService($phoneNumberRepository);
-$importExportController = new App\Controllers\ImportExportController($csvImportService, $exportService);
+    // Get controllers from container
+    $phoneController = $container->get(\App\Controllers\PhoneController::class);
+    $smsController = $container->get(\App\Controllers\SMSController::class);
+    $importExportController = $container->get(\App\Controllers\ImportExportController::class);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo jsonEncode(['error' => 'Container initialization failed: ' . $e->getMessage()]);
+    exit;
+}
 
 // Get the request method and endpoint
 $method = $_SERVER['REQUEST_METHOD'];
