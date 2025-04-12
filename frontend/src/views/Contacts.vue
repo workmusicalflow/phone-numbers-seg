@@ -1,6 +1,16 @@
 <template>
   <div class="contacts-container">
-    <h1 class="text-h4 q-mb-md">Gestion des Contacts</h1>
+    <div class="row items-center q-mb-md">
+      <h1 class="text-h4 q-my-none">Gestion des Contacts</h1>
+      <q-space />
+      <!-- Badge nombre de contacts -->
+      <ContactCountBadge
+        :count="contactsCount"
+        color="primary"
+        icon="contacts"
+        tooltipText="Nombre total de contacts disponibles."
+      />
+    </div>
 
     <!-- Barre d'outils -->
     <div class="row q-mb-md justify-between items-center">
@@ -35,7 +45,6 @@
       :columns="columns"
       row-key="id"
       :loading="contactStore.loading"
-      :pagination="pagination"
       @request="onRequest"
       :rows-per-page-options="[5, 10, 20, 50]"
       flat
@@ -235,6 +244,7 @@ import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useContactStore } from '../stores/contactStore';
 import { useContactGroupStore } from '../stores/contactGroupStore';
+import ContactCountBadge from '../components/common/ContactCountBadge.vue';
 
 // Router et Quasar
 const router = useRouter();
@@ -253,6 +263,12 @@ const deleting = ref(false);
 const currentPage = ref(1);
 const contactToDelete = ref<any>(null);
 const isEditing = ref(false);
+const contactsCount = ref(0);
+
+// Fonction pour rafraîchir le nombre de contacts
+const refreshContactsCount = async () => {
+  contactsCount.value = await contactStore.fetchContactsCount();
+};
 
 // Formulaire
 const contactForm = ref({
@@ -280,7 +296,7 @@ const columns = [
     name: 'name',
     required: true,
     label: 'Nom',
-    align: 'left' as 'left',
+    align: 'left' as const,
     field: (row: any) => `${row.firstName} ${row.lastName}`,
     sortable: true
   },
@@ -288,7 +304,7 @@ const columns = [
     name: 'phone',
     required: true,
     label: 'Téléphone',
-    align: 'left' as 'left',
+    align: 'left' as const,
     field: 'phoneNumber',
     sortable: true
   },
@@ -296,7 +312,7 @@ const columns = [
     name: 'email',
     required: false,
     label: 'Email',
-    align: 'left' as 'left',
+    align: 'left' as const,
     field: 'email',
     sortable: true
   },
@@ -304,7 +320,7 @@ const columns = [
     name: 'groups',
     required: false,
     label: 'Groupes',
-    align: 'left' as 'left',
+    align: 'left' as const,
     field: 'groups',
     sortable: false
   },
@@ -312,7 +328,7 @@ const columns = [
     name: 'actions',
     required: true,
     label: 'Actions',
-    align: 'right' as 'right',
+    align: 'right' as const,
     field: 'actions',
     sortable: false
   }
@@ -380,7 +396,7 @@ async function saveContact() {
       lastName: contactForm.value.lastName,
       phoneNumber: contactForm.value.phoneNumber,
       email: contactForm.value.email || null,
-      groups: contactForm.value.groups,
+      groups: contactForm.value.groups.map(id => id.toString()), // Convertir number[] en string[]
       notes: contactForm.value.notes || null
     };
 
@@ -402,6 +418,8 @@ async function saveContact() {
       });
     }
     contactDialog.value = false;
+    // Rafraîchir le nombre de contacts
+    refreshContactsCount();
   } catch (error) {
     console.error('Erreur lors de la sauvegarde du contact:', error);
     $q.notify({
@@ -433,6 +451,8 @@ async function deleteContact() {
       position: 'top'
     });
     deleteDialog.value = false;
+    // Rafraîchir le nombre de contacts
+    refreshContactsCount();
   } catch (error) {
     console.error('Erreur lors de la suppression du contact:', error);
     $q.notify({
@@ -460,6 +480,8 @@ function sendSMS(contact: any) {
 onMounted(async () => {
   await contactStore.fetchContacts();
   await contactGroupStore.fetchGroups();
+  // Récupérer le nombre de contacts
+  contactsCount.value = await contactStore.fetchContactsCount();
 });
 
 // Surveiller les changements de pagination

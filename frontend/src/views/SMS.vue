@@ -27,16 +27,12 @@
           </q-tooltip>
           
           <!-- Badge nombre de contacts -->
-          <q-chip
+          <ContactCountBadge
+            :count="contactsCount"
             color="primary"
-            text-color="white"
             icon="contacts"
-          >
-            {{ contactsCount }} contact{{ contactsCount !== 1 ? 's' : '' }}
-          </q-chip>
-          <q-tooltip>
-            Nombre total de contacts disponibles pour l'envoi de SMS.
-          </q-tooltip>
+            tooltipText="Nombre total de contacts disponibles pour l'envoi de SMS."
+          />
         </div>
       </div>
 
@@ -238,6 +234,7 @@ import SingleSmsForm from '@/components/sms/forms/SingleSmsForm.vue';
 import BulkSmsForm from '@/components/sms/forms/BulkSmsForm.vue';
 import SegmentSmsForm from '@/components/sms/forms/SegmentSmsForm.vue';
 import AllContactsSmsForm from '@/components/sms/forms/AllContactsSmsForm.vue';
+import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 
 // $q is no longer needed here
 // const $q = useQuasar();
