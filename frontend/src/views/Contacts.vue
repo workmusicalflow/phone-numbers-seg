@@ -125,12 +125,12 @@
 
     <!-- Pagination -->
     <div class="row justify-center q-mt-md">
-      <q-pagination
-        v-model="currentPage"
-        :max="totalPages"
-        direction-links
-        boundary-links
-        @update:model-value="onPageChange"
+      <BasePagination
+        :total-items="contactStore.totalCount"
+        :items-per-page="pagination.rowsPerPage"
+        :initial-page="currentPage"
+        @page-change="onPageChange"
+        @items-per-page-change="onItemsPerPageChange"
       />
     </div>
 
@@ -245,6 +245,7 @@ import { useQuasar } from 'quasar';
 import { useContactStore } from '../stores/contactStore';
 import { useContactGroupStore } from '../stores/contactGroupStore';
 import ContactCountBadge from '../components/common/ContactCountBadge.vue';
+import BasePagination from '../components/BasePagination.vue';
 
 // Router et Quasar
 const router = useRouter();
@@ -349,6 +350,14 @@ function onSearch(value: string) {
 function onPageChange(page: number) {
   currentPage.value = page;
   contactStore.setPage(page);
+}
+
+function onItemsPerPageChange(itemsPerPage: number) {
+  pagination.value.rowsPerPage = itemsPerPage;
+  contactStore.setItemsPerPage(itemsPerPage);
+  // Retourner à la première page lors du changement d'éléments par page
+  currentPage.value = 1;
+  contactStore.setPage(1);
 }
 
 function onRequest(props: any) {
