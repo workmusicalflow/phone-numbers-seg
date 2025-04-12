@@ -16,6 +16,13 @@ type Query {
   contact(id: ID!): Contact
   searchContacts(query: String!, limit: Int, offset: Int): [Contact!]!
   contactsCount: Int!
+
+  # Contact Group queries
+  contactGroups(limit: Int, offset: Int): [ContactGroup!]!
+  contactGroup(id: ID!): ContactGroup
+  contactGroupsCount: Int!
+  contactsInGroup(groupId: ID!, limit: Int, offset: Int): [Contact!]!
+  contactsInGroupCount(groupId: ID!): Int!
 }
 
 type Segment {
@@ -76,6 +83,17 @@ type Mutation {
     notes: String
   ): Contact!
   deleteContact(id: ID!): Boolean!
+
+  # Contact Group mutations
+  createContactGroup(name: String!, description: String): ContactGroup!
+  updateContactGroup(id: ID!, name: String, description: String): ContactGroup!
+  deleteContactGroup(id: ID!): Boolean!
+  addContactToGroup(contactId: ID!, groupId: ID!): ContactGroupMembership!
+  removeContactFromGroup(contactId: ID!, groupId: ID!): Boolean!
+  addContactsToGroup(
+    contactIds: [ID!]!
+    groupId: ID!
+  ): AddContactsToGroupResult!
 }
 
 type SMSHistory {
@@ -170,4 +188,38 @@ type Contact {
   notes: String
   createdAt: String!
   updatedAt: String!
+}
+
+# Type for Contact Groups
+type ContactGroup {
+  id: ID!
+  userId: ID!
+  name: String!
+  description: String
+  createdAt: String!
+  updatedAt: String!
+  contactCount: Int! # Added field for number of contacts
+}
+
+# Type for Contact Group Membership
+type ContactGroupMembership {
+  id: ID!
+  contact: Contact!
+  group: ContactGroup!
+  createdAt: String!
+}
+
+# Type for result of adding multiple contacts to a group
+type AddContactsToGroupResult {
+  status: String! # e.g., 'success', 'partial'
+  message: String!
+  successful: Int!
+  failed: Int!
+  memberships: [ContactGroupMembership!]! # Memberships successfully created
+  errors: [AddContactsToGroupError!] # Errors encountered
+}
+
+type AddContactsToGroupError {
+  contactId: ID!
+  message: String!
 }

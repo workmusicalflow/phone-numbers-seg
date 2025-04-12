@@ -67,6 +67,7 @@ use App\GraphQL\Resolvers\UserResolver;
 use App\GraphQL\Resolvers\ContactResolver;
 use App\GraphQL\Resolvers\SMSResolver;
 use App\GraphQL\Resolvers\AuthResolver;
+use App\GraphQL\Resolvers\ContactGroupResolver; // Import ContactGroupResolver
 use Psr\Log\LoggerInterface; // For logging
 
 // Enable CORS for GraphQL endpoint
@@ -132,6 +133,7 @@ try {
     $contactResolver = $container->get(ContactResolver::class);
     $smsResolver = $container->get(SMSResolver::class);
     $authResolver = $container->get(AuthResolver::class);
+    $contactGroupResolver = $container->get(ContactGroupResolver::class); // Instantiate ContactGroupResolver
     $logger->info('Resolver instances obtained from DI container.');
 
     // --- Field Resolver Mapping ---
@@ -142,6 +144,7 @@ try {
         $contactResolver,
         $smsResolver,
         $authResolver,
+        $contactGroupResolver, // Pass ContactGroupResolver to the closure
         $logger,
         $container
     ) {
@@ -172,6 +175,18 @@ try {
                     return $contactResolver->resolveSearchContacts($args, $context);
                 case 'contactsCount':
                     return $contactResolver->resolveContactsCount($args, $context);
+                    // Contact Group Queries
+                case 'contactGroups':
+                    return $contactGroupResolver->resolveContactGroups($args, $context);
+                case 'contactGroup':
+                    return $contactGroupResolver->resolveContactGroup($args, $context);
+                case 'contactGroupsCount':
+                    return $contactGroupResolver->resolveContactGroupsCount($args, $context);
+                case 'contactsInGroup':
+                    return $contactGroupResolver->resolveContactsInGroup($args, $context);
+                case 'contactsInGroupCount':
+                    return $contactGroupResolver->resolveContactsInGroupCount($args, $context);
+                    // End Contact Group Queries
                 case 'smsHistory':
                     return $smsResolver->resolveSmsHistory($args, $context);
                 case 'smsHistoryCount':
@@ -221,6 +236,20 @@ try {
                     return $contactResolver->mutateUpdateContact($args, $context);
                 case 'deleteContact':
                     return $contactResolver->mutateDeleteContact($args, $context);
+                    // Contact Group Mutations
+                case 'createContactGroup':
+                    return $contactGroupResolver->mutateCreateContactGroup($args, $context);
+                case 'updateContactGroup':
+                    return $contactGroupResolver->mutateUpdateContactGroup($args, $context);
+                case 'deleteContactGroup':
+                    return $contactGroupResolver->mutateDeleteContactGroup($args, $context);
+                case 'addContactToGroup':
+                    return $contactGroupResolver->mutateAddContactToGroup($args, $context);
+                case 'removeContactFromGroup':
+                    return $contactGroupResolver->mutateRemoveContactFromGroup($args, $context);
+                case 'addContactsToGroup':
+                    return $contactGroupResolver->mutateAddContactsToGroup($args, $context);
+                    // End Contact Group Mutations
                 case 'sendSms':
                     return $smsResolver->mutateSendSms($args, $context);
                 case 'sendBulkSms':

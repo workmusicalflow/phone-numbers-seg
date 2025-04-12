@@ -92,6 +92,13 @@
           <q-item-section>Contacts</q-item-section>
         </q-item>
 
+        <q-item clickable v-ripple to="/contact-groups">
+          <q-item-section avatar>
+            <q-icon name="group_work" />
+          </q-item-section>
+          <q-item-section>Groupes de contacts</q-item-section>
+        </q-item>
+
         <q-item clickable v-ripple to="/sms">
           <q-item-section avatar>
             <q-icon name="message" />
