@@ -6,8 +6,10 @@ use App\Models\User;
 use App\Models\Contact;
 use App\Models\SMSHistory;
 use App\Models\Segment;
-use App\Models\CustomSegment; // Assuming we might need specific segment types
-use App\Repositories\CustomSegmentRepository; // Needed for SMSHistory segment formatting
+use App\Models\CustomSegment;
+use App\Models\ContactGroup; // Add ContactGroup model
+use App\Models\ContactGroupMembership; // Add ContactGroupMembership model
+use App\Repositories\CustomSegmentRepository;
 use Psr\Log\LoggerInterface;
 use Exception;
 
@@ -127,6 +129,40 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
         }
 
         return $formattedSegment;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function formatContactGroup(ContactGroup $group, ?int $contactCount = null): array
+    {
+        $formattedGroup = [
+            'id' => $group->getId(),
+            'userId' => $group->getUserId(),
+            'name' => $group->getName(),
+            'description' => $group->getDescription(),
+            'createdAt' => $group->getCreatedAt(),
+            'updatedAt' => $group->getUpdatedAt(),
+        ];
+
+        if ($contactCount !== null) {
+            $formattedGroup['contactCount'] = $contactCount;
+        }
+
+        return $formattedGroup;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function formatContactGroupMembership(ContactGroupMembership $membership, Contact $contact, ContactGroup $group): array
+    {
+        return [
+            'id' => $membership->getId(),
+            'contact' => $this->formatContact($contact),
+            'group' => $this->formatContactGroup($group), // Reuse formatContactGroup
+            'createdAt' => $membership->getCreatedAt(),
+        ];
     }
 
     // Implement other format methods as needed...
