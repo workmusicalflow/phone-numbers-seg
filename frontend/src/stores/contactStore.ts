@@ -107,6 +107,10 @@ export const useContactStore = defineStore('contact', () => {
         notes
         createdAt
         updatedAt
+        groups {
+          id
+          name
+        }
       }
     }
   `;
@@ -135,12 +139,16 @@ export const useContactStore = defineStore('contact', () => {
         notes
         createdAt
         updatedAt
+        groups {
+          id
+          name
+        }
       }
     }
   `;
 
   const DELETE_CONTACT = gql`
-    mutation DeleteContact($id: Int!) {
+    mutation DeleteContact($id: ID!) {
       deleteContact(id: $id)
     }
   `;
@@ -155,6 +163,10 @@ export const useContactStore = defineStore('contact', () => {
         notes
         createdAt
         updatedAt
+        groups {
+          id
+          name
+        }
       }
     }
   `;
@@ -225,14 +237,15 @@ export const useContactStore = defineStore('contact', () => {
       });
 
       const newContact = response.data.createContact;
-      // Fetch groups separately or assume backend returns them if schema is updated
+      // Use groups returned by the mutation
+      const groups = newContact.groups ? newContact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
       const formattedContact: Contact = {
         id: newContact.id,
         name: newContact.name, // Use name directly
         phoneNumber: newContact.phoneNumber,
         email: newContact.email,
         notes: newContact.notes,
-        groups: [], // Groups might need fetching or be returned by mutation
+        groups: groups, // Use groups from the mutation response
         createdAt: newContact.createdAt,
         updatedAt: newContact.updatedAt
       };
@@ -273,14 +286,15 @@ export const useContactStore = defineStore('contact', () => {
       });
 
       const updatedContact = response.data.updateContact;
-      // Fetch groups separately or assume backend returns them
+      // Use groups returned by the mutation
+      const groups = updatedContact.groups ? updatedContact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
       const formattedContact: Contact = {
         id: updatedContact.id,
         name: updatedContact.name, // Use name directly
         phoneNumber: updatedContact.phoneNumber,
         email: updatedContact.email,
         notes: updatedContact.notes,
-        groups: existingContact.groups, // Keep existing groups for now, backend handles sync
+        groups: groups, // Use groups from the mutation response
         createdAt: updatedContact.createdAt,
         updatedAt: updatedContact.updatedAt
       };

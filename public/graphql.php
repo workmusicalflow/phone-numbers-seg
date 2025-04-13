@@ -186,6 +186,8 @@ try {
                     return $contactGroupResolver->resolveContactsInGroup($args, $context);
                 case 'contactsInGroupCount':
                     return $contactGroupResolver->resolveContactsInGroupCount($args, $context);
+                case 'groupsForContact':
+                    return $contactResolver->resolveGroupsForContact($args, $context);
                     // End Contact Group Queries
                 case 'smsHistory':
                     return $smsResolver->resolveSmsHistory($args, $context);

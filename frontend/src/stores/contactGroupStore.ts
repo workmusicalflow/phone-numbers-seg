@@ -28,8 +28,8 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
   // --- Getters ---
   const groupsForSelect = computed(() =>
     contactGroups.value.map((group) => ({
-      label: group.name,
-      value: group.id,
+      id: group.id,
+      name: group.name,
     })),
   );
 
