@@ -9,8 +9,7 @@ export interface Group {
 
 export interface Contact {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string; // Changed from firstName/lastName
   phoneNumber: string;
   email?: string | null;
   groups?: Group[];
@@ -19,8 +18,7 @@ export interface Contact {
 
 export interface ContactFormData {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string; // Changed from firstName/lastName
   phoneNumber: string;
   email: string;
   groups: (number | string)[];
@@ -28,8 +26,7 @@ export interface ContactFormData {
 }
 
 export interface ContactCreateData {
-  firstName: string;
-  lastName: string;
+  name: string; // Changed from firstName/lastName
   phoneNumber: string;
   email: string | null;
   groups: string[];

@@ -3,8 +3,12 @@
 namespace App\GraphQL\Resolvers;
 
 use App\Repositories\ContactRepository;
+// Removed duplicate use statement
+use App\Repositories\ContactGroupRepository; // Added
+use App\Repositories\ContactGroupMembershipRepository; // Added
 use App\Models\Contact;
 use App\Models\User;
+use App\Models\ContactGroupMembership; // Added
 use App\Services\Interfaces\AuthServiceInterface;
 use App\GraphQL\Formatters\GraphQLFormatterInterface; // Import Formatter interface
 use Exception;
@@ -13,17 +17,23 @@ use Psr\Log\LoggerInterface;
 class ContactResolver
 {
     private ContactRepository $contactRepository;
+    private ContactGroupRepository $groupRepository; // Added
+    private ContactGroupMembershipRepository $membershipRepository; // Added
     private AuthServiceInterface $authService;
     private GraphQLFormatterInterface $formatter; // Add Formatter property
     private LoggerInterface $logger;
 
     public function __construct(
         ContactRepository $contactRepository,
+        ContactGroupRepository $groupRepository, // Added
+        ContactGroupMembershipRepository $membershipRepository, // Added
         AuthServiceInterface $authService,
         GraphQLFormatterInterface $formatter, // Inject Formatter
         LoggerInterface $logger
     ) {
         $this->contactRepository = $contactRepository;
+        $this->groupRepository = $groupRepository; // Added
+        $this->membershipRepository = $membershipRepository; // Added
         $this->authService = $authService;
         $this->formatter = $formatter; // Assign Formatter
         $this->logger = $logger;
@@ -173,6 +183,8 @@ class ContactResolver
      *
      * @param array<string, mixed> $args Contains contact data ('name', 'phoneNumber', etc.)
      * @param mixed $context
+     * @param array<string, mixed> $args Contains contact data ('name', 'phoneNumber', 'groupIds', etc.)
+     * @param mixed $context
      * @return array<string, mixed>
      * @throws Exception
      */
@@ -180,6 +192,7 @@ class ContactResolver
     {
         $name = $args['name'] ?? '';
         $phoneNumber = $args['phoneNumber'] ?? '';
+        $groupIds = $args['groupIds'] ?? null; // Get group IDs
         $this->logger->info('Executing ContactResolver::mutateCreateContact for name: ' . $name);
 
         if (empty($name) || empty($phoneNumber)) {
@@ -209,12 +222,26 @@ class ContactResolver
             );
 
             // Save the contact using the repository
-            $savedContact = $this->contactRepository->create($contact); // Assuming 'create' returns the saved object with ID
-            $this->logger->info('Contact created successfully for user ' . $userId . ' with ID: ' . $savedContact->getId());
+            $savedContact = $this->contactRepository->create($contact);
+            $contactId = $savedContact->getId();
+            $this->logger->info('Contact created successfully for user ' . $userId . ' with ID: ' . $contactId);
 
-            return $this->formatter->formatContact($savedContact); // Use formatter
+            // Handle group memberships if groupIds are provided
+            if ($groupIds !== null && is_array($groupIds)) {
+                $this->updateContactMemberships($contactId, $groupIds, $userId);
+            }
+
+            // Refetch the contact to ensure all data is current after potential membership updates
+            $finalContact = $this->contactRepository->findById($contactId);
+            if (!$finalContact) {
+                $this->logger->error('Failed to refetch contact after creation with ID: ' . $contactId);
+                throw new Exception("Erreur lors de la récupération du contact après création.");
+            }
+
+            return $this->formatter->formatContact($finalContact); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::mutateCreateContact: ' . $e->getMessage(), ['exception' => $e]);
+            // Consider rolling back contact creation if membership fails? Requires transaction.
             throw $e;
         }
     }
@@ -224,12 +251,15 @@ class ContactResolver
      *
      * @param array<string, mixed> $args Contains 'id' and updated contact data
      * @param mixed $context
+     * @param array<string, mixed> $args Contains 'id', updated contact data, and 'groupIds'
+     * @param mixed $context
      * @return array<string, mixed>
      * @throws Exception
      */
     public function mutateUpdateContact(array $args, $context): array
     {
         $contactId = (int)($args['id'] ?? 0);
+        $groupIds = $args['groupIds'] ?? null; // Get group IDs
         $this->logger->info('Executing ContactResolver::mutateUpdateContact for ID: ' . $contactId);
 
         if ($contactId <= 0) {
@@ -275,12 +305,26 @@ class ContactResolver
 
 
             // Save the updated contact
-            $savedContact = $this->contactRepository->update($updatedContact); // Assuming 'update' returns the saved object
+            $savedContact = $this->contactRepository->update($updatedContact);
             $this->logger->info('Contact updated successfully for ID: ' . $contactId);
 
-            return $this->formatter->formatContact($savedContact); // Use formatter
+            // Handle group memberships if groupIds are provided
+            // If groupIds is null, memberships are not changed by this mutation call
+            if ($groupIds !== null && is_array($groupIds)) {
+                $this->updateContactMemberships($contactId, $groupIds, $userId);
+            }
+
+            // Refetch the contact to ensure all data is current
+            $finalContact = $this->contactRepository->findById($contactId);
+            if (!$finalContact) {
+                $this->logger->error('Failed to refetch contact after update with ID: ' . $contactId);
+                throw new Exception("Erreur lors de la récupération du contact après mise à jour.");
+            }
+
+            return $this->formatter->formatContact($finalContact); // Use formatter
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::mutateUpdateContact: ' . $e->getMessage(), ['exception' => $e]);
+            // Consider transaction for contact update + membership changes
             throw $e;
         }
     }
@@ -344,7 +388,65 @@ class ContactResolver
     }
 
 
-    // --- Helper Methods (Removed formatContact) ---
+    // --- Helper Methods ---
+
+    /**
+     * Synchronizes the contact's group memberships based on the provided group IDs.
+     *
+     * @param int $contactId The ID of the contact.
+     * @param array<int|string> $newGroupIds Array of group IDs the contact should belong to.
+     * @param int $userId The ID of the current user for authorization checks.
+     * @throws Exception If group validation fails.
+     */
+    private function updateContactMemberships(int $contactId, array $newGroupIds, int $userId): void
+    {
+        $this->logger->info('Updating memberships for contact ID: ' . $contactId);
+        $newGroupIds = array_map('intval', $newGroupIds); // Ensure integer IDs
+
+        // Fetch current memberships
+        $currentMemberships = $this->membershipRepository->findByContactId($contactId);
+        $currentGroupIds = array_map(fn($m) => $m->getGroupId(), $currentMemberships);
+
+        // Calculate differences
+        $idsToAdd = array_diff($newGroupIds, $currentGroupIds);
+        $idsToRemove = array_diff($currentGroupIds, $newGroupIds);
+
+        // Remove old memberships
+        if (!empty($idsToRemove)) {
+            $this->logger->debug('Removing contact ' . $contactId . ' from groups: ' . implode(', ', $idsToRemove));
+            foreach ($idsToRemove as $groupIdToRemove) {
+                try {
+                    $this->membershipRepository->deleteByContactAndGroup($contactId, $groupIdToRemove);
+                } catch (Exception $e) {
+                    $this->logger->error('Failed to remove contact ' . $contactId . ' from group ' . $groupIdToRemove, ['exception' => $e]);
+                    // Decide if this should halt the process or just log
+                }
+            }
+        }
+
+        // Add new memberships
+        if (!empty($idsToAdd)) {
+            $this->logger->debug('Adding contact ' . $contactId . ' to groups: ' . implode(', ', $idsToAdd));
+            foreach ($idsToAdd as $groupIdToAdd) {
+                try {
+                    // Verify the group belongs to the current user before adding
+                    $group = $this->groupRepository->findById($groupIdToAdd);
+                    if (!$group || $group->getUserId() !== $userId) {
+                        $this->logger->warning('User ' . $userId . ' attempted to add contact ' . $contactId . ' to unauthorized group ' . $groupIdToAdd);
+                        continue; // Skip adding to this group
+                    }
+
+                    $membership = new ContactGroupMembership(0, $contactId, $groupIdToAdd);
+                    $this->membershipRepository->create($membership);
+                } catch (Exception $e) {
+                    // Catch potential duplicate entry errors if not handled by DB/repo create method
+                    $this->logger->error('Failed to add contact ' . $contactId . ' to group ' . $groupIdToAdd, ['exception' => $e]);
+                    // Decide if this should halt the process or just log
+                }
+            }
+        }
+        $this->logger->info('Finished updating memberships for contact ID: ' . $contactId);
+    } // Added missing closing brace for the helper method
 
     /**
      * Resolver for the 'contactsCount' query.
@@ -375,6 +477,132 @@ class ContactResolver
             return $count;
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::resolveContactsCount: ' . $e->getMessage(), ['exception' => $e]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Field resolver for the 'groups' field of the Contact type.
+     * Fetches the groups a contact belongs to.
+     *
+     * @param array<string, mixed> $contact The contact object
+     * @param array<string, mixed> $args Arguments for the field
+     * @param mixed $context Context object
+     * @return array<int, array<string, mixed>>
+     * @throws Exception
+     */
+    public function resolveContactGroups(array $contact, array $args, $context): array
+    {
+        $contactId = (int)($contact['id'] ?? 0);
+        $this->logger->info('Executing ContactResolver::resolveContactGroups for contact ID: ' . $contactId);
+
+        if ($contactId <= 0) {
+            $this->logger->warning('Invalid contact ID in resolveContactGroups.');
+            return [];
+        }
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveContactGroups.');
+                throw new Exception("User not authenticated");
+            }
+            $userId = $currentUser->getId();
+            // --- End Authentication Handling ---
+
+            // Verify the contact belongs to the current user
+            $contactObj = $this->contactRepository->findById($contactId);
+            if (!$contactObj || $contactObj->getUserId() !== $userId) {
+                $this->logger->warning('User ' . $userId . ' attempted to access groups for contact ' . $contactId . ' that does not belong to them.');
+                return []; // Return empty array for security
+            }
+
+            // Fetch memberships
+            $memberships = $this->membershipRepository->findByContactId($contactId);
+            $groupIds = array_map(fn($m) => $m->getGroupId(), $memberships);
+
+            if (empty($groupIds)) {
+                return [];
+            }
+
+            // Fetch group details
+            $groups = $this->groupRepository->findByIds($groupIds, $userId);
+
+            // Format the groups
+            $result = [];
+            foreach ($groups as $group) {
+                $contactCount = count($this->groupRepository->getContactsInGroup($group->getId(), 1000, 0));
+                $result[] = $this->formatter->formatContactGroup($group, $contactCount);
+            }
+
+            $this->logger->info('Found ' . count($result) . ' groups for contact ' . $contactId);
+            return $result;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveContactGroups: ' . $e->getMessage(), ['exception' => $e]);
+            return []; // Return empty array on error for field resolver
+        }
+    }
+
+    /**
+     * Resolver for the 'groupsForContact' query.
+     * Fetches the groups a specific contact belongs to.
+     *
+     * @param array<string, mixed> $args Contains 'contactId'
+     * @param mixed $context
+     * @return array<int, array<string, mixed>>
+     * @throws Exception
+     */
+    public function resolveGroupsForContact(array $args, $context): array
+    {
+        $contactId = (int)($args['contactId'] ?? 0);
+        $this->logger->info('Executing ContactResolver::resolveGroupsForContact for contact ID: ' . $contactId);
+
+        if ($contactId <= 0) {
+            $this->logger->warning('Invalid contact ID provided for resolveGroupsForContact.', ['args' => $args]);
+            return [];
+        }
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveGroupsForContact.');
+                throw new Exception("User not authenticated");
+            }
+            $userId = $currentUser->getId();
+            // --- End Authentication Handling ---
+
+            // Verify the contact belongs to the current user
+            $contact = $this->contactRepository->findById($contactId);
+            if (!$contact || $contact->getUserId() !== $userId) {
+                $this->logger->warning('User ' . $userId . ' attempted to access groups for contact ' . $contactId . ' that does not belong to them.');
+                return []; // Return empty array for security
+            }
+
+            // Fetch memberships
+            $memberships = $this->membershipRepository->findByContactId($contactId);
+            $groupIds = array_map(fn($m) => $m->getGroupId(), $memberships);
+
+            if (empty($groupIds)) {
+                return [];
+            }
+
+            // Fetch group details (ensure groups also belong to the user for consistency, though membership implies this)
+            $groups = $this->groupRepository->findByIds($groupIds, $userId); // Assuming findByIds method exists and checks user ID
+
+            // Format the groups
+            $result = [];
+            foreach ($groups as $group) {
+                // Fetch contact count for each group - might be inefficient, consider optimizing if needed
+                $contactCount = count($this->groupRepository->getContactsInGroup($group->getId(), 1000, 0));
+                $result[] = $this->formatter->formatContactGroup($group, $contactCount);
+            }
+
+            $this->logger->info('Found ' . count($result) . ' groups for contact ' . $contactId);
+            return $result;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveGroupsForContact: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
         }
     }

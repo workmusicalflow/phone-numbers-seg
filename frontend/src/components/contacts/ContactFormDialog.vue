@@ -9,24 +9,12 @@
 
       <q-card-section>
         <q-form @submit="onSubmit" class="q-gutter-md">
-          <div class="row q-col-gutter-md">
-            <div class="col-12 col-md-6">
-              <q-input
-                v-model="form.firstName"
-                label="Prénom *"
-                outlined
-                :rules="[val => !!val || 'Le prénom est obligatoire']"
-              />
-            </div>
-            <div class="col-12 col-md-6">
-              <q-input
-                v-model="form.lastName"
-                label="Nom *"
-                outlined
-                :rules="[val => !!val || 'Le nom est obligatoire']"
-              />
-            </div>
-          </div>
+           <q-input
+             v-model="form.name"
+             label="Nom complet *"
+             outlined
+             :rules="[val => !!val || 'Le nom est obligatoire']"
+           />
 
           <q-input
             v-model="form.phoneNumber"
@@ -80,8 +68,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Contact, ContactFormData, Group } from '../../types/contact';
+import { useContactStore } from '../../stores/contactStore';
+
+const contactStore = useContactStore();
 
 const props = defineProps<{
   modelValue: boolean;
@@ -102,8 +93,7 @@ const isEditing = computed(() => !!props.contact);
 // Formulaire
 const form = ref<ContactFormData>({
   id: '',
-  firstName: '',
-  lastName: '',
+  name: '', // Changed from firstName/lastName
   phoneNumber: '',
   email: '',
   groups: [],
@@ -119,23 +109,33 @@ const dialogModel = computed({
 // Surveiller les changements de contact pour mettre à jour le formulaire
 watch(
   () => props.contact,
-  (newContact) => {
+  async (newContact) => {
     if (newContact) {
+      // Initialize form with contact data
       form.value = {
         id: newContact.id,
-        firstName: newContact.firstName,
-        lastName: newContact.lastName,
+        name: newContact.name,
         phoneNumber: newContact.phoneNumber,
         email: newContact.email || '',
-        groups: newContact.groups?.map(g => g.id) || [],
+        groups: [], // Will be populated after fetching groups
         notes: newContact.notes || ''
       };
+      
+      // Fetch the contact's groups to ensure we have the latest data
+      try {
+        const contactGroups = await contactStore.fetchGroupsForContact(newContact.id);
+        // Update form with fetched groups
+        form.value.groups = contactGroups.map(g => g.id);
+      } catch (error) {
+        console.error('Error fetching contact groups:', error);
+        // Fallback to groups from the contact object if fetch fails
+        form.value.groups = newContact.groups?.map(g => g.id) || [];
+      }
     } else {
       // Réinitialiser le formulaire pour un nouveau contact
       form.value = {
         id: '',
-        firstName: '',
-        lastName: '',
+        name: '', // Changed from firstName/lastName
         phoneNumber: '',
         email: '',
         groups: [],

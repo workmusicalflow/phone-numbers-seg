@@ -81,6 +81,18 @@ $definitions = [
         return new \App\Repositories\TechnicalSegmentRepository($container->get(PDO::class));
     }),
 
+    // Contact and Group Repositories
+    \App\Repositories\ContactRepository::class => factory(function (Container $container) {
+        return new \App\Repositories\ContactRepository($container->get(PDO::class));
+    }),
+    \App\Repositories\ContactGroupRepository::class => factory(function (Container $container) {
+        return new \App\Repositories\ContactGroupRepository($container->get(PDO::class));
+    }),
+    \App\Repositories\ContactGroupMembershipRepository::class => factory(function (Container $container) {
+        return new \App\Repositories\ContactGroupMembershipRepository($container->get(PDO::class));
+    }),
+
+
     // Observateurs
     SMSHistoryObserver::class => factory(function (Container $container) {
         return new SMSHistoryObserver(

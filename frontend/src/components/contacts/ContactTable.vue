@@ -17,7 +17,7 @@
       <template v-slot:body="props">
         <q-tr :props="props">
           <q-td key="name" :props="props">
-            {{ props.row.firstName }} {{ props.row.lastName }}
+            {{ props.row.name }}
           </q-td>
           <q-td key="phone" :props="props">
             {{ props.row.phoneNumber }}
@@ -96,7 +96,7 @@ const columns = [
     required: true,
     label: 'Nom',
     align: 'left' as const,
-    field: (row: Contact) => `${row.firstName} ${row.lastName}`,
+    field: 'name', // Use name field directly
     sortable: true
   },
   {

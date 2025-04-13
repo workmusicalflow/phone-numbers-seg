@@ -46,7 +46,7 @@
     <ContactFormDialog
       v-model="contactDialog"
       :contact="selectedContact"
-      :groups="contactGroupStore.groups"
+      :groups="contactGroupStore.groupsForSelect" 
       :loading="saving"
       @save="saveContact"
       @cancel="contactDialog = false"
@@ -154,9 +154,9 @@ function openContactDialog(contact?: Contact) {
 async function saveContact(formData: ContactFormData) {
   saving.value = true;
   try {
+    // Prepare data using the 'name' field
     const contactData: ContactCreateData = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
+      name: formData.name, // Use name field
       phoneNumber: formData.phoneNumber,
       email: formData.email || null,
       groups: formData.groups.map(id => String(id)), // Convertir en string[]
@@ -234,9 +234,9 @@ async function deleteContact() {
 function sendSMS(contact: Contact) {
   router.push({
     path: '/sms',
-    query: { 
+    query: {
       recipient: contact.phoneNumber,
-      name: `${contact.firstName} ${contact.lastName}`
+      name: contact.name // Use name field
     }
   });
 }
@@ -244,7 +244,7 @@ function sendSMS(contact: Contact) {
 // Cycle de vie
 onMounted(async () => {
   await contactStore.fetchContacts();
-  await contactGroupStore.fetchGroups();
+  await contactGroupStore.fetchContactGroups(); // Corrected function name
   // Récupérer le nombre de contacts
   contactsCount.value = await contactStore.fetchContactsCount();
 });

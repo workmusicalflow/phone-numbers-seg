@@ -23,6 +23,7 @@ type Query {
   contactGroupsCount: Int!
   contactsInGroup(groupId: ID!, limit: Int, offset: Int): [Contact!]!
   contactsInGroupCount(groupId: ID!): Int!
+  groupsForContact(contactId: ID!): [ContactGroup!]! # Query to get groups for a contact
 }
 
 type Segment {
@@ -74,6 +75,7 @@ type Mutation {
     phoneNumber: String!
     email: String
     notes: String
+    groupIds: [ID!] # Add group IDs argument
   ): Contact!
   updateContact(
     id: ID!
@@ -81,6 +83,7 @@ type Mutation {
     phoneNumber: String!
     email: String
     notes: String
+    groupIds: [ID!] # Add group IDs argument
   ): Contact!
   deleteContact(id: ID!): Boolean!
 
@@ -188,6 +191,7 @@ type Contact {
   notes: String
   createdAt: String!
   updatedAt: String!
+  groups: [ContactGroup!] # Added field for contact groups
 }
 
 # Type for Contact Groups

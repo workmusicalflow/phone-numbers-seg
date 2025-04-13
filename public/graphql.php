@@ -264,6 +264,12 @@ try {
             }
         }
 
+        // Handle nested field resolvers for specific types
+        if ($parentTypeName === 'Contact' && $fieldName === 'groups') {
+            $logger->debug("Resolving Contact.groups field");
+            return $contactResolver->resolveContactGroups($source, $args, $context);
+        }
+
         // If not a top-level Query or Mutation field handled above,
         // use the default field resolver (handles properties/getters on objects).
         $logger->debug("Falling back to default resolver for {$parentTypeName}.{$fieldName}");

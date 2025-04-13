@@ -4,8 +4,7 @@ import { apolloClient, gql } from '../services/api';
 
 interface Contact {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string; // Use name
   phoneNumber: string;
   email: string | null;
   notes: string | null;
@@ -20,8 +19,7 @@ interface ContactGroup {
 }
 
 interface ContactCreateData {
-  firstName: string;
-  lastName: string;
+  name: string; // Changed from firstName/lastName
   phoneNumber: string;
   email: string | null;
   notes: string | null;
@@ -46,8 +44,7 @@ export const useContactStore = defineStore('contact', () => {
     
     const term = searchTerm.value.toLowerCase();
     return contacts.value.filter(contact => 
-      contact.firstName.toLowerCase().includes(term) ||
-      contact.lastName.toLowerCase().includes(term) ||
+      contact.name.toLowerCase().includes(term) ||
       contact.phoneNumber.includes(term) ||
       (contact.email && contact.email.toLowerCase().includes(term))
     );
@@ -74,6 +71,10 @@ export const useContactStore = defineStore('contact', () => {
         notes
         createdAt
         updatedAt
+        groups { # Fetch groups for the contact
+          id
+          name
+        }
       }
     }
   `;
@@ -85,8 +86,20 @@ export const useContactStore = defineStore('contact', () => {
   `;
 
   const CREATE_CONTACT = gql`
-    mutation CreateContact($name: String!, $phoneNumber: String!, $email: String, $notes: String) {
-      createContact(name: $name, phoneNumber: $phoneNumber, email: $email, notes: $notes) {
+    mutation CreateContact(
+      $name: String!
+      $phoneNumber: String!
+      $email: String
+      $notes: String
+      $groupIds: [ID!] # Added groupIds variable
+    ) {
+      createContact(
+        name: $name
+        phoneNumber: $phoneNumber
+        email: $email
+        notes: $notes
+        groupIds: $groupIds # Added groupIds argument
+      ) {
         id
         name
         phoneNumber
@@ -99,8 +112,22 @@ export const useContactStore = defineStore('contact', () => {
   `;
 
   const UPDATE_CONTACT = gql`
-    mutation UpdateContact($id: Int!, $name: String!, $phoneNumber: String!, $email: String, $notes: String) {
-      updateContact(id: $id, name: $name, phoneNumber: $phoneNumber, email: $email, notes: $notes) {
+    mutation UpdateContact(
+      $id: ID! # Changed from Int! to ID!
+      $name: String!
+      $phoneNumber: String!
+      $email: String
+      $notes: String
+      $groupIds: [ID!] # Added groupIds variable
+    ) {
+      updateContact(
+        id: $id
+        name: $name
+        phoneNumber: $phoneNumber
+        email: $email
+        notes: $notes
+        groupIds: $groupIds # Added groupIds argument
+      ) {
         id
         name
         phoneNumber
@@ -132,6 +159,16 @@ export const useContactStore = defineStore('contact', () => {
     }
   `;
 
+  // Query to fetch groups for a specific contact
+  const FETCH_CONTACT_GROUPS = gql`
+    query GetGroupsForContact($contactId: ID!) {
+      groupsForContact(contactId: $contactId) {
+        id
+        name
+      }
+    }
+  `;
+
   // Actions
   async function fetchContacts() {
     loading.value = true;
@@ -147,16 +184,16 @@ export const useContactStore = defineStore('contact', () => {
       });
       
       // Transformer les contacts pour correspondre à l'interface Contact
-      contacts.value = response.data.contacts.map((contact: any) => {
-        const [firstName, lastName] = contact.name.split(' ');
+      contacts.value = response.data.contacts.map((contact: any): Contact => {
+        // Map groups directly if they are fetched
+        const groups = contact.groups ? contact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
         return {
           id: contact.id,
-          firstName: firstName || '',
-          lastName: lastName || '',
+          name: contact.name, // Use name directly
           phoneNumber: contact.phoneNumber,
           email: contact.email,
           notes: contact.notes,
-          groups: [],
+          groups: groups, // Assign fetched groups
           createdAt: contact.createdAt,
           updatedAt: contact.updatedAt
         };
@@ -179,24 +216,23 @@ export const useContactStore = defineStore('contact', () => {
       const response = await apolloClient.mutate({
         mutation: CREATE_CONTACT,
         variables: {
-          name: `${contactData.firstName} ${contactData.lastName}`.trim(),
+          name: contactData.name, // Use name directly
           phoneNumber: contactData.phoneNumber,
           email: contactData.email,
-          notes: contactData.notes
+          notes: contactData.notes,
+          groupIds: contactData.groups // Pass group IDs
         }
       });
-      
+
       const newContact = response.data.createContact;
-      const [firstName, lastName] = newContact.name.split(' ');
-      
-      const formattedContact = {
+      // Fetch groups separately or assume backend returns them if schema is updated
+      const formattedContact: Contact = {
         id: newContact.id,
-        firstName: firstName || '',
-        lastName: lastName || '',
+        name: newContact.name, // Use name directly
         phoneNumber: newContact.phoneNumber,
         email: newContact.email,
         notes: newContact.notes,
-        groups: [],
+        groups: [], // Groups might need fetching or be returned by mutation
         createdAt: newContact.createdAt,
         updatedAt: newContact.updatedAt
       };
@@ -227,25 +263,24 @@ export const useContactStore = defineStore('contact', () => {
       const response = await apolloClient.mutate({
         mutation: UPDATE_CONTACT,
         variables: {
-          id: parseInt(id),
-          name: `${contactData.firstName || existingContact.firstName} ${contactData.lastName || existingContact.lastName}`.trim(),
+          id: id, // Pass ID as string (GraphQL ID type)
+          name: contactData.name || existingContact.name, // Use name directly
           phoneNumber: contactData.phoneNumber || existingContact.phoneNumber,
           email: contactData.email !== undefined ? contactData.email : existingContact.email,
-          notes: contactData.notes !== undefined ? contactData.notes : existingContact.notes
+          notes: contactData.notes !== undefined ? contactData.notes : existingContact.notes,
+          groupIds: contactData.groups // Pass group IDs
         }
       });
-      
+
       const updatedContact = response.data.updateContact;
-      const [firstName, lastName] = updatedContact.name.split(' ');
-      
-      const formattedContact = {
+      // Fetch groups separately or assume backend returns them
+      const formattedContact: Contact = {
         id: updatedContact.id,
-        firstName: firstName || '',
-        lastName: lastName || '',
+        name: updatedContact.name, // Use name directly
         phoneNumber: updatedContact.phoneNumber,
         email: updatedContact.email,
         notes: updatedContact.notes,
-        groups: existingContact.groups,
+        groups: existingContact.groups, // Keep existing groups for now, backend handles sync
         createdAt: updatedContact.createdAt,
         updatedAt: updatedContact.updatedAt
       };
@@ -273,7 +308,7 @@ export const useContactStore = defineStore('contact', () => {
       await apolloClient.mutate({
         mutation: DELETE_CONTACT,
         variables: {
-          id: parseInt(id)
+          id: id // Pass ID as string (GraphQL ID type)
         }
       });
       
@@ -307,16 +342,16 @@ export const useContactStore = defineStore('contact', () => {
         });
         
         // Transformer les contacts pour correspondre à l'interface Contact
-        contacts.value = response.data.searchContacts.map((contact: any) => {
-          const [firstName, lastName] = contact.name.split(' ');
+        contacts.value = response.data.searchContacts.map((contact: any): Contact => {
+           // Map groups directly if they are fetched (assuming search might return groups too)
+           const groups = contact.groups ? contact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
           return {
             id: contact.id,
-            firstName: firstName || '',
-            lastName: lastName || '',
+            name: contact.name, // Use name directly
             phoneNumber: contact.phoneNumber,
             email: contact.email,
             notes: contact.notes,
-            groups: [],
+            groups: groups, // Assign fetched groups
             createdAt: contact.createdAt,
             updatedAt: contact.updatedAt
           };
@@ -362,6 +397,41 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
+  // Fetch groups for a specific contact
+  async function fetchGroupsForContact(contactId: string) {
+    loading.value = true;
+    error.value = null;
+    
+    try {
+      const response = await apolloClient.query({
+        query: FETCH_CONTACT_GROUPS,
+        variables: {
+          contactId
+        },
+        fetchPolicy: 'network-only' // Force a network request to get the latest data
+      });
+      
+      const groups = response.data.groupsForContact.map((group: any) => ({
+        id: group.id,
+        name: group.name
+      }));
+      
+      // Update the contact in the store with the fetched groups
+      const contactIndex = contacts.value.findIndex(c => c.id === contactId);
+      if (contactIndex !== -1) {
+        contacts.value[contactIndex].groups = groups;
+      }
+      
+      return groups;
+    } catch (err: any) {
+      console.error('Erreur lors de la récupération des groupes du contact:', err);
+      error.value = err.message || 'Erreur lors de la récupération des groupes du contact';
+      return [];
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     contacts,
     loading,
@@ -378,6 +448,7 @@ export const useContactStore = defineStore('contact', () => {
     updateContact,
     deleteContact,
     searchContacts,
+    fetchGroupsForContact, // Add the new function
     setPage,
     setItemsPerPage
   };
