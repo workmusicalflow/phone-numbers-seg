@@ -31,9 +31,9 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findByUsername(string $username): ?User
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('u')
-            ->from($this->entityClass, 'u')
+            ->from(User::class, 'u')
             ->where('u.username = :username')
             ->setParameter('username', $username)
             ->setMaxResults(1);
@@ -50,9 +50,9 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findByEmail(string $email): ?User
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('u')
-            ->from($this->entityClass, 'u')
+            ->from(User::class, 'u')
             ->where('u.email = :email')
             ->setParameter('email', $email)
             ->setMaxResults(1);
@@ -73,9 +73,9 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
             return [];
         }
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('u')
-            ->from($this->entityClass, 'u')
+            ->from(User::class, 'u')
             ->where('u.id IN (:ids)')
             ->setParameter('ids', $ids);
 
@@ -148,9 +148,9 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findByApiKey(string $apiKey): ?User
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('u')
-            ->from($this->entityClass, 'u')
+            ->from(User::class, 'u')
             ->where('u.apiKey = :apiKey')
             ->setParameter('apiKey', $apiKey)
             ->setMaxResults(1);
@@ -167,9 +167,9 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
      */
     public function findByResetToken(string $resetToken): ?User
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('u')
-            ->from($this->entityClass, 'u')
+            ->from(User::class, 'u')
             ->where('u.resetToken = :resetToken')
             ->setParameter('resetToken', $resetToken)
             ->setMaxResults(1);

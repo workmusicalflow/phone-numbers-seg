@@ -34,9 +34,9 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
      */
     public function findByUserId(int $userId, ?int $limit = null, ?int $offset = null): array
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('g')
-            ->from($this->entityClass, 'g')
+            ->from(ContactGroup::class, 'g')
             ->where('g.userId = :userId')
             ->setParameter('userId', $userId)
             ->orderBy('g.name', 'ASC');
@@ -65,9 +65,9 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
             return [];
         }
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('g')
-            ->from($this->entityClass, 'g')
+            ->from(ContactGroup::class, 'g')
             ->where('g.id IN (:ids)')
             ->andWhere('g.userId = :userId')
             ->setParameter('ids', $ids)
@@ -91,9 +91,9 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
         $searchFields = $fields ?? ['name', 'description'];
         $searchTerm = "%$query%";
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('g')
-            ->from($this->entityClass, 'g')
+            ->from(ContactGroup::class, 'g')
             ->orderBy('g.name', 'ASC');
 
         $orExpressions = $queryBuilder->expr()->orX();
@@ -128,9 +128,9 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
     {
         $searchTerm = "%$query%";
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('g')
-            ->from($this->entityClass, 'g')
+            ->from(ContactGroup::class, 'g')
             ->where('g.userId = :userId')
             ->andWhere(
                 $queryBuilder->expr()->orX(
@@ -178,7 +178,7 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
      */
     public function getContactsInGroup(int $groupId, ?int $limit = null, ?int $offset = null): array
     {
-        $contactRepository = new ContactRepository($this->entityManager);
+        $contactRepository = new ContactRepository($this->getEntityManager());
         return $contactRepository->findByGroupId($groupId, $limit, $offset);
     }
 
@@ -191,7 +191,7 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
      */
     public function addContactToGroup(int $contactId, int $groupId): bool
     {
-        $membershipRepository = new ContactGroupMembershipRepository($this->entityManager);
+        $membershipRepository = new ContactGroupMembershipRepository($this->getEntityManager());
         return $membershipRepository->addContactToGroup($contactId, $groupId);
     }
 
@@ -204,7 +204,7 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
      */
     public function removeContactFromGroup(int $contactId, int $groupId): bool
     {
-        $membershipRepository = new ContactGroupMembershipRepository($this->entityManager);
+        $membershipRepository = new ContactGroupMembershipRepository($this->getEntityManager());
         return $membershipRepository->removeContactFromGroup($contactId, $groupId);
     }
 }

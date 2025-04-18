@@ -1,5 +1,6 @@
 <?php
 
+use App\Repositories\Doctrine\CustomRepositoryFactory;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\ORMSetup;
@@ -55,6 +56,9 @@ return (function () {
 
     // Create connection
     $connection = DriverManager::getConnection($dbParams, $config);
+
+    // Set custom repository factory
+    $config->setRepositoryFactory(new CustomRepositoryFactory());
 
     // Create EntityManager
     return new EntityManager($connection, $config);

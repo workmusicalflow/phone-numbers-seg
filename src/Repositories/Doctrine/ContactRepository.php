@@ -34,9 +34,9 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
      */
     public function findByUserId(int $userId, ?int $limit = null, ?int $offset = null): array
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('c')
-            ->from($this->entityClass, 'c')
+            ->from(Contact::class, 'c')
             ->where('c.userId = :userId')
             ->setParameter('userId', $userId)
             ->orderBy('c.name', 'ASC');
@@ -62,9 +62,9 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
      */
     public function findByGroupId(int $groupId, ?int $limit = null, ?int $offset = null): array
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('c')
-            ->from($this->entityClass, 'c')
+            ->from(Contact::class, 'c')
             ->join('App\Entities\ContactGroupMembership', 'cgm', 'WITH', 'c.id = cgm.contactId')
             ->where('cgm.groupId = :groupId')
             ->setParameter('groupId', $groupId)
@@ -95,9 +95,9 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
         $searchFields = $fields ?? ['name', 'phoneNumber', 'email'];
         $searchTerm = "%$query%";
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('c')
-            ->from($this->entityClass, 'c')
+            ->from(Contact::class, 'c')
             ->orderBy('c.name', 'ASC');
 
         $orExpressions = $queryBuilder->expr()->orX();
@@ -132,9 +132,9 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
     {
         $searchTerm = "%$query%";
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('c')
-            ->from($this->entityClass, 'c')
+            ->from(Contact::class, 'c')
             ->where('c.userId = :userId')
             ->andWhere(
                 $queryBuilder->expr()->orX(
@@ -166,9 +166,9 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
      */
     public function count(array $criteria = []): int
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('COUNT(c.id)')
-            ->from($this->entityClass, 'c');
+            ->from(Contact::class, 'c');
 
         foreach ($criteria as $field => $value) {
             $queryBuilder->andWhere("c.$field = :$field")
@@ -214,7 +214,8 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
      */
     public function bulkCreate(array $contacts, int $userId): array
     {
-        $this->entityManager->beginTransaction();
+        $entityManager = $this->getEntityManager();
+        $entityManager->beginTransaction();
 
         try {
             $createdContacts = [];
@@ -233,16 +234,16 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
                     $contact->setNotes($contactData['notes']);
                 }
 
-                $this->entityManager->persist($contact);
+                $entityManager->persist($contact);
                 $createdContacts[] = $contact;
             }
 
-            $this->entityManager->flush();
-            $this->entityManager->commit();
+            $entityManager->flush();
+            $entityManager->commit();
 
             return $createdContacts;
         } catch (Exception $e) {
-            $this->entityManager->rollback();
+            $entityManager->rollback();
             throw $e;
         }
     }

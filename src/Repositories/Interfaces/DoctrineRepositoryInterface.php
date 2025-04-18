@@ -2,8 +2,6 @@
 
 namespace App\Repositories\Interfaces;
 
-use Doctrine\ORM\EntityManagerInterface;
-
 /**
  * Interface for Doctrine repositories
  * 
@@ -27,25 +25,6 @@ interface DoctrineRepositoryInterface
      * @return array The entities
      */
     public function findAll(?int $limit = null, ?int $offset = null): array;
-
-    /**
-     * Find entities by criteria
-     * 
-     * @param array $criteria The criteria
-     * @param array|null $orderBy The order by criteria
-     * @param int|null $limit Maximum number of entities to return
-     * @param int|null $offset Number of entities to skip
-     * @return array The entities
-     */
-    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array;
-
-    /**
-     * Find one entity by criteria
-     * 
-     * @param array $criteria The criteria
-     * @return object|null The entity or null if not found
-     */
-    public function findOneBy(array $criteria);
 
     /**
      * Count entities
@@ -106,11 +85,4 @@ interface DoctrineRepositoryInterface
      * @return void
      */
     public function clear(): void;
-
-    /**
-     * Get the entity manager
-     * 
-     * @return EntityManagerInterface The entity manager
-     */
-    public function getEntityManager(): EntityManagerInterface;
 }

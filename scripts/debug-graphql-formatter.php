@@ -1,139 +1,148 @@
 <?php
 
-/**
- * This script checks for issues with the GraphQLFormatterService
- * and its dependencies in the DI container.
- */
-
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use DI\ContainerBuilder;
-use Psr\Log\LoggerInterface;
-use App\GraphQL\Formatters\GraphQLFormatterInterface;
-use App\GraphQL\Formatters\GraphQLFormatterService;
-use App\Repositories\Interfaces\CustomSegmentRepositoryInterface;
-use App\Services\SenderNameService;
-use App\Services\OrangeAPIConfigService;
+// Load environment variables from .env file
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..'); // Specify the directory containing .env
+$dotenv->load();
 
-// Create a simple error handler to catch any issues
-set_error_handler(function ($errno, $errstr, $errfile, $errline) {
-    echo "ERROR: $errstr in $errfile on line $errline\n";
-    return true;
-});
+// Create DI container
+$container = new \App\GraphQL\DIContainer();
 
+// Get the GraphQLFormatterService from the container
 try {
-    echo "Building DI container...\n";
+    $formatter = $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class);
+    echo "Successfully retrieved GraphQLFormatterInterface from container.\n";
+    echo "Class: " . get_class($formatter) . "\n";
 
-    // Build the container
-    $containerBuilder = new ContainerBuilder();
+    // Check if it's an instance of GraphQLFormatterService
+    if ($formatter instanceof \App\GraphQL\Formatters\GraphQLFormatterService) {
+        echo "It's an instance of GraphQLFormatterService.\n";
+
+        // Reflect on the object to see its properties
+        $reflection = new ReflectionClass($formatter);
+        $properties = $reflection->getProperties();
+
+        echo "Properties:\n";
+        foreach ($properties as $property) {
+            $property->setAccessible(true);
+            $value = $property->getValue($formatter);
+            echo "- " . $property->getName() . ": " . (is_object($value) ? get_class($value) : var_export($value, true)) . "\n";
+        }
+    }
+
+    // Get the constructor parameters
+    $constructor = (new ReflectionClass(\App\GraphQL\Formatters\GraphQLFormatterService::class))->getConstructor();
+    $parameters = $constructor->getParameters();
+
+    echo "\nConstructor parameters:\n";
+    foreach ($parameters as $parameter) {
+        echo "- " . $parameter->getName() . ": " . ($parameter->getType() ? $parameter->getType()->getName() : 'unknown') . "\n";
+    }
+
+    // Check the di.php configuration
+    echo "\nDI configuration for GraphQLFormatterInterface:\n";
     $definitions = require __DIR__ . '/../src/config/di.php';
-    $containerBuilder->addDefinitions($definitions);
-    $container = $containerBuilder->build();
-
-    echo "Container built successfully.\n";
-
-    // Check if all required dependencies for GraphQLFormatterService exist
-    echo "\nChecking dependencies for GraphQLFormatterService:\n";
-
-    // Check CustomSegmentRepositoryInterface
-    echo "- CustomSegmentRepositoryInterface: ";
-    try {
-        $customSegmentRepo = $container->get(CustomSegmentRepositoryInterface::class);
-        echo "OK\n";
-    } catch (Exception $e) {
-        echo "FAILED - " . $e->getMessage() . "\n";
-    }
-
-    // Check LoggerInterface
-    echo "- LoggerInterface: ";
-    try {
-        $logger = $container->get(LoggerInterface::class);
-        echo "OK\n";
-    } catch (Exception $e) {
-        echo "FAILED - " . $e->getMessage() . "\n";
-    }
-
-    // Check SenderNameService
-    echo "- SenderNameService: ";
-    try {
-        $senderNameService = $container->get(SenderNameService::class);
-        echo "OK\n";
-    } catch (Exception $e) {
-        echo "FAILED - " . $e->getMessage() . "\n";
-    }
-
-    // Check OrangeAPIConfigService
-    echo "- OrangeAPIConfigService: ";
-    try {
-        $orangeAPIConfigService = $container->get(OrangeAPIConfigService::class);
-        echo "OK\n";
-    } catch (Exception $e) {
-        echo "FAILED - " . $e->getMessage() . "\n";
-    }
-
-    // Try to get the GraphQLFormatterService
-    echo "\nTrying to get GraphQLFormatterInterface from container: ";
-    try {
-        $formatter = $container->get(GraphQLFormatterInterface::class);
-        echo "SUCCESS\n";
-        echo "Class: " . get_class($formatter) . "\n";
-
-        // Test a method to ensure it works
-        if ($formatter instanceof GraphQLFormatterService) {
-            echo "\nTesting formatter methods:\n";
-
-            // Get a real User object from the repository instead of using a mock
-            echo "- Getting a real User object: ";
-            $mockUser = null;
-            try {
-                $userRepo = $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class);
-                $users = $userRepo->findAll(1);
-                if (!empty($users)) {
-                    $mockUser = $users[0];
-                    echo "OK\n";
-
-                    // Try to format the user
-                    echo "- formatUser: ";
-                    try {
-                        $formattedUser = $formatter->formatUser($mockUser);
-                        echo "OK - " . json_encode($formattedUser) . "\n";
-                    } catch (Exception $e) {
-                        echo "FAILED - " . $e->getMessage() . "\n";
-                    }
-                } else {
-                    echo "No users found in database\n";
-                    echo "Skipping formatUser test due to no users found\n";
-                }
-            } catch (Exception $e) {
-                echo "FAILED - " . $e->getMessage() . "\n";
-                echo "Skipping formatUser test due to error\n";
-            }
-        }
-    } catch (Exception $e) {
-        echo "FAILED - " . $e->getMessage() . "\n";
-
-        // Try to manually create the service to see if that works
-        echo "\nTrying to manually create GraphQLFormatterService: ";
-        try {
-            $customSegmentRepo = $container->get(CustomSegmentRepositoryInterface::class);
-            $logger = $container->get(LoggerInterface::class);
-            $senderNameService = $container->get(SenderNameService::class);
-            $orangeAPIConfigService = $container->get(OrangeAPIConfigService::class);
-
-            $formatter = new GraphQLFormatterService(
-                $customSegmentRepo,
-                $logger,
-                $senderNameService,
-                $orangeAPIConfigService
-            );
-
-            echo "SUCCESS\n";
-        } catch (Exception $e2) {
-            echo "FAILED - " . $e2->getMessage() . "\n";
-        }
+    if (isset($definitions[\App\GraphQL\Formatters\GraphQLFormatterInterface::class])) {
+        echo "Found in di.php\n";
+    } else {
+        echo "Not found in di.php\n";
     }
 } catch (Exception $e) {
-    echo "ERROR: " . $e->getMessage() . "\n";
+    echo "Error: " . $e->getMessage() . "\n";
+    echo "Stack trace: " . $e->getTraceAsString() . "\n";
 }
 
-echo "\nDebug complete.\n";
+// Try to instantiate GraphQLFormatterService directly
+try {
+    echo "\nTrying to instantiate GraphQLFormatterService directly...\n";
+
+    // Get the required dependencies
+    $customSegmentRepository = $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class);
+    $logger = $container->get(\Psr\Log\LoggerInterface::class);
+    $senderNameService = $container->get(\App\Services\SenderNameService::class);
+    $orangeAPIConfigService = $container->get(\App\Services\OrangeAPIConfigService::class);
+
+    // Create the formatter
+    $formatter = new \App\GraphQL\Formatters\GraphQLFormatterService(
+        $customSegmentRepository,
+        $logger,
+        $senderNameService,
+        $orangeAPIConfigService
+    );
+
+    echo "Successfully created GraphQLFormatterService directly.\n";
+} catch (Exception $e) {
+    echo "Error creating GraphQLFormatterService directly: " . $e->getMessage() . "\n";
+    echo "Stack trace: " . $e->getTraceAsString() . "\n";
+}
+
+// Check if there are any other classes that might be instantiating GraphQLFormatterService
+echo "\nChecking for potential instantiations of GraphQLFormatterService...\n";
+
+// Define the directory to search
+$srcDir = __DIR__ . '/../src';
+
+// Function to search for a pattern in files
+function searchInFiles($dir, $pattern)
+{
+    $results = [];
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
+
+    foreach ($iterator as $file) {
+        if ($file->isFile() && $file->getExtension() === 'php') {
+            $content = file_get_contents($file->getPathname());
+            if (preg_match($pattern, $content)) {
+                $results[] = [
+                    'file' => $file->getPathname(),
+                    'matches' => []
+                ];
+
+                // Extract the matching lines
+                $lines = explode("\n", $content);
+                foreach ($lines as $lineNumber => $line) {
+                    if (preg_match($pattern, $line)) {
+                        $results[count($results) - 1]['matches'][] = [
+                            'line' => $lineNumber + 1,
+                            'content' => trim($line)
+                        ];
+                    }
+                }
+            }
+        }
+    }
+
+    return $results;
+}
+
+// Search for direct instantiations of GraphQLFormatterService
+$pattern = '/new\s+(?:\\\\?App\\\\GraphQL\\\\Formatters\\\\)?GraphQLFormatterService\s*\(/i';
+$results = searchInFiles($srcDir, $pattern);
+
+if (empty($results)) {
+    echo "No direct instantiations of GraphQLFormatterService found.\n";
+} else {
+    echo "Found potential direct instantiations of GraphQLFormatterService:\n";
+    foreach ($results as $result) {
+        echo "File: " . $result['file'] . "\n";
+        foreach ($result['matches'] as $match) {
+            echo "  Line " . $match['line'] . ": " . $match['content'] . "\n";
+        }
+    }
+}
+
+// Search for references to GraphQLFormatterService
+$pattern = '/GraphQLFormatterService/i';
+$results = searchInFiles($srcDir, $pattern);
+
+if (empty($results)) {
+    echo "No references to GraphQLFormatterService found.\n";
+} else {
+    echo "\nFound references to GraphQLFormatterService:\n";
+    foreach ($results as $result) {
+        echo "File: " . $result['file'] . "\n";
+        foreach ($result['matches'] as $match) {
+            echo "  Line " . $match['line'] . ": " . $match['content'] . "\n";
+        }
+    }
+}

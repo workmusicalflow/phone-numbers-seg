@@ -27,12 +27,14 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
     /**
      * Find an entity by its ID
      * 
-     * @param int $id The entity ID
+     * @param mixed $id The entity ID
+     * @param mixed $lockMode The lock mode
+     * @param mixed $lockVersion The lock version
      * @return object|null The entity or null if not found
      */
-    public function find(int $id): ?object
+    public function find($id, $lockMode = null, $lockVersion = null): ?object
     {
-        return $this->findById($id);
+        return parent::find($id, $lockMode, $lockVersion);
     }
 
     /**
@@ -44,9 +46,9 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
      */
     public function findAll(?int $limit = null, ?int $offset = null): array
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('s')
-            ->from($this->entityClass, 's')
+            ->from($this->getClassName(), 's')
             ->orderBy('s.createdAt', 'DESC')
             ->setMaxResults($limit)
             ->setFirstResult($offset);
@@ -68,9 +70,9 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
         $isInternational = strpos($phoneNumber, '+225') === 0;
         $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('s')
-            ->from($this->entityClass, 's')
+            ->from($this->getClassName(), 's')
             ->orderBy('s.createdAt', 'DESC')
             ->setMaxResults($limit)
             ->setFirstResult($offset);
@@ -189,9 +191,9 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
         $startDate = new \DateTime($date . ' 00:00:00');
         $endDate = new \DateTime($date . ' 23:59:59');
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('COUNT(s.id)')
-            ->from($this->entityClass, 's')
+            ->from($this->getClassName(), 's')
             ->where('s.createdAt BETWEEN :startDate AND :endDate')
             ->setParameter('startDate', $startDate)
             ->setParameter('endDate', $endDate);
@@ -223,7 +225,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
         $endDateTime = new \DateTime($endDate . ' 23:59:59');
 
         // Use native SQL for this query since Doctrine DQL doesn't support DATE() function
-        $conn = $this->entityManager->getConnection();
+        $conn = $this->getEntityManager()->getConnection();
         $sql = "
             SELECT DATE(created_at) as date, COUNT(id) as count
             FROM sms_history
@@ -295,8 +297,8 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
             return false;
         }
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
-        $queryBuilder->update($this->entityClass, 's')
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+        $queryBuilder->update($this->getClassName(), 's')
             ->set('s.segmentId', ':segmentId')
             ->where('s.phoneNumber IN (:phoneNumbers)')
             ->andWhere('s.segmentId IS NULL')

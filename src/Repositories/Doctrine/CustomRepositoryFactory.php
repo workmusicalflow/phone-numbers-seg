@@ -5,28 +5,69 @@ namespace App\Repositories\Doctrine;
 use App\Repositories\Interfaces\DoctrineRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\Repository\RepositoryFactory;
 
 /**
- * Base repository class for Doctrine ORM
+ * Custom repository factory for Doctrine ORM
  * 
- * This class provides common repository methods for all entity repositories.
- * It serves as a base class for all Doctrine repositories in the application.
- * 
- * Note: This class extends Doctrine\ORM\EntityRepository to be compatible with
- * Doctrine's repository factory.
+ * This factory creates repository instances for entities.
  */
-abstract class BaseRepository extends EntityRepository implements DoctrineRepositoryInterface
+class CustomRepositoryFactory implements RepositoryFactory
+{
+    /**
+     * @var array<string, EntityRepository> The list of repositories
+     */
+    private array $repositoryList = [];
+
+    /**
+     * Get the repository for an entity class
+     * 
+     * @param EntityManagerInterface $entityManager The entity manager
+     * @param string $entityName The entity class name
+     * @return EntityRepository The repository
+     */
+    public function getRepository(EntityManagerInterface $entityManager, string $entityName): EntityRepository
+    {
+        $repositoryHash = $entityManager->getClassMetadata($entityName)->getName() . spl_object_hash($entityManager);
+
+        if (isset($this->repositoryList[$repositoryHash])) {
+            return $this->repositoryList[$repositoryHash];
+        }
+
+        $metadata = $entityManager->getClassMetadata($entityName);
+        $repositoryClassName = $metadata->customRepositoryClassName;
+
+        if ($repositoryClassName === null) {
+            // Use a default repository if no custom repository is specified
+            $repository = new DefaultRepository($entityManager, $metadata);
+        } else {
+            // Create an instance of the custom repository
+            $repository = new $repositoryClassName($entityManager, $metadata->getName());
+        }
+
+        $this->repositoryList[$repositoryHash] = $repository;
+
+        return $repository;
+    }
+}
+
+/**
+ * Default repository class
+ * 
+ * This class is used when no custom repository is specified for an entity.
+ * It extends EntityRepository to be compatible with Doctrine's repository factory.
+ */
+class DefaultRepository extends EntityRepository implements DoctrineRepositoryInterface
 {
     /**
      * Constructor
      * 
      * @param EntityManagerInterface $entityManager The entity manager
-     * @param string $entityClass The entity class name
+     * @param \Doctrine\ORM\Mapping\ClassMetadata $classMetadata The class metadata
      */
-    public function __construct(EntityManagerInterface $entityManager, string $entityClass)
+    public function __construct(EntityManagerInterface $entityManager, $classMetadata)
     {
-        $metadata = $entityManager->getClassMetadata($entityClass);
-        parent::__construct($entityManager, $metadata);
+        parent::__construct($entityManager, $classMetadata);
     }
 
     /**
@@ -41,7 +82,7 @@ abstract class BaseRepository extends EntityRepository implements DoctrineReposi
     }
 
     /**
-     * Find all entities with optional limit and offset
+     * Find all entities
      * 
      * @param int|null $limit Maximum number of entities to return
      * @param int|null $offset Number of entities to skip
@@ -49,6 +90,10 @@ abstract class BaseRepository extends EntityRepository implements DoctrineReposi
      */
     public function findAll(?int $limit = null, ?int $offset = null): array
     {
+        if ($limit === null && $offset === null) {
+            return parent::findAll();
+        }
+
         $queryBuilder = $this->createQueryBuilder('e');
 
         if ($limit !== null) {
@@ -61,6 +106,7 @@ abstract class BaseRepository extends EntityRepository implements DoctrineReposi
 
         return $queryBuilder->getQuery()->getResult();
     }
+
 
     /**
      * Count entities
