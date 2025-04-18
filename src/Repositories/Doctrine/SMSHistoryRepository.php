@@ -346,6 +346,38 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
     }
 
     /**
+     * Delete all SMS history records for a user
+     * 
+     * @param int $userId The user ID
+     * @return bool True if successful
+     */
+    public function removeAllByUserId(int $userId): bool
+    {
+        try {
+            // Vérifier d'abord s'il y a des entrées à supprimer
+            $count = $this->countByUserId($userId);
+
+            // Si aucune entrée, considérer l'opération comme réussie
+            if ($count === 0) {
+                return true;
+            }
+
+            $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+            $queryBuilder->delete($this->getClassName(), 's')
+                ->where('s.userId = :userId')
+                ->setParameter('userId', $userId);
+
+            $result = $queryBuilder->getQuery()->execute();
+
+            return $result > 0;
+        } catch (Exception $e) {
+            // Log the error
+            error_log('Error deleting SMS history for user ' . $userId . ': ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Convert a phone number from local to international format
      * 
      * @param string $phoneNumber The phone number

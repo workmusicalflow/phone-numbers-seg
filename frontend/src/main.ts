@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
-import { Quasar } from "quasar";
+import { Quasar, Notify } from "quasar";
 import {
   ApolloClient,
   InMemoryCache,
@@ -48,7 +48,9 @@ const pinia = createPinia();
 const app = createApp(App);
 
 // Use plugins
-app.use(Quasar);
+app.use(Quasar, {
+  plugins: { Notify }
+});
 app.use(pinia);
 app.use(router);
 

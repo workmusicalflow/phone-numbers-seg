@@ -163,4 +163,12 @@ interface SMSHistoryRepositoryInterface extends DoctrineRepositoryInterface
      * @return SMSHistory|null The SMS history record or null if not found
      */
     public function findByMessageId(string $messageId): ?SMSHistory;
+
+    /**
+     * Delete all SMS history records for a user
+     * 
+     * @param int $userId The user ID
+     * @return bool True if successful
+     */
+    public function removeAllByUserId(int $userId): bool;
 }
