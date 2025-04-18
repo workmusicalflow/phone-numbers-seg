@@ -189,7 +189,8 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
       if (!data?.createContactGroup) throw new Error('Réponse invalide du serveur lors de la création du groupe.'); // Check data and nested property
 
       const newGroup = data.createContactGroup;
-      contactGroups.value.push(newGroup); // Add to local state
+      // Create a new array instead of modifying the existing one
+      contactGroups.value = [...contactGroups.value, newGroup];
       totalGroups.value++;
       notifySuccess(`Groupe "${newGroup.name}" créé avec succès.`);
       return newGroup;
@@ -230,10 +231,11 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
       if (!data?.updateContactGroup) throw new Error('Réponse invalide du serveur lors de la mise à jour du groupe.'); // Check data and nested property
 
       const updatedGroup = data.updateContactGroup;
-      // Update local state
-      const index = contactGroups.value.findIndex((g) => g.id === updatedGroup.id);
-      if (index !== -1) {
-        contactGroups.value[index] = updatedGroup;
+      // Update local state by creating a new array
+      if (contactGroups.value.findIndex((g) => g.id === updatedGroup.id) !== -1) {
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === updatedGroup.id ? updatedGroup : group
+        );
       }
       if (currentGroup.value?.id === updatedGroup.id) {
         currentGroup.value = updatedGroup;
@@ -318,12 +320,12 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
       if (data.addContactToGroup) {
         notifySuccess('Contact ajouté au groupe.');
         // Optionally refetch group details or contacts in group if needed
-        const groupIndex = contactGroups.value.findIndex((g) => g.id === groupId);
-        if (groupIndex !== -1) {
-          const group = {...contactGroups.value[groupIndex]};
-          group.contactCount++;
-          contactGroups.value[groupIndex] = group;
-        }
+        // Update the contact groups array by creating a new array
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === groupId 
+            ? { ...group, contactCount: group.contactCount + 1 } 
+            : group
+        );
         
         if (currentGroup.value?.id === groupId) {
           currentGroup.value = {
@@ -371,12 +373,12 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
         currentGroupContacts.value = currentGroupContacts.value.filter((c) => c.id !== contactId);
         totalContactsInGroup.value--;
         
-        const groupIndex = contactGroups.value.findIndex(g => g.id === groupId);
-        if (groupIndex !== -1) {
-          const group = {...contactGroups.value[groupIndex]};
-          group.contactCount--;
-          contactGroups.value[groupIndex] = group;
-        }
+        // Update the contact groups array by creating a new array
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === groupId 
+            ? { ...group, contactCount: group.contactCount - 1 } 
+            : group
+        );
         
         if (currentGroup.value?.id === groupId) {
           currentGroup.value = {
@@ -430,12 +432,12 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
       if (result.status === 'success' || result.status === 'partial') {
         notifySuccess(result.message);
          // Update counts
-        const groupIndex = contactGroups.value.findIndex((g) => g.id === groupId);
-        if (groupIndex !== -1) {
-          const group = {...contactGroups.value[groupIndex]};
-          group.contactCount += result.successful;
-          contactGroups.value[groupIndex] = group;
-        }
+        // Update the contact groups array by creating a new array
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === groupId 
+            ? { ...group, contactCount: group.contactCount + result.successful } 
+            : group
+        );
         
         if (currentGroup.value?.id === groupId) {
           currentGroup.value = {
