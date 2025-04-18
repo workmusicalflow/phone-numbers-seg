@@ -73,12 +73,13 @@ const router = createRouter({
       component: () => import('../views/SMSTemplates.vue'),
       meta: { requiresAuth: true }
     },
-    {
-      path: '/scheduled-sms',
-      name: 'scheduled-sms',
-      component: () => import('../views/ScheduledSMS.vue'),
-      meta: { requiresAuth: true }
-    },
+    // Temporarily commented out due to missing component
+    // {
+    //   path: '/scheduled-sms',
+    //   name: 'scheduled-sms',
+    //   component: () => import('../views/ScheduledSMS.vue'),
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: '/import',
       name: 'import',

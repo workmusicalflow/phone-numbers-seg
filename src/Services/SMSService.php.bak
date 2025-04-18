@@ -7,7 +7,7 @@ use App\Repositories\Interfaces\PhoneNumberRepositoryInterface;
 use App\Repositories\Interfaces\SMSHistoryRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Repositories\Interfaces\ContactRepositoryInterface; // Import ContactRepository interface
-use App\Entities\SMSHistory;
+use App\Models\SMSHistory;
 use App\Models\Contact; // Import Contact model
 use App\Services\Interfaces\OrangeAPIClientInterface;
 use Exception; // Use base Exception
@@ -115,18 +115,19 @@ class SMSService
                     }
                 }
 
-                $smsHistory = new SMSHistory();
-                $smsHistory->setPhoneNumber($originalNumber);
-                $smsHistory->setMessage($message);
-                $smsHistory->setStatus($isSuccess ? 'SENT' : 'FAILED');
-                $smsHistory->setSenderAddress($senderAddress);
-                $smsHistory->setSenderName($senderName);
-                $smsHistory->setPhoneNumberId($phoneNumberId);
-                $smsHistory->setMessageId($messageId);
-                $smsHistory->setErrorMessage($errorMessage);
-                $smsHistory->setSegmentId(null); // segmentId - handled in sendSMSToSegment
-                $smsHistory->setUserId($userId);
-                $smsHistory->setCreatedAt(new \DateTime());
+                $smsHistory = new SMSHistory(
+                    null,
+                    $originalNumber,
+                    $message,
+                    $isSuccess ? 'SENT' : 'FAILED',
+                    $senderAddress, // Use value obtained from client
+                    $senderName,    // Use value obtained from client
+                    $phoneNumberId,
+                    $messageId,
+                    $errorMessage, // Log error message if sending failed
+                    null, // segmentId - handled in sendSMSToSegment
+                    $userId
+                );
                 try {
                     $this->smsHistoryRepository->save($smsHistory);
                 } catch (Exception $logException) {
