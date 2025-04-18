@@ -1,199 +1,311 @@
-# Règles et Préférences du Projet Oracle
+# Oracle Project Key Rules & Preferences
 
-## Conventions de Nommage
+## General Principles
 
-1. **Classes PHP** : PascalCase (ex: `PhoneNumber`, `SegmentRepository`)
-2. **Méthodes PHP** : camelCase (ex: `findById`, `segmentPhoneNumber`)
-3. **Variables PHP** : camelCase (ex: `$phoneNumber`, `$segmentType`)
-4. **Constantes PHP** : UPPER_SNAKE_CASE (ex: `DEFAULT_COUNTRY_CODE`, `MAX_BATCH_SIZE`)
-5. **Fichiers PHP** : PascalCase pour les classes (ex: `PhoneNumber.php`, `SegmentRepository.php`)
-6. **Composants Vue** : PascalCase (ex: `PhoneNumberCard.vue`, `CustomSegmentForm.vue`)
-7. **Propriétés et méthodes Vue** : camelCase (ex: `phoneNumber`, `handleSubmit`)
-8. **Stores Pinia** : camelCase avec suffixe "Store" (ex: `phoneStore`, `segmentStore`)
-9. **Fichiers CSS/SASS** : kebab-case (ex: `global.css`, `quasar-variables.sass`)
-10. **Tables de base de données** : snake_case au pluriel (ex: `phone_numbers`, `custom_segments`)
-11. **Colonnes de base de données** : snake_case (ex: `phone_number_id`, `created_at`)
+- **Language & Style:** PHP 8+ (SOLID, Clean Code) & Vue.js 3 (Composition API, TypeScript, Quasar). **All documentation/comments in French.**
+- **Architecture:** Repository & Service Patterns, Dependency Injection (Constructor).
+- **Principles:** SOLID, DRY, KISS.
+- **Testing:** TDD encouraged, PHPUnit (Backend), Vitest (Frontend). Coverage > 80%. Tests run in CI.
+- **Formatting:** Adhere to standards (implicit PSR-12 for PHP, Prettier/ESLint for JS/TS). Use PHP & TypeScript type hints.
+- **Database:** Mandatory Migrations, Indexes, Transactions, Timestamps (`created_at`), Soft Deletes. Prepared SQL statements.
+- **API (REST/GraphQL):** Input validation, Pagination/Filtering/Sorting, Clear error handling, Documentation (GraphQL strong types).
+- **Security:** Systematic validation, XSS/CSRF/SQL Injection prevention, HTTPS, No sensitive info in logs. (Auth/Authz/Encryption TBD).
+- **Performance:** SQL Optimization (Indexes, avoid N+1), Caching, Asset Optimization (Minify, Bundle, Lazy Load, Images), Batch processing.
+- **Workflow:** Git Flow, Pull Requests + Code Reviews, Descriptive commits linked to Issues, CI/CD, Env variables, Centralized Monitoring & Logs, Changelog.
+- **Documentation:** Code (DocBlocks), API, Architecture (Markdown, Mermaid), Continuous updates.
 
-## Structure du Code
+## Summarized Naming Conventions
 
-### PHP
+- **PHP:** Classes `PascalCase`, Methods/Variables `camelCase`, Constants `UPPER_SNAKE_CASE`. Files match classes. PSR-4 Namespaces.
+- **Vue:** Components `PascalCase` (`.vue`), Props/Methods `camelCase`. Pinia Stores `camelCaseStore`.
+- **CSS/SASS:** Files `kebab-case`.
+- **Database:** Tables `snake_case_plural`, Columns `snake_case`.
 
-1. **Namespaces** : Utiliser des namespaces correspondant à la structure des dossiers
-2. **Autoloading** : Utiliser l'autoloading PSR-4 via Composer
-3. **Dépendances** : Injecter les dépendances via le constructeur
-4. **Interfaces** : Créer des interfaces pour les repositories et services
-5. **Exceptions** : Créer des exceptions spécifiques pour chaque type d'erreur
-6. **Validation** : Valider les entrées au niveau des contrôleurs
-7. **Transactions** : Utiliser des transactions pour les opérations impliquant plusieurs tables
+## Project Specifics
 
-### Vue.js
+- **Phone Numbers:** Normalization (+XXX...), RegEx Validation, Segmentation (Country/Operator/Subscriber).
+- **SMS:** 160 char limit, Send history.
+- **Import/Export:** Flexible CSV (delimiters, encoding), Export CSV/Excel.
+- **Custom Segments:** RegEx Validation.
+- **User Interface:** Responsive (Quasar), Client-side Validation, Clear Feedback, Loading states, Pagination/Filters/Sorting, Accessibility (WCAG).
 
-1. **Composition API** : Préférer la Composition API à l'Options API
-2. **TypeScript** : Utiliser TypeScript pour tous les composants et stores
-3. **Props** : Définir des types et des valeurs par défaut pour toutes les props
-4. **Composants** : Créer des composants réutilisables et modulaires
-5. **Stores** : Utiliser Pinia pour la gestion d'état global
-6. **Routing** : Utiliser Vue Router pour la navigation
-7. **Lazy Loading** : Utiliser le lazy loading pour les composants lourds
-8. **Composables** : Extraire la logique réutilisable dans des composables
+# You MUST use the `new_task` tool: Task Handoff Strategy Guide
 
-## Patterns et Pratiques
+**⚠️ CRITICAL INSTRUCTIONS - YOU MUST FOLLOW THESE GUIDELINES ⚠️**
 
-1. **Repository Pattern** : Utiliser le pattern Repository pour l'accès aux données
-2. **Service Pattern** : Encapsuler la logique métier dans des services
-3. **Dependency Injection** : Injecter les dépendances plutôt que de les créer en interne
-4. **Factory Pattern** : Utiliser des factories pour créer des objets complexes
-5. **Observer Pattern** : Utiliser des événements pour notifier les composants intéressés
-6. **Strategy Pattern** : Encapsuler différentes stratégies de segmentation
-7. **TDD** : Écrire les tests avant le code quand c'est possible
-8. **SOLID** : Suivre les principes SOLID pour une architecture robuste
-9. **DRY** : Ne pas se répéter, extraire le code commun dans des fonctions/classes
-10. **KISS** : Garder le code simple et lisible
+This guide provides **MANDATORY** instructions for effectively breaking down complex tasks and implementing a smooth handoff process between tasks. You **MUST** follow these guidelines to ensure continuity, context preservation, and efficient task completion.
 
-## Préférences de Formatage
+## ⚠️ CONTEXT WINDOW MONITORING - MANDATORY ACTION REQUIRED ⚠️
 
-### PHP
+You **MUST** monitor the context window usage displayed in the environment details. When usage exceeds 50% of the available context window, you **MUST** initiate a task handoff using the `new_task` tool.
 
-1. **Indentation** : 4 espaces
-2. **Accolades** : Sur la même ligne pour les fonctions et classes
-3. **Espaces** : Espaces autour des opérateurs
-4. **Longueur de ligne** : Maximum 120 caractères
-5. **Commentaires** : DocBlocks pour les classes et méthodes publiques
-6. **Type Hints** : Utiliser les type hints pour les paramètres et retours
-7. **Nullable Types** : Utiliser `?` pour les types nullables (ex: `?string`)
-8. **Return Types** : Toujours spécifier le type de retour
+Example of context window usage over 50% with a 200K context window:
 
-### JavaScript/TypeScript
+\`\`\`text
 
-1. **Indentation** : 2 espaces
-2. **Quotes** : Guillemets simples pour les chaînes
-3. **Semicolons** : Obligatoires
-4. **Trailing Commas** : Obligatoires pour les objets et tableaux multi-lignes
-5. **Arrow Functions** : Préférer les arrow functions pour les callbacks
-6. **Destructuring** : Utiliser la déstructuration quand c'est approprié
-7. **Async/Await** : Préférer async/await aux promesses chaînées
-8. **Types** : Définir des interfaces pour les objets complexes
-9. **Enums** : Utiliser des enums pour les valeurs constantes
-10. **Null Checks** : Utiliser l'opérateur de coalescence nulle (`??`)
+# Context Window Usage
 
-## Préférences de Base de Données
+105,000 / 200,000 tokens (53%)
+Model: anthropic/claude-3.7-sonnet (200K context window)
+\`\`\`
 
-1. **Migrations** : Toutes les modifications de schéma doivent être faites via des migrations
-2. **Clés étrangères** : Utiliser des clés étrangères avec `ON DELETE CASCADE` quand approprié
-3. **Indexes** : Indexer les colonnes fréquemment utilisées dans les requêtes WHERE
-4. **Timestamps** : Inclure `created_at` dans toutes les tables
-5. **Soft Deletes** : Utiliser des soft deletes pour les données importantes
-6. **Transactions** : Utiliser des transactions pour les opérations multi-tables
-7. **Préparation** : Toujours préparer les requêtes SQL avec des paramètres liés
+**IMPORTANT**: When you see context window usage at or above 50%, you MUST:
 
-## Préférences d'API
+1. Complete your current logical step
+2. Use the `ask_followup_question` tool to offer creating a new task
+3. If approved, use the `new_task` tool with comprehensive handoff instructions
 
-1. **REST** : Suivre les conventions RESTful pour l'API REST
-2. **GraphQL** : Utiliser des types forts et des résolveurs efficaces
-3. **Validation** : Valider toutes les entrées avant traitement
-4. **Pagination** : Implémenter la pagination pour les collections larges
-5. **Filtrage** : Permettre le filtrage des collections via des paramètres de requête
-6. **Tri** : Permettre le tri des collections via des paramètres de requête
-7. **Versioning** : Pas de versioning explicite pour GraphQL, utiliser des champs dépréciés
-8. **Erreurs** : Renvoyer des messages d'erreur clairs et utiles
-9. **Documentation** : Documenter tous les endpoints et types GraphQL
+## Task Breakdown in Plan Mode - REQUIRED PROCESS
 
-## Préférences de Test
+Plan Mode is specifically designed for analyzing complex tasks and breaking them into manageable subtasks. When in Plan Mode, you **MUST**:
 
-1. **PHPUnit** : Utiliser PHPUnit pour les tests backend
-2. **Vitest** : Utiliser Vitest pour les tests frontend
-3. **Mocks** : Utiliser des mocks pour les dépendances externes
-4. **Fixtures** : Utiliser des fixtures pour les données de test
-5. **Coverage** : Viser une couverture de code d'au moins 80%
-6. **CI** : Exécuter les tests automatiquement dans le pipeline CI
-7. **TDD** : Écrire les tests avant le code quand c'est possible
-8. **Assertions** : Utiliser des assertions spécifiques et descriptives
-9. **Isolation** : Isoler les tests les uns des autres
-10. **Nommage** : Nommer les tests de manière descriptive (ex: `testCanSegmentValidPhoneNumber`)
+### 1. Initial Task Analysis - REQUIRED
 
-## Préférences de Déploiement
+- **MUST** begin by thoroughly understanding the full scope of the user's request
+- **MUST** identify all major components and dependencies of the task
+- **MUST** consider potential challenges, edge cases, and prerequisites
 
-1. **Environnements** : Développement, Test, Production
-2. **Configuration** : Utiliser des variables d'environnement ou des fichiers .env
-3. **Builds** : Construire les assets frontend avant déploiement
-4. **Migrations** : Exécuter les migrations automatiquement lors du déploiement
-5. **Rollback** : Prévoir un mécanisme de rollback en cas d'échec
-6. **Monitoring** : Mettre en place un monitoring des erreurs et performances
-7. **Logs** : Centraliser les logs pour faciliter le débogage
-8. **Backups** : Sauvegarder régulièrement la base de données
+### 2. Strategic Task Decomposition - REQUIRED
 
-## Préférences de Documentation
+- **MUST** break the overall task into logical, discrete subtasks
+- **MUST** prioritize subtasks based on dependencies (what must be completed first)
+- **MUST** aim for subtasks that can be completed within a single session (15-30 minutes of work)
+- **MUST** consider natural breaking points where context switching makes sense
 
-1. **Code** : Documenter les classes, méthodes et fonctions complexes
-2. **API** : Documenter tous les endpoints REST et types GraphQL
-3. **Architecture** : Maintenir une documentation de l'architecture système
-4. **Utilisateur** : Créer des guides utilisateur pour les fonctionnalités principales
-5. **Markdown** : Utiliser Markdown pour la documentation
-6. **Diagrammes** : Utiliser Mermaid pour les diagrammes
-7. **Exemples** : Inclure des exemples concrets dans la documentation
-8. **Mise à jour** : Mettre à jour la documentation lors des changements significatifs
+### 3. Creating a Task Roadmap - REQUIRED
 
-## Préférences Spécifiques au Projet
+- **MUST** present a clear, numbered list of subtasks to the user
+- **MUST** explain dependencies between subtasks
+- **MUST** provide time estimates for each subtask when possible
+- **MUST** use Mermaid diagrams to visualize task flow and dependencies when helpful
 
-1. **Format de numéro** : Normaliser les numéros au format international (+XXX...)
-2. **Validation de numéro** : Utiliser des expressions régulières pour valider les numéros
-3. **Segmentation** : Segmenter les numéros en code pays, opérateur et numéro d'abonné
-4. **SMS** : Limiter la longueur des SMS à 160 caractères pour éviter la fragmentation
-5. **Historique SMS** : Enregistrer tous les SMS envoyés avec leur statut
-6. **Import CSV** : Supporter différents formats de délimiteurs et d'encodage
-7. **Export** : Proposer plusieurs formats d'export (CSV, Excel)
-8. **Segments personnalisés** : Valider les expressions régulières des segments personnalisés
-9. **Traitement par lot** : Limiter la taille des lots pour éviter les problèmes de mémoire
-10. **Détection d'opérateur** : Maintenir une base de données d'opérateurs à jour
+\`\`\`mermaid
+graph TD
+A[Main Task] --> B[Subtask 1: Setup]
+A --> C[Subtask 2: Core Implementation]
+A --> D[Subtask 3: Testing]
+A --> E[Subtask 4: Documentation]
+B --> C
+C --> D
+\`\`\`
 
-## Préférences d'Interface Utilisateur
+### 4. Getting User Approval - REQUIRED
 
-1. **Responsive** : Toutes les interfaces doivent être responsive
-2. **Thème** : Utiliser les variables Quasar pour la cohérence du thème
-3. **Formulaires** : Valider les formulaires côté client avant soumission
-4. **Feedback** : Fournir un feedback visuel pour les actions utilisateur
-5. **Erreurs** : Afficher les erreurs de manière claire et utile
-6. **Loading** : Indiquer les chargements avec des spinners ou skeletons
-7. **Pagination** : Paginer les listes longues
-8. **Filtres** : Permettre le filtrage des listes
-9. **Tri** : Permettre le tri des listes
-10. **Accessibilité** : Suivre les bonnes pratiques d'accessibilité (WCAG)
+- **MUST** ask for user feedback on the proposed task breakdown
+- **MUST** adjust the plan based on user priorities or additional requirements
+- **MUST** confirm which subtask to begin with
+- **MUST** request the user to toggle to Act Mode when ready to implement
 
-## Préférences de Sécurité
+## Task Implementation and Handoff Process - MANDATORY PROCEDURES
 
-1. **Validation** : Valider toutes les entrées utilisateur
-2. **Préparation SQL** : Utiliser des requêtes préparées pour éviter les injections SQL
-3. **XSS** : Échapper les sorties HTML pour éviter les attaques XSS
-4. **CSRF** : Utiliser des tokens CSRF pour les formulaires
-5. **Erreurs** : Ne pas exposer les détails des erreurs aux utilisateurs
-6. **Logs** : Ne pas logger d'informations sensibles
-7. **HTTPS** : Utiliser HTTPS pour toutes les communications
-8. **Authentification** : Implémenter une authentification robuste (à venir)
-9. **Autorisation** : Vérifier les permissions pour chaque action (à venir)
-10. **Données sensibles** : Chiffrer les données sensibles en base de données (à venir)
+When implementing tasks in Act Mode, you **MUST** follow these guidelines for effective task handoff:
 
-## Préférences de Performance
+### 1. Focused Implementation - REQUIRED
 
-1. **Requêtes SQL** : Optimiser les requêtes SQL avec des indexes appropriés
-2. **N+1** : Éviter le problème N+1 en utilisant des jointures ou eager loading
-3. **Caching** : Mettre en cache les résultats fréquemment demandés
-4. **Assets** : Minifier et bundler les assets frontend
-5. **Lazy Loading** : Utiliser le lazy loading pour les composants Vue.js
-6. **Code Splitting** : Diviser le bundle JavaScript en chunks
-7. **Images** : Optimiser les images pour le web
-8. **GraphQL** : Demander uniquement les champs nécessaires
-9. **Pagination** : Paginer les grandes collections
-10. **Batch Processing** : Traiter les grandes quantités de données par lots
+- **MUST** focus on completing the current subtask fully
+- **MUST** document progress clearly through comments and commit messages
+- **MUST** create checkpoints at logical completion points
 
-## Préférences de Collaboration
+### 2. Recognizing Completion Points - CRITICAL
 
-1. **Git Flow** : Utiliser Git Flow pour la gestion des branches
-2. **Pull Requests** : Créer des pull requests pour les nouvelles fonctionnalités
-3. **Code Review** : Faire des revues de code pour toutes les pull requests
-4. **Commits** : Écrire des messages de commit descriptifs
-5. **Issues** : Lier les commits aux issues correspondantes
-6. **CI/CD** : Utiliser CI/CD pour automatiser les tests et déploiements
-7. **Documentation** : Mettre à jour la documentation avec les changements
-8. **Changelog** : Maintenir un changelog des modifications
-9. **Versioning** : Utiliser le versioning sémantique pour les releases
-10. **Communication** : Communiquer clairement les changements à l'équipe
+You **MUST** identify natural handoff points when:
+
+- The current subtask is fully completed
+- You've reached a logical stopping point in a larger subtask
+- The implementation is taking longer than expected and can be continued later
+- The task scope has expanded beyond the original plan
+- **CRITICAL**: The context window usage exceeds 50% (e.g., 100,000+ tokens for a 200K context window)
+
+### 3. Initiating the Handoff Process - MANDATORY ACTION
+
+When you've reached a completion point, you **MUST**:
+
+1. Summarize what has been accomplished so far
+2. Clearly state what remains to be done
+3. **MANDATORY**: Use the `ask_followup_question` tool to offer creating a new task:
+
+\`\`\`xml
+<ask_followup_question>
+<question>I've completed [specific accomplishment]. Would you like me to create a new task to continue with [remaining work]?</question>
+<options>["Yes, create a new task", "No, continue in this session", "Let me think about it"]</options>
+</ask_followup_question>
+\`\`\`
+
+### 4. Creating a New Task with Context - REQUIRED ACTION
+
+If the user agrees to create a new task, you **MUST** use the `new_task` tool with comprehensive handoff instructions:
+
+\`\`\`xml
+<new_task>
+<context>
+
+# Task Continuation: [Brief Task Title]
+
+## Completed Work
+
+- [Detailed list of completed items]
+- [Include specific files modified/created]
+- [Note any important decisions made]
+
+## Current State
+
+- [Description of the current state of the project]
+- [Any running processes or environment setup]
+- [Key files and their current state]
+
+## Next Steps
+
+- [Detailed list of remaining tasks]
+- [Specific implementation details to address]
+- [Any known challenges to be aware of]
+
+## Reference Information
+
+- [Links to relevant documentation]
+- [Important code snippets or patterns to follow]
+- [Any user preferences noted during the current session]
+
+Please continue the implementation by [specific next action].
+</context>
+</new_task>
+\`\`\`
+
+### 5. Detailed Context Transfer - MANDATORY COMPONENTS
+
+When creating a new task, you **MUST** always include:
+
+#### Project Context - REQUIRED
+
+- **MUST** include the overall goal and purpose of the project
+- **MUST** include key architectural decisions and patterns
+- **MUST** include technology stack and dependencies
+
+#### Implementation Details - REQUIRED
+
+- **MUST** list files created or modified in the current session
+- **MUST** describe specific functions, classes, or components implemented
+- **MUST** explain design patterns being followed
+- **MUST** outline testing approach
+
+#### Progress Tracking - REQUIRED
+
+- **MUST** provide checklist of completed items
+- **MUST** provide checklist of remaining items
+- **MUST** note any blockers or challenges encountered
+
+#### User Preferences - REQUIRED
+
+- **MUST** note coding style preferences mentioned by the user
+- **MUST** document specific approaches requested by the user
+- **MUST** highlight priority areas identified by the user
+
+## Best Practices for Effective Handoffs - MANDATORY GUIDELINES
+
+### 1. Maintain Continuity - REQUIRED
+
+- **MUST** use consistent terminology between tasks
+- **MUST** reference previous decisions and their rationale
+- **MUST** maintain the same architectural approach unless explicitly changing direction
+
+### 2. Preserve Context - REQUIRED
+
+- **MUST** include relevant code snippets in the handoff
+- **MUST** summarize key discussions from the previous session
+- **MUST** reference specific files and line numbers when applicable
+
+### 3. Set Clear Next Actions - REQUIRED
+
+- **MUST** begin the handoff with a clear, actionable next step
+- **MUST** prioritize remaining tasks
+- **MUST** highlight any decisions that need to be made
+
+### 4. Document Assumptions - REQUIRED
+
+- **MUST** clearly state any assumptions made during implementation
+- **MUST** note areas where user input might be needed
+- **MUST** identify potential alternative approaches
+
+### 5. Optimize for Resumability - REQUIRED
+
+- **MUST** structure the handoff so the next session can begin working immediately
+- **MUST** include setup instructions if environment configuration is needed
+- **MUST** provide a quick summary at the top for rapid context restoration
+
+## Example Task Handoff
+
+### Example #1 of an effective task handoff:
+
+\`\`\`xml
+<new_task>
+<context>
+
+# Task Continuation: Implement User Authentication System
+
+## Completed Work
+
+- Created basic Express.js server structure
+- Implemented MongoDB connection and user schema
+- Completed user registration endpoint with password hashing
+- Added input validation using Joi
+- Created initial test suite for registration endpoint
+
+## Current State
+
+- Server runs successfully on port 3000
+- MongoDB connection is established
+- Registration endpoint (/api/users/register) is fully functional
+- Test suite passes for all registration scenarios
+
+## Next Steps
+
+1. Implement login endpoint (/api/users/login)
+   - Use bcrypt to compare passwords
+   - Generate JWT token upon successful login
+   - Add proper error handling for invalid credentials
+2. Create authentication middleware
+   - Verify JWT tokens
+   - Extract user information
+   - Handle expired tokens
+3. Add protected routes that require authentication
+4. Implement password reset functionality
+
+## Reference Information
+
+- JWT secret should be stored in .env file
+- Follow the existing error handling pattern in routes/users.js
+- User schema is defined in models/User.js
+- Test patterns are established in tests/auth.test.js
+
+Please continue by implementing the login endpoint following the same patterns established in the registration endpoint.
+</context>
+</new_task>
+\`\`\`
+
+### Example #2 of an ineffective task handoff:
+
+_(Note: The example provided in the original rules showing "YOLO MODE Implementation" seems less like a direct handoff context block and more like a general status update with future considerations. A true ineffective handoff might lack detail in 'Current State' or 'Next Steps')._
+
+## When to Use Task Handoffs - MANDATORY TRIGGERS
+
+You **MUST** initiate task handoffs in these scenarios:
+
+1. **CRITICAL**: When context window usage exceeds 50% (e.g., 100,000+ tokens for a 200K context window)
+2. **Long-running projects** that exceed a single session
+3. **Complex implementations** with multiple distinct phases
+4. **When context window limitations** are approaching
+5. **When switching focus areas** within a larger project
+6. **When different expertise** might be beneficial for different parts of the task
+
+**⚠️ FINAL REMINDER - CRITICAL INSTRUCTION ⚠️**
+
+You **MUST** monitor the context window usage in the environment details section. When it exceeds 50% (e.g., "105,000 / 200,000 tokens (53%)"), you **MUST** proactively initiate the task handoff process using the `ask_followup_question` tool followed by the `new_task` tool. You MUST use the `new_task` tool.
+
+By strictly following these guidelines, you'll ensure smooth transitions between tasks, maintain project momentum, and provide the best possible experience for users working on complex, multi-session projects.
+
+```markdown
+## User Interaction & Workflow Considerations
+
+- **Linear Flow:** Currently, using `new_task` creates a linear sequence. The old task ends, and the new one begins. The old task history remains accessible for backtracking.
+- **User Approval:** You always have control, approving the handoff and having the chance to modify the context Cline proposes to carry forward.
+- **Flexibility:** The core `new_task` tool is a flexible building block. Experiment with `.clinerules` to create workflows that best suit your needs, whether for strict context management, task decomposition, or other creative uses.
+```

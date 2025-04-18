@@ -1,12 +1,12 @@
 # Suivi des Progrès du Projet
 
-## État Global du Projet (07/04/2025)
+## État Global du Projet (17/04/2025)
 
-Le projet est actuellement à environ **90%** de complétion. La plupart des fonctionnalités prévues ont été implémentées et sont fonctionnelles. Un audit récent des interfaces administrateur et utilisateur a permis de clarifier ce qui a été réalisé et ce qui reste à faire.
+Le projet est actuellement à environ **92%** de complétion. La plupart des fonctionnalités prévues ont été implémentées et sont fonctionnelles. Un audit récent des interfaces administrateur et utilisateur a permis de clarifier ce qui a été réalisé et ce qui reste à faire.
 
 ## Fonctionnalités Implémentées
 
-### Backend (95% complet)
+### Backend (96% complet)
 
 - ✅ Modèles de données (PhoneNumber, Segment, CustomSegment, User, etc.)
 - ✅ Repositories avec interfaces SOLID
@@ -22,6 +22,7 @@ Le projet est actuellement à environ **90%** de complétion. La plupart des fon
 - ✅ Système d'événements avec pattern Observer
 - ✅ Injection de dépendances
 - ✅ Validation des données avec gestion d'exceptions
+- ✅ Migration vers Doctrine ORM (en cours)
 
 ### Frontend (90% complet)
 
@@ -157,9 +158,150 @@ Le projet est actuellement à environ **90%** de complétion. La plupart des fon
    - ✅ Numéros importés non visibles dans l'interface - Résolu en créant des scripts de conversion des numéros de téléphone en contacts liés à l'utilisateur
    - ✅ Formulaire d'importation CSV non visible - Résolu en corrigeant les erreurs de compilation Vue.js, en implémentant un rendu direct du formulaire dans le composant principal, et en ajoutant une gestion d'erreurs robuste
 
-## Améliorations Récentes (11/04/2025)
+## Améliorations Récentes
 
-### Badge de Nombre de Contacts dans l'Interface SMS
+### Plan Détaillé de Finalisation de la Migration Doctrine ORM (18/04/2025)
+
+Un plan détaillé a été établi pour finaliser la migration vers Doctrine ORM, avec un calendrier précis et des étapes clairement définies. Le plan complet est documenté dans `docs/doctrine-orm-migration-tracker.md`.
+
+1. **État Actuel de la Migration :**
+
+   - ✅ Module Utilisateurs (User)
+   - ✅ Module Contacts (Contact)
+   - ✅ Module Groupes de Contacts (ContactGroup, ContactGroupMembership)
+   - ✅ Module SMS (SMSHistory)
+   - ✅ Module Commandes SMS (SMSOrder)
+   - ✅ Module Segments (Segment, CustomSegment, PhoneNumberSegment)
+   - ✅ Module Configuration API Orange (OrangeAPIConfig)
+   - ⬜ Module Numéros de Téléphone (Legacy) (PhoneNumber)
+   - ⬜ Repository TechnicalSegmentRepository
+
+2. **Plan d'Implémentation en 7 Phases :**
+
+   - **Phase 1: Complétion des Entités et Repositories (Semaines 1-2)**
+
+     - Priorité immédiate: Module Numéros de Téléphone (Legacy)
+     - Implémentation du TechnicalSegmentRepository
+
+   - **Phase 2: Mise à jour du Conteneur DI (Semaine 3)**
+
+     - Complétion des mises à jour pour tous les repositories
+     - Création d'un pattern cohérent pour l'enregistrement
+
+   - **Phase 3: Adaptation des Services (Semaines 3-4)**
+
+     - Mise à jour pour utiliser les repositories Doctrine
+     - Implémentation du pattern Adapter où nécessaire
+
+   - **Phase 4: Migration des Données (Semaines 5-6)**
+
+     - Scripts de migration de données
+     - Validation de l'intégrité des données
+     - Stratégie pour la période de transition
+
+   - **Phase 5: Tests d'Intégration (Semaines 7-8)**
+
+     - Tests pour les fonctionnalités inter-modules
+     - Suite de tests automatisés
+
+   - **Phase 6: Documentation (Semaine 8)**
+
+     - Documentation des entités et relations
+     - Guide de migration pour les développeurs
+
+   - **Phase 7: Déploiement (Semaine 9-10)**
+     - Scripts de mise à jour du schéma de base de données
+     - Stratégie de déploiement par phases
+     - Plan de rollback
+
+3. **Avantages de la Migration :**
+
+   - ✅ Meilleure organisation du code avec le pattern Repository
+   - ✅ Séparation claire entre les entités et la logique d'accès aux données
+   - ✅ Facilité de maintenance et d'extension
+   - ✅ Réduction du code boilerplate
+   - ✅ Meilleure gestion des relations entre entités
+
+### Plan d'Implémentation des URL Constants (18/04/2025)
+
+En parallèle avec la finalisation de la migration Doctrine ORM, un plan a été établi pour implémenter un système de URL constants afin de remplacer les URLs codées en dur dans le projet.
+
+1. **Plan d'Implémentation en 7 Phases :**
+
+   - **Phase 1: Audit Complet des URLs (1-2 jours)**
+
+     - Identification de toutes les URLs codées en dur
+     - Catégorisation par fonction et contexte
+     - Priorisation des URLs à remplacer
+
+   - **Phase 2: Système de Configuration (2-3 jours)**
+
+     - Système robuste lisant les variables d'environnement
+     - Valeurs par défaut sécurisées
+     - Validation des configurations requises
+
+   - **Phase 3: Structure des URL Constants (1-2 jours)**
+
+     - Structure hiérarchique avec regroupement logique
+     - Conventions de nommage claires
+     - Sécurité des types en TypeScript
+
+   - **Phase 4: Remplacement Module par Module (5-7 jours)**
+
+     - Priorité au module SMS
+     - Documentation de chaque remplacement
+
+   - **Phase 5: Tests Automatisés (2-3 jours)**
+
+     - Tests de vérification de la résolution des URLs
+     - Helpers de test spéciaux
+
+   - **Phase 6: Documentation (1-2 jours)**
+
+     - Mise à jour de la documentation développeur
+     - Diagrammes d'architecture
+
+   - **Phase 7: Surveillance et Validation (en continu)**
+     - Hooks pre-commit pour détecter les URLs codées en dur
+     - Validation à travers les environnements
+
+2. **Intégration avec la Migration Doctrine ORM :**
+
+   - Mise à jour coordonnée des services
+   - Tests combinés pour assurer la compatibilité
+   - Documentation partagée
+
+3. **Avantages de l'Implémentation :**
+   - ✅ Facilité de maintenance et de mise à jour des URLs
+   - ✅ Adaptabilité aux différents environnements
+   - ✅ Réduction des erreurs liées aux URLs codées en dur
+   - ✅ Meilleure organisation du code
+   - ✅ Facilité de déploiement dans différents environnements
+
+### Résolution du Problème GraphQLFormatterService (17/04/2025)
+
+Un problème a été résolu dans le fichier di.php qui causait une erreur "Expected 4 arguments. Found 2" dans la factory GraphQLFormatterService:
+
+1. **Modifications Apportées :**
+
+   - Ajout d'imports pour les deux classes CustomSegment avec des alias
+   - Modification du type hint dans la méthode formatCustomSegment pour accepter tout type de segment
+   - Mise à jour de l'implémentation pour gérer les deux types en toute sécurité
+   - Mise à jour de GraphQLFormatterInterface pour correspondre à l'implémentation
+
+2. **Tests Effectués :**
+
+   - Connexion réussie à l'API GraphQL avec les identifiants administrateur
+   - Création d'un contact de test via mutation GraphQL
+   - Récupération réussie du contact via requête GraphQL
+   - Exécution du script de test Doctrine segment qui a passé tous les tests
+
+3. **Impact :**
+   - Résolution d'un problème critique qui empêchait l'utilisation de l'API GraphQL
+   - Amélioration de la compatibilité entre les modèles legacy et les entités Doctrine
+   - Démonstration de l'approche à suivre pour d'autres services pendant la transition
+
+### Badge de Nombre de Contacts dans l'Interface SMS (11/04/2025)
 
 Une amélioration de l'interface utilisateur a été implémentée pour afficher le nombre total de contacts disponibles pour l'envoi de SMS.
 
@@ -183,7 +325,7 @@ Une amélioration de l'interface utilisateur a été implémentée pour afficher
    - ✅ Amélioration de l'expérience utilisateur
    - ✅ Cohérence avec l'affichage des crédits SMS
 
-### Conversion des numéros de téléphone en contacts
+### Conversion des numéros de téléphone en contacts (11/04/2025)
 
 Un problème architectural a été identifié et résolu : lors de l'importation CSV, les numéros étaient enregistrés dans la table `phone_numbers` sans lien avec un utilisateur spécifique, ce qui les rendait invisibles dans l'interface utilisateur qui affiche les données de la table `contacts`.
 
@@ -209,4 +351,4 @@ Un problème architectural a été identifié et résolu : lors de l'importation
 
 ## Conclusion
 
-Le projet a fait des progrès significatifs et est proche de la complétion. Les fonctionnalités de base sont toutes implémentées et fonctionnelles. Les efforts actuels se concentrent sur l'implémentation des dernières fonctionnalités et l'amélioration de la qualité globale du projet.
+Le projet a fait des progrès significatifs et est proche de la complétion. Les fonctionnalités de base sont toutes implémentées et fonctionnelles. Les efforts actuels se concentrent sur l'implémentation des dernières fonctionnalités, la migration vers Doctrine ORM et l'amélioration de la qualité globale du projet.

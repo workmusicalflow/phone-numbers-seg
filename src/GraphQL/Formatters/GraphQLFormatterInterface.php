@@ -42,11 +42,11 @@ interface GraphQLFormatterInterface
      * Formats a CustomSegment object.
      * Add other necessary model formatters here.
      *
-     * @param CustomSegment $segment
+     * @param mixed $segment
      * @param int|null $phoneNumberCount Optional count of phone numbers in the segment
      * @return array<string, mixed>
      */
-    public function formatCustomSegment(CustomSegment $segment, ?int $phoneNumberCount = null): array;
+    public function formatCustomSegment($segment, ?int $phoneNumberCount = null): array;
 
     /**
      * Formats a ContactGroup model into an array for GraphQL.

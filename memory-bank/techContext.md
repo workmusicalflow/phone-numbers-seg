@@ -39,7 +39,7 @@ Composer est utilisé pour la gestion des dépendances PHP. Les principales dép
 - **GraphQLite** : Pour l'implémentation de l'API GraphQL
 - **Monolog** : Pour la journalisation
 - **Guzzle** : Pour les requêtes HTTP vers l'API Orange SMS
-- **Doctrine**: ORM pour simplifier l'interaction avec MySQL
+- **Doctrine**: Doctrine ORM en mode autonome (standalone), sans dépendre du FrameworkBundle de Symfony ni de ses commandes CLI. bootstrap Doctrine autonome
 
 ### Frontend
 

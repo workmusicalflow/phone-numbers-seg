@@ -4,6 +4,7 @@ use App\Services\EventManager;
 use App\Services\Interfaces\SubjectInterface;
 use App\Services\Observers\SMSHistoryObserver;
 use App\Repositories\SMSHistoryRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use DI\Container;
 use DI\ContainerBuilder;
 use function DI\factory;
@@ -21,6 +22,15 @@ $containerBuilder = new ContainerBuilder();
 
 // Définir les définitions
 $definitions = [
+    // Doctrine EntityManager
+    EntityManagerInterface::class => factory(function () {
+        return require __DIR__ . '/../bootstrap-doctrine.php';
+    }),
+
+    // Alias for EntityManager with concrete implementation
+    \Doctrine\ORM\EntityManager::class => factory(function (Container $container) {
+        return $container->get(EntityManagerInterface::class);
+    }),
     // PDO instance for database access
     PDO::class => factory(function () {
         $dbConfig = require __DIR__ . '/database.php';
@@ -42,6 +52,101 @@ $definitions = [
     // Repositories
     SMSHistoryRepository::class => factory(function (Container $container) {
         return new SMSHistoryRepository($container->get(PDO::class));
+    }),
+
+    // Doctrine Repositories
+    App\Repositories\Doctrine\SenderNameRepository::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\SenderNameRepository(
+            $container->get(\Doctrine\ORM\EntityManager::class)
+        );
+    }),
+
+    App\Repositories\Doctrine\SegmentRepository::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\SegmentRepository(
+            $container->get(\Doctrine\ORM\EntityManager::class)
+        );
+    }),
+
+    App\Repositories\Doctrine\CustomSegmentRepository::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\CustomSegmentRepository(
+            $container->get(\Doctrine\ORM\EntityManager::class)
+        );
+    }),
+
+    App\Repositories\Doctrine\PhoneNumberSegmentRepository::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\PhoneNumberSegmentRepository(
+            $container->get(\Doctrine\ORM\EntityManager::class)
+        );
+    }),
+
+    App\Repositories\Doctrine\OrangeAPIConfigRepository::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\OrangeAPIConfigRepository(
+            $container->get(\Doctrine\ORM\EntityManager::class)
+        );
+    }),
+
+    App\Repositories\Doctrine\PhoneNumberRepository::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\PhoneNumberRepository(
+            $container->get(\Doctrine\ORM\EntityManager::class),
+            $container->get(App\Repositories\Interfaces\SegmentRepositoryInterface::class),
+            $container->get(App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class)
+        );
+    }),
+
+    App\Repositories\Doctrine\TechnicalSegmentRepository::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\TechnicalSegmentRepository(
+            $container->get(\Doctrine\ORM\EntityManager::class)
+        );
+    }),
+
+    // Repository interfaces to implementation mapping
+    App\Repositories\Interfaces\SegmentRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\SegmentRepository::class);
+    }),
+
+    App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\CustomSegmentRepository::class);
+    }),
+
+    App\Repositories\Interfaces\PhoneNumberSegmentRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\PhoneNumberSegmentRepository::class);
+    }),
+
+    App\Repositories\Interfaces\OrangeAPIConfigRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\OrangeAPIConfigRepository::class);
+    }),
+
+    App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\PhoneNumberRepository::class);
+    }),
+
+    App\Repositories\Interfaces\TechnicalSegmentRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\TechnicalSegmentRepository::class);
+    }),
+
+    // Phase 2: Mise à jour du conteneur DI pour les repositories restants
+    App\Repositories\Interfaces\UserRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\UserRepository::class);
+    }),
+
+    App\Repositories\Interfaces\ContactRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\ContactRepository::class);
+    }),
+
+    App\Repositories\Interfaces\ContactGroupRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\ContactGroupRepository::class);
+    }),
+
+    App\Repositories\Interfaces\ContactGroupMembershipRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\ContactGroupMembershipRepository::class);
+    }),
+
+    App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\SMSHistoryRepository::class);
+    }),
+
+    App\Repositories\Interfaces\SMSOrderRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\SMSOrderRepository::class);
     }),
 
     // Add other repositories
@@ -96,7 +201,7 @@ $definitions = [
     // Observateurs
     SMSHistoryObserver::class => factory(function (Container $container) {
         return new SMSHistoryObserver(
-            $container->get(SMSHistoryRepository::class)
+            $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class)
         );
     }),
 
@@ -124,7 +229,7 @@ $definitions = [
         );
     }),
 
-    // SMSService now injects OrangeAPIClientInterface
+    // SMSService now injects OrangeAPIClientInterface and uses legacy repositories
     \App\Services\SMSService::class => factory(function (Container $container) {
         return new \App\Services\SMSService(
             $container->get(\App\Services\Interfaces\OrangeAPIClientInterface::class), // Inject the client
@@ -132,7 +237,7 @@ $definitions = [
             $container->get(\App\Repositories\CustomSegmentRepository::class),
             $container->get(\App\Repositories\SMSHistoryRepository::class),
             $container->get(\App\Repositories\UserRepository::class),
-            $container->get(\App\Repositories\ContactRepository::class) // Inject ContactRepository
+            $container->get(\App\Repositories\ContactRepository::class)
         );
     }),
 
@@ -148,15 +253,17 @@ $definitions = [
     \App\Services\Interfaces\PhoneSegmentationServiceInterface::class => factory(function (Container $container) {
         return new \App\Services\PhoneSegmentationService(
             $container->get(\App\Services\Interfaces\PhoneNumberValidatorInterface::class),
-            $container->get(\App\Services\Factories\SegmentationStrategyFactory::class)
+            $container->get(\App\Services\Factories\SegmentationStrategyFactory::class),
+            $container->get(\App\Repositories\Interfaces\SegmentRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class)
         );
     }),
 
     \App\Services\Interfaces\BatchSegmentationServiceInterface::class => factory(function (Container $container) {
         return new \App\Services\BatchSegmentationService(
             $container->get(\App\Services\Interfaces\PhoneSegmentationServiceInterface::class),
-            $container->get(\App\Repositories\PhoneNumberRepository::class),
-            $container->get(\App\Repositories\TechnicalSegmentRepository::class),
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\TechnicalSegmentRepositoryInterface::class),
             $container->get(\App\Services\Formatters\BatchResultFormatterInterface::class)
         );
     }),
@@ -175,7 +282,7 @@ $definitions = [
 
     \App\Services\Interfaces\CustomSegmentMatcherInterface::class => factory(function (Container $container) {
         return new \App\Services\CustomSegmentMatcher(
-            $container->get(\App\Repositories\CustomSegmentRepository::class),
+            $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class),
             $container->get(\App\Services\Interfaces\RegexValidatorInterface::class)
         );
     }),
@@ -186,7 +293,7 @@ $definitions = [
 
     \App\Services\Interfaces\SMSHistoryServiceInterface::class => factory(function (Container $container) {
         return new \App\Services\SMSHistoryService(
-            $container->get(\App\Repositories\SMSHistoryRepository::class)
+            $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class)
         );
     }),
 
@@ -194,8 +301,8 @@ $definitions = [
         return new \App\Services\SMSBusinessService(
             $container->get(\App\Services\Interfaces\SMSSenderServiceInterface::class),
             $container->get(\App\Services\Interfaces\SMSHistoryServiceInterface::class),
-            $container->get(\App\Repositories\CustomSegmentRepository::class),
-            $container->get(\App\Repositories\PhoneNumberRepository::class)
+            $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class)
         );
     }),
 
@@ -254,15 +361,15 @@ $definitions = [
     // Services for ImportExportController
     \App\Services\CSVImportService::class => factory(function (Container $container) {
         return new \App\Services\CSVImportService(
-            $container->get(\App\Repositories\PhoneNumberRepository::class),
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class),
             $container->get(\App\Services\Interfaces\PhoneSegmentationServiceInterface::class),
-            $container->get(\App\Repositories\ContactRepository::class)
+            $container->get(\App\Repositories\Interfaces\ContactRepositoryInterface::class)
         );
     }),
 
     \App\Services\ExportService::class => factory(function (Container $container) {
         return new \App\Services\ExportService(
-            $container->get(\App\Repositories\PhoneNumberRepository::class)
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class)
         );
     }),
 
@@ -283,7 +390,8 @@ $definitions = [
     \App\Services\Interfaces\NotificationServiceInterface::class => factory(function (Container $container) {
         return new \App\Services\NotificationService(
             $container->get(\App\Services\Interfaces\EmailServiceInterface::class),
-            $container->get(\App\Services\SMSService::class)
+            $container->get(\App\Services\SMSService::class),
+            $container->get(\App\Repositories\UserRepository::class)
         );
     }),
 
@@ -304,14 +412,65 @@ $definitions = [
     // Service de journalisation des actions administrateur
     \App\Services\Interfaces\AdminActionLoggerInterface::class => factory(function (Container $container) {
         return new \App\Services\AdminActionLogger(
-            $container->get(PDO::class)
+            $container->get(PDO::class),
+            $container->get(\App\Repositories\UserRepository::class)
         );
     }),
 
     // GraphQL Formatters
     \App\GraphQL\Formatters\GraphQLFormatterInterface::class => factory(function (Container $container) {
         return new \App\GraphQL\Formatters\GraphQLFormatterService(
-            $container->get(\App\Repositories\CustomSegmentRepository::class), // Dependency needed by the formatter
+            $container->get(\App\Repositories\CustomSegmentRepository::class),
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
+
+    // GraphQL Resolvers
+    \App\GraphQL\Resolvers\UserResolver::class => factory(function (Container $container) {
+        return new \App\GraphQL\Resolvers\UserResolver(
+            $container->get(\App\Repositories\UserRepository::class),
+            $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
+            $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
+
+    \App\GraphQL\Resolvers\ContactResolver::class => factory(function (Container $container) {
+        return new \App\GraphQL\Resolvers\ContactResolver(
+            $container->get(\App\Repositories\ContactRepository::class),
+            $container->get(\App\Repositories\ContactGroupRepository::class),
+            $container->get(\App\Repositories\ContactGroupMembershipRepository::class),
+            $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
+            $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
+
+    \App\GraphQL\Resolvers\ContactGroupResolver::class => factory(function (Container $container) {
+        return new \App\GraphQL\Resolvers\ContactGroupResolver(
+            $container->get(\App\Repositories\ContactGroupRepository::class),
+            $container->get(\App\Repositories\ContactGroupMembershipRepository::class),
+            $container->get(\App\Repositories\ContactRepository::class),
+            $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
+            $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
+
+    \App\GraphQL\Resolvers\SMSResolver::class => factory(function (Container $container) {
+        return new \App\GraphQL\Resolvers\SMSResolver(
+            $container->get(\App\Repositories\SMSHistoryRepository::class),
+            $container->get(\App\Repositories\CustomSegmentRepository::class),
+            $container->get(\App\Services\SMSService::class),
+            $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
+            $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
+
+    \App\GraphQL\Resolvers\AuthResolver::class => factory(function (Container $container) {
+        return new \App\GraphQL\Resolvers\AuthResolver(
+            $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
             $container->get(Psr\Log\LoggerInterface::class)
         );
     }),

@@ -19,13 +19,16 @@ Cette fonctionnalité est donc prête pour les tests utilisateurs et ne nécessi
 
 ### Fonctionnalités Essentielles pour le MVP
 
-1. **Modèles de SMS (Interface Utilisateur)**
-   - **Justification** : Cette fonctionnalité est essentielle car elle permet aux utilisateurs de créer et réutiliser des modèles de messages, ce qui améliore considérablement l'efficacité et la cohérence des communications. Sans cette fonctionnalité, les utilisateurs devraient réécrire les mêmes messages à chaque envoi.
-   - **Implémentation minimale** :
-     - Modèle de données simple pour stocker les modèles (titre, contenu, variables)
-     - Interface basique pour créer/éditer/supprimer des modèles
-     - Intégration avec l'interface d'envoi de SMS existante
-     - Support minimal pour les variables (ex: {nom}, {prénom})
+1. **adoption de Doctrine ORM**
+   Doctrine ORM en mode autonome (standalone), sans dépendre du FrameworkBundle de Symfony ni de ses commandes CLI. bootstrap Doctrine autonome
+
+2. **Remplacer les URLs codées en dur par des constantes définies**
+   Dans nos conventions de développement, nous visons à centraliser les valeurs de configuration, y compris les URLs et les chemins d'accès. Dès que possible lors de l'évolution du MVP, les liens codés en dur devraient être migrés vers des constantes dédiées pour assurer la maintenabilité.
+
+   - **Justification** : Maintenabilité accrue, réduction des erreurs, cohérence. Essentiel pour la phase de consolidation post-MVP."
+
+3. **Création d'une branche git pour préparer le projet au déploiement**
+   - Une fois les fonctionnalités essentielles implémentées, nous devrons créer une branche dédiée à la conformation des fichiers et de la structure globale pour le déploiement via Cpanel et Filezilla.
 
 ### Fonctionnalités Non-Essentielles pour le MVP
 
@@ -34,12 +37,16 @@ Cette fonctionnalité est donc prête pour les tests utilisateurs et ne nécessi
    - **Justification** : Bien que utiles, les rapports avancés ne sont pas essentiels pour la fonctionnalité de base du système. Les statistiques de base déjà présentes dans le tableau de bord administrateur sont suffisantes pour le MVP.
    - **Alternative pour le MVP** : Utiliser les statistiques de base existantes et collecter les retours utilisateurs pour déterminer quels rapports seraient les plus utiles.
 
-2. **Gestion des Rôles et Permissions Avancée (Interface Administrateur)**
+2. **Modèles de SMS (Interface Utilisateur)**
+
+   - Cette fonctionnalité n'est pas essentielle
+
+3. **Gestion des Rôles et Permissions Avancée (Interface Administrateur)**
 
    - **Justification** : Le système d'authentification actuel avec ses fonctionnalités de base est suffisant pour le MVP. Une gestion avancée des rôles peut être développée après avoir recueilli les retours des premiers utilisateurs.
    - **Alternative pour le MVP** : Maintenir le système actuel avec des rôles simples (administrateur/utilisateur).
 
-3. **Journalisation des Activités (Interface Administrateur)**
+4. **Journalisation des Activités (Interface Administrateur)**
    - **Justification** : Cette fonctionnalité est principalement utile pour le débogage et l'audit, mais n'est pas critique pour les fonctionnalités de base du système.
    - **Alternative pour le MVP** : Utiliser les logs système existants et les journaux d'erreurs pour le suivi des problèmes.
 

@@ -6,7 +6,8 @@ use App\Models\User;
 use App\Models\Contact;
 use App\Models\SMSHistory;
 use App\Models\Segment;
-use App\Models\CustomSegment;
+use App\Models\CustomSegment as ModelsCustomSegment;
+use App\Entities\CustomSegment as EntitiesCustomSegment;
 use App\Models\ContactGroup; // Add ContactGroup model
 use App\Models\ContactGroupMembership; // Add ContactGroupMembership model
 use App\Repositories\CustomSegmentRepository;
@@ -105,7 +106,7 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
     /**
      * {@inheritdoc}
      */
-    public function formatCustomSegment(CustomSegment $segment, ?int $phoneNumberCount = null): array
+    public function formatCustomSegment($segment, ?int $phoneNumberCount = null): array
     {
         // Logic adapted from SMSResolver::resolveSegmentsForSMS
         // Note: Changed type hint to CustomSegment to match interface
@@ -117,11 +118,8 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
             // Add other common segment fields if applicable
         ];
 
-        // Add fields specific to CustomSegment if it's the correct type
-        if ($segment instanceof CustomSegment) {
-            $formattedSegment['description'] = $segment->getDescription();
-            // Add other CustomSegment specific fields
-        }
+        // Add description field if available
+        $formattedSegment['description'] = $segment->getDescription();
 
         // Include phone number count if provided
         if ($phoneNumberCount !== null) {

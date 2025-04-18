@@ -290,7 +290,8 @@ class SMSService
             $number = '+' . substr($number, 2);
         } elseif (strpos($number, '0') === 0 && strlen($number) > 5) { // Basic check for local number
             // Assume local Côte d'Ivoire number if starts with 0
-            $number = '+225' . substr($number, 1);
+            // Preserve the leading 0 when adding the country code
+            $number = '+225' . $number;
         } else {
             // Cannot determine format, maybe add default country code or throw error?
             // For now, assume it might be missing '+'
