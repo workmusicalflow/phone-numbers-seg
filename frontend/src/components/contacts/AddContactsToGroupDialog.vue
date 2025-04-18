@@ -244,7 +244,7 @@ async function onSubmit() {
   try {
     const result = await groupStore.addContactsToGroup(selectedContactIds.value, props.groupId);
     
-    if (result && (result.status === 'success' || result.status === 'partial')) {
+    if (result && result.successful > 0) {
       emit('contacts-added', result.successful);
       dialogVisible.value = false;
       
@@ -263,6 +263,14 @@ async function onSubmit() {
           icon: 'warning'
         });
       }
+    } else if (result) {
+      // Si result existe mais aucun contact n'a été ajouté avec succès
+      $q.notify({
+        color: 'warning',
+        message: result.message || 'Aucun contact n\'a pu être ajouté au groupe.',
+        icon: 'warning'
+      });
+      dialogVisible.value = false;
     } else {
       throw new Error('Échec de l\'ajout des contacts au groupe.');
     }

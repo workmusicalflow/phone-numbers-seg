@@ -291,21 +291,24 @@ class ContactResolver
                 throw new Exception("Contact non trouvé"); // Treat as not found for security
             }
 
-            // Update the contact entity instance (only fields provided in args)
+            // Update the existing contact entity instance (only fields provided in args)
             // Note: The Contact entity should handle setting updatedAt automatically via PreUpdate
-            $updatedContact = new Contact();
-            $updatedContact->setId($contactId);
-            $updatedContact->setUserId($userId);
-            $updatedContact->setName($args['name'] ?? $existingContact->getName()); // Use existing value if not provided
-            $updatedContact->setPhoneNumber($args['phoneNumber'] ?? $existingContact->getPhoneNumber());
-            $updatedContact->setEmail(array_key_exists('email', $args) ? $args['email'] : $existingContact->getEmail());
-            $updatedContact->setNotes(array_key_exists('notes', $args) ? $args['notes'] : $existingContact->getNotes());
-            $updatedContact->setCreatedAt($existingContact->getCreatedAt()); // Keep original creation date
+            if (isset($args['name'])) {
+                $existingContact->setName($args['name']);
+            }
+            if (isset($args['phoneNumber'])) {
+                $existingContact->setPhoneNumber($args['phoneNumber']);
+            }
+            if (array_key_exists('email', $args)) {
+                $existingContact->setEmail($args['email']);
+            }
+            if (array_key_exists('notes', $args)) {
+                $existingContact->setNotes($args['notes']);
+            }
             // updatedAt will be handled by the PreUpdate lifecycle callback
 
-
             // Save the updated contact
-            $savedContact = $this->contactRepository->save($updatedContact);
+            $savedContact = $this->contactRepository->save($existingContact);
             $this->logger->info('Contact updated successfully for ID: ' . $contactId);
 
             // Handle group memberships if groupIds are provided

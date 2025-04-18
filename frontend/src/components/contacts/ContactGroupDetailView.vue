@@ -119,8 +119,8 @@
     <!-- Dialog for adding contacts to group -->
     <add-contacts-to-group-dialog
       v-model="showAddContactsDialog"
-      :group-id="groupId"
-      :group-name="store.currentGroup?.name"
+      :group-id="groupId || ''"
+      :group-name="store.currentGroup?.name || ''"
       @contacts-added="onContactsAdded"
     />
   </div>

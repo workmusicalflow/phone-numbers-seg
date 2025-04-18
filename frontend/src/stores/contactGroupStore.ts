@@ -319,8 +319,18 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
         notifySuccess('Contact ajouté au groupe.');
         // Optionally refetch group details or contacts in group if needed
         const groupIndex = contactGroups.value.findIndex((g) => g.id === groupId);
-        if (groupIndex !== -1) contactGroups.value[groupIndex].contactCount++;
-        if (currentGroup.value?.id === groupId) currentGroup.value.contactCount++;
+        if (groupIndex !== -1) {
+          const group = {...contactGroups.value[groupIndex]};
+          group.contactCount++;
+          contactGroups.value[groupIndex] = group;
+        }
+        
+        if (currentGroup.value?.id === groupId) {
+          currentGroup.value = {
+            ...currentGroup.value,
+            contactCount: currentGroup.value.contactCount + 1
+          };
+        }
         return true;
       } else {
         // This case should ideally be handled by the check above, but as a fallback:
@@ -360,9 +370,20 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
         // Update local state if necessary
         currentGroupContacts.value = currentGroupContacts.value.filter((c) => c.id !== contactId);
         totalContactsInGroup.value--;
+        
         const groupIndex = contactGroups.value.findIndex(g => g.id === groupId);
-        if (groupIndex !== -1) contactGroups.value[groupIndex].contactCount--;
-         if (currentGroup.value?.id === groupId) currentGroup.value.contactCount--;
+        if (groupIndex !== -1) {
+          const group = {...contactGroups.value[groupIndex]};
+          group.contactCount--;
+          contactGroups.value[groupIndex] = group;
+        }
+        
+        if (currentGroup.value?.id === groupId) {
+          currentGroup.value = {
+            ...currentGroup.value,
+            contactCount: currentGroup.value.contactCount - 1
+          };
+        }
         return true;
       } else {
         // This might happen if the contact wasn't in the group or backend returned false
@@ -410,8 +431,18 @@ export const useContactGroupStore = defineStore('contactGroup', () => {
         notifySuccess(result.message);
          // Update counts
         const groupIndex = contactGroups.value.findIndex((g) => g.id === groupId);
-        if (groupIndex !== -1) contactGroups.value[groupIndex].contactCount += result.successful;
-        if (currentGroup.value?.id === groupId) currentGroup.value.contactCount += result.successful;
+        if (groupIndex !== -1) {
+          const group = {...contactGroups.value[groupIndex]};
+          group.contactCount += result.successful;
+          contactGroups.value[groupIndex] = group;
+        }
+        
+        if (currentGroup.value?.id === groupId) {
+          currentGroup.value = {
+            ...currentGroup.value,
+            contactCount: currentGroup.value.contactCount + result.successful
+          };
+        }
       } else {
          notifyError(result.message || 'Erreur lors de l\'ajout des contacts.');
       }
