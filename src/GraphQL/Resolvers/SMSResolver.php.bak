@@ -5,9 +5,9 @@ namespace App\GraphQL\Resolvers;
 use App\Repositories\Interfaces\SMSHistoryRepositoryInterface;
 use App\Repositories\Interfaces\CustomSegmentRepositoryInterface;
 use App\Services\SMSService;
-use App\Entities\SMSHistory;
-use App\Entities\Segment;
-use App\Entities\CustomSegment; // Explicitly use CustomSegment where needed
+use App\Models\SMSHistory;
+use App\Models\Segment;
+use App\Models\CustomSegment; // Explicitly use CustomSegment where needed
 use App\Services\Interfaces\AuthServiceInterface;
 use App\GraphQL\Formatters\GraphQLFormatterInterface;
 use Exception;
