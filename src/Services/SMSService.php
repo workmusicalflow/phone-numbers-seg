@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Repositories\CustomSegmentRepository;
-use App\Repositories\PhoneNumberRepository;
-use App\Repositories\SMSHistoryRepository;
-use App\Repositories\UserRepository;
-use App\Repositories\ContactRepository; // Import ContactRepository
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface;
+use App\Repositories\Interfaces\PhoneNumberRepositoryInterface;
+use App\Repositories\Interfaces\SMSHistoryRepositoryInterface;
+use App\Repositories\Interfaces\UserRepositoryInterface;
+use App\Repositories\Interfaces\ContactRepositoryInterface; // Import ContactRepository interface
 use App\Models\SMSHistory;
 use App\Models\Contact; // Import Contact model
 use App\Services\Interfaces\OrangeAPIClientInterface;
@@ -21,29 +21,29 @@ use RuntimeException; // Use RuntimeException for specific errors
 class SMSService
 {
     private OrangeAPIClientInterface $orangeApiClient; // Inject the client
-    private ?PhoneNumberRepository $phoneNumberRepository;
-    private ?CustomSegmentRepository $customSegmentRepository;
-    private ?SMSHistoryRepository $smsHistoryRepository;
-    private ?UserRepository $userRepository;
-    private ?ContactRepository $contactRepository; // Add ContactRepository property
+    private ?PhoneNumberRepositoryInterface $phoneNumberRepository;
+    private ?CustomSegmentRepositoryInterface $customSegmentRepository;
+    private ?SMSHistoryRepositoryInterface $smsHistoryRepository;
+    private ?UserRepositoryInterface $userRepository;
+    private ?ContactRepositoryInterface $contactRepository; // Add ContactRepository property
 
     /**
      * Constructor
      * 
      * @param OrangeAPIClientInterface $orangeApiClient
-     * @param PhoneNumberRepository|null $phoneNumberRepository
-     * @param CustomSegmentRepository|null $customSegmentRepository
-     * @param SMSHistoryRepository|null $smsHistoryRepository
-     * @param UserRepository|null $userRepository
-     * @param ContactRepository|null $contactRepository // Add ContactRepository parameter
+     * @param PhoneNumberRepositoryInterface|null $phoneNumberRepository
+     * @param CustomSegmentRepositoryInterface|null $customSegmentRepository
+     * @param SMSHistoryRepositoryInterface|null $smsHistoryRepository
+     * @param UserRepositoryInterface|null $userRepository
+     * @param ContactRepositoryInterface|null $contactRepository // Add ContactRepository parameter
      */
     public function __construct(
         OrangeAPIClientInterface $orangeApiClient,
-        ?PhoneNumberRepository $phoneNumberRepository = null,
-        ?CustomSegmentRepository $customSegmentRepository = null,
-        ?SMSHistoryRepository $smsHistoryRepository = null,
-        ?UserRepository $userRepository = null,
-        ?ContactRepository $contactRepository = null // Inject ContactRepository
+        ?PhoneNumberRepositoryInterface $phoneNumberRepository = null,
+        ?CustomSegmentRepositoryInterface $customSegmentRepository = null,
+        ?SMSHistoryRepositoryInterface $smsHistoryRepository = null,
+        ?UserRepositoryInterface $userRepository = null,
+        ?ContactRepositoryInterface $contactRepository = null // Inject ContactRepository
     ) {
         $this->orangeApiClient = $orangeApiClient;
         $this->phoneNumberRepository = $phoneNumberRepository;

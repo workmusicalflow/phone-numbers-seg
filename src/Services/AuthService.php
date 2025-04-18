@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Repositories\UserRepository;
+use App\Entities\User;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\Interfaces\AuthServiceInterface;
 use App\Services\Interfaces\EmailServiceInterface;
 
@@ -13,7 +13,7 @@ use App\Services\Interfaces\EmailServiceInterface;
 class AuthService implements AuthServiceInterface
 {
     /**
-     * @var UserRepository
+     * @var UserRepositoryInterface
      */
     private $userRepository;
 
@@ -54,11 +54,11 @@ class AuthService implements AuthServiceInterface
     /**
      * Constructeur
      * 
-     * @param UserRepository $userRepository
+     * @param UserRepositoryInterface $userRepository
      * @param EmailServiceInterface $emailService
      */
     public function __construct(
-        UserRepository $userRepository,
+        UserRepositoryInterface $userRepository,
         EmailServiceInterface $emailService
     ) {
         $this->userRepository = $userRepository;
@@ -101,8 +101,8 @@ class AuthService implements AuthServiceInterface
      */
     private function createUserSession(User $user): void
     {
-        // Démarrer la session si elle n'est pas déjà démarrée
-        if (session_status() === PHP_SESSION_NONE) {
+        // Démarrer la session si elle n'est pas déjà démarrée et si les en-têtes n'ont pas été envoyés
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             session_start();
         }
 
@@ -113,7 +113,10 @@ class AuthService implements AuthServiceInterface
         $_SESSION['auth_time'] = time();
 
         // Régénérer l'ID de session pour éviter les attaques de fixation de session
-        session_regenerate_id(true);
+        // Seulement si la session est active
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_regenerate_id(true);
+        }
     }
 
     /**
@@ -123,30 +126,33 @@ class AuthService implements AuthServiceInterface
      */
     public function destroyUserSession(): void
     {
-        // Démarrer la session si elle n'est pas déjà démarrée
-        if (session_status() === PHP_SESSION_NONE) {
+        // Démarrer la session si elle n'est pas déjà démarrée et si les en-têtes n'ont pas été envoyés
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             session_start();
         }
 
-        // Détruire toutes les données de session
-        $_SESSION = [];
+        // Si la session est active, la détruire
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            // Détruire toutes les données de session
+            $_SESSION = [];
 
-        // Détruire le cookie de session
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params["path"],
-                $params["domain"],
-                $params["secure"],
-                $params["httponly"]
-            );
+            // Détruire le cookie de session
+            if (ini_get("session.use_cookies")) {
+                $params = session_get_cookie_params();
+                setcookie(
+                    session_name(),
+                    '',
+                    time() - 42000,
+                    $params["path"],
+                    $params["domain"],
+                    $params["secure"],
+                    $params["httponly"]
+                );
+            }
+
+            // Détruire la session
+            session_destroy();
         }
-
-        // Détruire la session
-        session_destroy();
     }
 
     /**
@@ -156,8 +162,8 @@ class AuthService implements AuthServiceInterface
      */
     public function isAuthenticated(): bool
     {
-        // Démarrer la session si elle n'est pas déjà démarrée
-        if (session_status() === PHP_SESSION_NONE) {
+        // Démarrer la session si elle n'est pas déjà démarrée et si les en-têtes n'ont pas été envoyés
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             session_start();
         }
 

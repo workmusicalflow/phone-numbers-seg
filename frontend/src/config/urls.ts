@@ -23,7 +23,7 @@ export const API = {
   /**
    * GraphQL endpoint
    */
-  GRAPHQL: getEnvironmentVariable('GRAPHQL_ENDPOINT', '/graphql.php'),
+  GRAPHQL: getEnvironmentVariable('GRAPHQL_ENDPOINT', 'http://localhost:8000/graphql.php'),
 
   /**
    * User-related endpoints

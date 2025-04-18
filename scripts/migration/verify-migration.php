@@ -170,7 +170,7 @@ $logger->info('--- Vérification des échantillons de données ---');
 // Échantillon d'utilisateur
 if ($legacyUserCount > 0 && $doctrineUserCount > 0) {
     $legacyUser = $legacyUserRepository->findAll()[0];
-    $doctrineUser = $doctrineUserRepository->find($legacyUser->getId());
+    $doctrineUser = $doctrineUserRepository->findById($legacyUser->getId());
 
     if ($doctrineUser) {
         $userProperties = ['username', 'email', 'role', 'smsCredits'];
@@ -184,7 +184,7 @@ if ($legacyUserCount > 0 && $doctrineUserCount > 0) {
 // Échantillon de contact
 if ($legacyContactCount > 0 && $doctrineContactCount > 0) {
     $legacyContact = $legacyContactRepository->findAll()[0];
-    $doctrineContact = $doctrineContactRepository->find($legacyContact->getId());
+    $doctrineContact = $doctrineContactRepository->findById($legacyContact->getId());
 
     if ($doctrineContact) {
         $contactProperties = ['firstName', 'lastName', 'email', 'phoneNumber'];
@@ -198,7 +198,7 @@ if ($legacyContactCount > 0 && $doctrineContactCount > 0) {
 // Échantillon de groupe de contacts
 if ($legacyContactGroupCount > 0 && $doctrineContactGroupCount > 0) {
     $legacyGroup = $legacyContactGroupRepository->findAll()[0];
-    $doctrineGroup = $doctrineContactGroupRepository->find($legacyGroup->getId());
+    $doctrineGroup = $doctrineContactGroupRepository->findById($legacyGroup->getId());
 
     if ($doctrineGroup) {
         $groupProperties = ['name', 'description', 'userId'];
@@ -212,7 +212,7 @@ if ($legacyContactGroupCount > 0 && $doctrineContactGroupCount > 0) {
 // Échantillon d'historique SMS
 if ($legacySMSHistoryCount > 0 && $doctrineSMSHistoryCount > 0) {
     $legacySMS = $legacySMSHistoryRepository->findAll()[0];
-    $doctrineSMS = $doctrineSMSHistoryRepository->find($legacySMS->getId());
+    $doctrineSMS = $doctrineSMSHistoryRepository->findById($legacySMS->getId());
 
     if ($doctrineSMS) {
         $smsProperties = ['messageId', 'phoneNumber', 'message', 'status'];
@@ -243,7 +243,7 @@ $logger->info('--- Vérification des relations ---');
 // Relation entre groupes et contacts
 if ($legacyContactGroupCount > 0 && $doctrineContactGroupCount > 0) {
     $legacyGroup = $legacyContactGroupRepository->findAll()[0];
-    $doctrineGroup = $doctrineContactGroupRepository->find($legacyGroup->getId());
+    $doctrineGroup = $doctrineContactGroupRepository->findById($legacyGroup->getId());
 
     if ($doctrineGroup) {
         $legacyMemberships = $legacyContactGroupMembershipRepository->findByGroupId($legacyGroup->getId());
@@ -256,7 +256,7 @@ if ($legacyContactGroupCount > 0 && $doctrineContactGroupCount > 0) {
 // Relation entre segments personnalisés et numéros de téléphone
 if ($legacyCustomSegmentCount > 0 && $doctrineCustomSegmentCount > 0) {
     $legacySegment = $legacyCustomSegmentRepository->findAll()[0];
-    $doctrineSegment = $doctrineCustomSegmentRepository->find($legacySegment->getId());
+    $doctrineSegment = $doctrineCustomSegmentRepository->findById($legacySegment->getId());
 
     if ($doctrineSegment) {
         $legacyPhoneNumbers = $legacySegment->getPhoneNumbers();

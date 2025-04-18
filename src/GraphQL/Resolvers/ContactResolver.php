@@ -2,10 +2,9 @@
 
 namespace App\GraphQL\Resolvers;
 
-use App\Repositories\ContactRepository;
-// Removed duplicate use statement
-use App\Repositories\ContactGroupRepository; // Added
-use App\Repositories\ContactGroupMembershipRepository; // Added
+use App\Repositories\Interfaces\ContactRepositoryInterface;
+use App\Repositories\Interfaces\ContactGroupRepositoryInterface;
+use App\Repositories\Interfaces\ContactGroupMembershipRepositoryInterface;
 use App\Models\Contact;
 use App\Models\User;
 use App\Models\ContactGroupMembership; // Added
@@ -16,19 +15,19 @@ use Psr\Log\LoggerInterface;
 
 class ContactResolver
 {
-    private ContactRepository $contactRepository;
-    private ContactGroupRepository $groupRepository; // Added
-    private ContactGroupMembershipRepository $membershipRepository; // Added
+    private ContactRepositoryInterface $contactRepository;
+    private ContactGroupRepositoryInterface $groupRepository;
+    private ContactGroupMembershipRepositoryInterface $membershipRepository;
     private AuthServiceInterface $authService;
     private GraphQLFormatterInterface $formatter; // Add Formatter property
     private LoggerInterface $logger;
 
     public function __construct(
-        ContactRepository $contactRepository,
-        ContactGroupRepository $groupRepository, // Added
-        ContactGroupMembershipRepository $membershipRepository, // Added
+        ContactRepositoryInterface $contactRepository,
+        ContactGroupRepositoryInterface $groupRepository,
+        ContactGroupMembershipRepositoryInterface $membershipRepository,
         AuthServiceInterface $authService,
-        GraphQLFormatterInterface $formatter, // Inject Formatter
+        GraphQLFormatterInterface $formatter,
         LoggerInterface $logger
     ) {
         $this->contactRepository = $contactRepository;
@@ -222,7 +221,7 @@ class ContactResolver
             );
 
             // Save the contact using the repository
-            $savedContact = $this->contactRepository->create($contact);
+            $savedContact = $this->contactRepository->save($contact);
             $contactId = $savedContact->getId();
             $this->logger->info('Contact created successfully for user ' . $userId . ' with ID: ' . $contactId);
 
@@ -305,7 +304,7 @@ class ContactResolver
 
 
             // Save the updated contact
-            $savedContact = $this->contactRepository->update($updatedContact);
+            $savedContact = $this->contactRepository->save($updatedContact);
             $this->logger->info('Contact updated successfully for ID: ' . $contactId);
 
             // Handle group memberships if groupIds are provided
@@ -416,7 +415,7 @@ class ContactResolver
             $this->logger->debug('Removing contact ' . $contactId . ' from groups: ' . implode(', ', $idsToRemove));
             foreach ($idsToRemove as $groupIdToRemove) {
                 try {
-                    $this->membershipRepository->deleteByContactAndGroup($contactId, $groupIdToRemove);
+                    $this->membershipRepository->removeContactFromGroup($contactId, $groupIdToRemove);
                 } catch (Exception $e) {
                     $this->logger->error('Failed to remove contact ' . $contactId . ' from group ' . $groupIdToRemove, ['exception' => $e]);
                     // Decide if this should halt the process or just log
@@ -436,8 +435,7 @@ class ContactResolver
                         continue; // Skip adding to this group
                     }
 
-                    $membership = new ContactGroupMembership(0, $contactId, $groupIdToAdd);
-                    $this->membershipRepository->create($membership);
+                    $this->membershipRepository->addContactToGroup($contactId, $groupIdToAdd);
                 } catch (Exception $e) {
                     // Catch potential duplicate entry errors if not handled by DB/repo create method
                     $this->logger->error('Failed to add contact ' . $contactId . ' to group ' . $groupIdToAdd, ['exception' => $e]);
@@ -471,7 +469,7 @@ class ContactResolver
             $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
-            $count = $this->contactRepository->count($userId);
+            $count = $this->contactRepository->countByUserId($userId);
             $this->logger->info('Found ' . $count . ' contacts for user ' . $userId);
 
             return $count;

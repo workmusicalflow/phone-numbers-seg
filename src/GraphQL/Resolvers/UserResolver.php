@@ -2,7 +2,7 @@
 
 namespace App\GraphQL\Resolvers;
 
-use App\Repositories\UserRepository;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\Interfaces\AuthServiceInterface;
 use App\GraphQL\Formatters\GraphQLFormatterInterface; // Import Formatter interface
 use Exception;
@@ -10,13 +10,13 @@ use Psr\Log\LoggerInterface;
 
 class UserResolver
 {
-    private UserRepository $userRepository;
+    private UserRepositoryInterface $userRepository;
     private AuthServiceInterface $authService;
     private GraphQLFormatterInterface $formatter; // Add Formatter property
     private LoggerInterface $logger;
 
     public function __construct(
-        UserRepository $userRepository,
+        UserRepositoryInterface $userRepository,
         AuthServiceInterface $authService,
         GraphQLFormatterInterface $formatter, // Inject Formatter
         LoggerInterface $logger
@@ -179,7 +179,7 @@ class UserResolver
             $email = $args['email'] ?? null;
 
             // Note: The User model constructor might need adjustment if it expects ID=0 or null
-            $user = new \App\Models\User(
+            $user = new \App\Entities\User(
                 0, // Assuming ID is auto-generated
                 $username,
                 $hashedPassword,

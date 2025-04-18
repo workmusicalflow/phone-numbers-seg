@@ -43,11 +43,20 @@ try {
     // Migration de chaque entrée d'historique SMS
     foreach ($legacySMSHistory as $legacySMS) {
         try {
+            $messageId = $legacySMS->getMessageId();
+
+            // Vérifier si messageId est null avant de chercher
+            if ($messageId === null) {
+                $logger->warning(sprintf('L\'entrée d\'historique SMS avec ID legacy (probablement ID interne %s) a un messageId NULL, ignorée...', $legacySMS->getId() ?? 'inconnu'));
+                $skippedCount++;
+                continue;
+            }
+
             // Vérifier si l'entrée d'historique SMS existe déjà dans Doctrine
-            $existingSMS = $doctrineSMSHistoryRepository->findByMessageId($legacySMS->getMessageId());
+            $existingSMS = $doctrineSMSHistoryRepository->findByMessageId($messageId);
 
             if ($existingSMS) {
-                $logger->info(sprintf('L\'entrée d\'historique SMS avec ID de message %s existe déjà, ignorée...', $legacySMS->getMessageId()));
+                $logger->info(sprintf('L\'entrée d\'historique SMS avec ID de message %s existe déjà, ignorée...', $messageId));
                 $skippedCount++;
                 continue;
             }
@@ -57,15 +66,15 @@ try {
             $user = null;
 
             if ($userId) {
-                $user = $doctrineUserRepository->find($userId);
+                $user = $doctrineUserRepository->findById($userId);
                 if (!$user) {
-                    $logger->warning(sprintf('Utilisateur ID %d non trouvé pour l\'entrée d\'historique SMS %s', $userId, $legacySMS->getMessageId()));
+                    $logger->warning(sprintf('Utilisateur ID %d non trouvé pour l\'entrée d\'historique SMS %s', $userId, $messageId));
                 }
             }
 
             // Création d'une nouvelle entrée d'historique SMS Doctrine
             $doctrineSMS = new DoctrineSMSHistory();
-            $doctrineSMS->setMessageId($legacySMS->getMessageId());
+            $doctrineSMS->setMessageId($messageId); // Utiliser la variable $messageId vérifiée
             $doctrineSMS->setPhoneNumber($legacySMS->getPhoneNumber());
             $doctrineSMS->setMessage($legacySMS->getMessage());
             $doctrineSMS->setStatus($legacySMS->getStatus());
@@ -95,7 +104,7 @@ try {
         } catch (\Exception $e) {
             $logger->error(sprintf(
                 'Erreur lors de la migration de l\'entrée d\'historique SMS %s: %s',
-                $legacySMS->getMessageId(),
+                $messageId ?? ($legacySMS->getId() ?? 'inconnu'), // Utiliser $messageId ou l'ID legacy si $messageId est null
                 $e->getMessage()
             ));
             $errorCount++;

@@ -24,9 +24,11 @@ $migrationScripts = [
     'migrate-contacts.php' => 'Contacts',
     'migrate-contact-groups.php' => 'Groupes de contacts',
     'migrate-contact-group-memberships.php' => 'Appartenances aux groupes',
-    'migrate-segments.php' => 'Segments personnalisés',
+    // Les segments personnalisés et leurs associations sont ignorés car les groupes de contacts
+    // remplissent déjà cette fonction dans Oracle
+    // 'migrate-segments.php' => 'Segments personnalisés',
     'migrate-phone-numbers.php' => 'Numéros de téléphone',
-    'migrate-phone-number-segments.php' => 'Associations numéros-segments',
+    // 'migrate-phone-number-segments.php' => 'Associations numéros-segments',
     'migrate-sms-history.php' => 'Historique SMS',
     'migrate-sms-orders.php' => 'Commandes SMS'
 ];

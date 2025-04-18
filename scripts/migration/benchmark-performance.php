@@ -129,11 +129,11 @@ if (count($userIds) > 0) {
     $userId = $userIds[0];
 
     $legacyResult = benchmark('Legacy - findById User', function () use ($legacyUserRepository, $userId) {
-        return $legacyUserRepository->find($userId);
+        return $legacyUserRepository->findById($userId);
     }, $logger);
 
     $doctrineResult = benchmark('Doctrine - findById User', function () use ($doctrineUserRepository, $userId) {
-        return $doctrineUserRepository->find($userId);
+        return $doctrineUserRepository->findById($userId);
     }, $logger);
 
     $results[] = [

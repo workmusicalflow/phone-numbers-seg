@@ -194,6 +194,17 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
     }
 
     /**
+     * Find a contact by phone number
+     * 
+     * @param string $phoneNumber The phone number to search for
+     * @return Contact|null The contact if found, null otherwise
+     */
+    public function findByPhoneNumber(string $phoneNumber): ?Contact
+    {
+        return $this->findOneBy(['phoneNumber' => $phoneNumber]);
+    }
+
+    /**
      * Bulk create contacts
      * 
      * @param array $contacts Array of contact data

@@ -45,66 +45,88 @@ try {
     // Pour chaque segment personnalisé, récupérer les numéros de téléphone associés
     foreach ($legacyCustomSegments as $legacyCustomSegment) {
         try {
-            $customSegmentId = $legacyCustomSegment->getId();
+            $legacySegmentName = $legacyCustomSegment->getName();
+            $legacySegmentId = $legacyCustomSegment->getId(); // For logging
 
-            // Vérifier que le segment personnalisé existe dans Doctrine
-            $customSegment = $doctrineCustomSegmentRepository->find($customSegmentId);
-            if (!$customSegment) {
+            // Trouver le segment personnalisé dans Doctrine par son nom
+            $doctrineCustomSegment = $doctrineCustomSegmentRepository->findOneBy(['name' => $legacySegmentName]);
+            if (!$doctrineCustomSegment) {
                 $logger->warning(sprintf(
-                    'Segment personnalisé ID %d non trouvé dans Doctrine, ignoré...',
-                    $customSegmentId
+                    'Segment personnalisé "%s" (ID legacy %d) non trouvé dans Doctrine. Associations ignorées.',
+                    $legacySegmentName,
+                    $legacySegmentId
                 ));
-                $skippedCount++;
-                continue;
+                // We don't know how many phone numbers were associated, so can't accurately update skippedCount here easily.
+                // Consider adding logic to count skipped phone numbers if precise counts are needed.
+                continue; // Skip this entire legacy segment
             }
+            $doctrineSegmentId = $doctrineCustomSegment->getId(); // Get the actual Doctrine ID
 
-            // Récupérer les numéros de téléphone associés à ce segment
-            $phoneNumbers = $legacyCustomSegment->getPhoneNumbers();
-            $totalPhoneNumbers += count($phoneNumbers);
+            // Récupérer les numéros de téléphone associés à ce segment legacy
+            // Assuming getPhoneNumbers() returns legacy PhoneNumber objects or similar structure
+            $legacyPhoneNumbers = $legacyCustomSegment->getPhoneNumbers();
+            $totalPhoneNumbers += count($legacyPhoneNumbers); // Keep track for final count check
             $logger->info(sprintf(
-                'Segment personnalisé "%s" (ID %d) a %d numéros de téléphone associés',
-                $legacyCustomSegment->getName(),
-                $customSegmentId,
-                count($phoneNumbers)
+                'Segment personnalisé "%s" (ID Doctrine %d) a %d numéros de téléphone associés (legacy)',
+                $legacySegmentName,
+                $doctrineSegmentId,
+                count($legacyPhoneNumbers)
             ));
 
-            // Pour chaque numéro de téléphone, créer une association dans Doctrine
-            foreach ($phoneNumbers as $phoneNumber) {
+            // Pour chaque numéro de téléphone legacy, créer une association dans Doctrine
+            foreach ($legacyPhoneNumbers as $legacyPhoneNumber) {
                 try {
-                    $phoneNumberId = $phoneNumber->getId();
+                    // Assuming the legacy phone number object has getNumber() and getId() methods
+                    $legacyPhoneNumberStr = $legacyPhoneNumber->getNumber();
+                    $legacyPhoneNumberId = $legacyPhoneNumber->getId(); // For logging
 
-                    // Vérifier que le numéro de téléphone existe dans Doctrine
-                    $doctrinePhoneNumber = $doctrinePhoneNumberRepository->find($phoneNumberId);
-                    if (!$doctrinePhoneNumber) {
+                    if (empty($legacyPhoneNumberStr)) {
                         $logger->warning(sprintf(
-                            'Numéro de téléphone ID %d non trouvé dans Doctrine, ignoré...',
-                            $phoneNumberId
+                            'Numéro de téléphone legacy ID %d associé au segment "%s" est vide. Association ignorée.',
+                            $legacyPhoneNumberId,
+                            $legacySegmentName
                         ));
-                        $skippedCount++;
+                        $errorCount++;
                         continue;
                     }
 
-                    // Vérifier si l'association existe déjà
+                    // Trouver le numéro de téléphone dans Doctrine par son numéro
+                    $doctrinePhoneNumber = $doctrinePhoneNumberRepository->findOneBy(['phoneNumber' => $legacyPhoneNumberStr]);
+                    if (!$doctrinePhoneNumber) {
+                        $logger->warning(sprintf(
+                            'Numéro de téléphone "%s" (ID legacy %d) non trouvé dans Doctrine. Association avec segment "%s" ignorée.',
+                            $legacyPhoneNumberStr,
+                            $legacyPhoneNumberId,
+                            $legacySegmentName
+                        ));
+                        $errorCount++; // Count as error because the phone number should exist if its migration succeeded
+                        continue; // Skip this association
+                    }
+                    $doctrinePhoneNumberId = $doctrinePhoneNumber->getId(); // Get the actual Doctrine ID
+
+                    // Vérifier si l'association existe déjà en utilisant les IDs Doctrine
                     $existingAssociation = $doctrinePhoneNumberSegmentRepository->findOneBy([
-                        'phoneNumberId' => $phoneNumberId,
-                        'customSegmentId' => $customSegmentId
+                        'phoneNumberId' => $doctrinePhoneNumberId,
+                        'customSegmentId' => $doctrineSegmentId
                     ]);
 
                     if ($existingAssociation) {
                         $logger->info(sprintf(
-                            'Association entre le numéro ID %d et le segment ID %d existe déjà, ignorée...',
-                            $phoneNumberId,
-                            $customSegmentId
+                            'Association entre numéro "%s" (ID %d) et segment "%s" (ID %d) existe déjà. Ignorée.',
+                            $legacyPhoneNumberStr,
+                            $doctrinePhoneNumberId,
+                            $legacySegmentName,
+                            $doctrineSegmentId
                         ));
                         $skippedCount++;
-                        continue;
+                        continue; // Skip creating duplicate
                     }
 
-                    // Création d'une nouvelle association
+                    // Création d'une nouvelle association avec les IDs Doctrine
                     $doctrineAssociation = new DoctrinePhoneNumberSegment();
-                    $doctrineAssociation->setPhoneNumberId($phoneNumberId);
-                    $doctrineAssociation->setCustomSegmentId($customSegmentId);
-                    $doctrineAssociation->setCreatedAt(new \DateTime());
+                    $doctrineAssociation->setPhoneNumberId($doctrinePhoneNumberId); // Use Doctrine ID
+                    $doctrineAssociation->setCustomSegmentId($doctrineSegmentId); // Use Doctrine ID
+                    $doctrineAssociation->setCreatedAt(new \DateTime()); // Set creation time
 
                     // Persister la nouvelle association
                     $entityManager->persist($doctrineAssociation);
@@ -116,21 +138,30 @@ try {
                         $logger->info(sprintf('Progression: %d associations migrées', $migratedCount));
                     }
                 } catch (\Exception $e) {
-                    $logger->error(sprintf(
-                        'Erreur lors de la migration de l\'association entre le numéro ID %d et le segment ID %d: %s',
-                        $phoneNumberId,
-                        $customSegmentId,
+                    // Log detailed error information for association migration
+                    $errorMsg = sprintf(
+                        'Erreur lors de la migration de l\'association entre numéro "%s" (ID legacy %d) et segment "%s" (ID legacy %d): %s',
+                        $legacyPhoneNumber->getNumber() ?? 'N/A',
+                        $legacyPhoneNumber->getId() ?? 'N/A',
+                        $legacySegmentName ?? 'N/A',
+                        $legacySegmentId ?? 'N/A',
                         $e->getMessage()
-                    ));
+                    );
+                    $logger->error($errorMsg);
+                    $logger->debug("Stack Trace:\n" . $e->getTraceAsString()); // Log stack trace
                     $errorCount++;
                 }
             }
         } catch (\Exception $e) {
-            $logger->error(sprintf(
-                'Erreur lors du traitement du segment personnalisé ID %d: %s',
-                $legacyCustomSegment->getId(),
-                $e->getMessage()
-            ));
+            // Log detailed error information for segment processing
+            $errorMsg = sprintf(
+                'Erreur lors du traitement du segment personnalisé "%s" (ID legacy %d): %s',
+                $legacyCustomSegment->getName() ?? 'N/A',
+                $legacyCustomSegment->getId() ?? 'N/A',
+                $e->getMessage() // Removed extra parenthesis here
+            );
+            $logger->error($errorMsg); // Also log the error message
+            $logger->debug("Stack Trace:\n" . $e->getTraceAsString()); // Log stack trace
             $errorCount++;
         }
     }

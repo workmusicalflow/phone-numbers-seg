@@ -77,4 +77,12 @@ interface ContactRepositoryInterface extends DoctrineRepositoryInterface
      * @throws Exception If an error occurs
      */
     public function bulkCreate(array $contacts, int $userId): array;
+
+    /**
+     * Find a contact by phone number
+     * 
+     * @param string $phoneNumber The phone number to search for
+     * @return Contact|null The contact if found, null otherwise
+     */
+    public function findByPhoneNumber(string $phoneNumber): ?Contact;
 }

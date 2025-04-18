@@ -43,8 +43,7 @@
       </q-toolbar>
     </q-header>
 
-    <!-- Composant de notifications en temps réel -->
-    <RealtimeNotifications v-if="authStore.isAuthenticated" />
+    <!-- Removed RealtimeNotifications component temporarily -->
 
     <q-drawer v-if="authStore.isAuthenticated" v-model="leftDrawerOpen" show-if-above bordered>
       <q-list>
@@ -179,7 +178,7 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "./stores/userStore";
 import { useAuthStore } from "./stores/authStore";
-import RealtimeNotifications from "./components/RealtimeNotifications.vue";
+// Removed RealtimeNotifications import
 
 const router = useRouter();
 const leftDrawerOpen = ref(true);

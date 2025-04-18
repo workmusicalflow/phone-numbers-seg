@@ -44,7 +44,7 @@ try {
     foreach ($legacySMSOrders as $legacySMSOrder) {
         try {
             // Vérifier si la commande SMS existe déjà dans Doctrine
-            $existingSMSOrder = $doctrineSMSOrderRepository->find($legacySMSOrder->getId());
+            $existingSMSOrder = $doctrineSMSOrderRepository->findById($legacySMSOrder->getId());
 
             if ($existingSMSOrder) {
                 $logger->info(sprintf('La commande SMS avec l\'ID %d existe déjà, ignorée...', $legacySMSOrder->getId()));
@@ -57,7 +57,7 @@ try {
             $user = null;
 
             if ($userId) {
-                $user = $doctrineUserRepository->find($userId);
+                $user = $doctrineUserRepository->findById($userId);
                 if (!$user) {
                     $logger->warning(sprintf('Utilisateur ID %d non trouvé pour la commande SMS ID %d', $userId, $legacySMSOrder->getId()));
                 }

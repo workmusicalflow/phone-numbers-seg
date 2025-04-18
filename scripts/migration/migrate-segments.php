@@ -42,35 +42,42 @@ try {
     // Migration de chaque segment
     foreach ($legacySegments as $legacySegment) {
         try {
-            // Vérifier si le segment existe déjà dans Doctrine
-            $existingSegment = $doctrineSegmentRepository->find($legacySegment->getId());
+            $legacyName = $legacySegment->getName();
+            $legacyId = $legacySegment->getId(); // For logging
+
+            // Validate required fields from legacy data
+            if (empty($legacyName)) {
+                $logger->error(sprintf('Segment legacy ID %d a un nom vide ou null. Segment ignoré.', $legacyId));
+                $errorCount++;
+                continue; // Skip this segment
+            }
+
+            // Vérifier si le segment existe déjà dans Doctrine par son nom
+            $existingSegment = $doctrineSegmentRepository->findOneBy(['name' => $legacyName]);
 
             if ($existingSegment) {
-                $logger->info(sprintf('Le segment avec l\'ID %d existe déjà, mise à jour...', $legacySegment->getId()));
+                $logger->info(sprintf('Le segment "%s" (ID legacy %d) existe déjà, mise à jour...', $legacyName, $legacyId));
 
-                // Mise à jour des propriétés
-                $existingSegment->setName($legacySegment->getName());
+                // Mise à jour des propriétés (y compris le pattern)
+                $existingSegment->setName($legacyName); // Ensure name is set (might be case difference)
                 $existingSegment->setDescription($legacySegment->getDescription());
+                $existingSegment->setPattern($legacySegment->getPattern()); // Update pattern
 
                 // Persister les modifications
                 $entityManager->persist($existingSegment);
                 $skippedCount++;
-                continue;
+                // No need to continue here, proceed to flush logic below
+            } else {
+                // Création d'un nouveau segment personnalisé Doctrine
+                $doctrineSegment = new DoctrineSegment();
+                $doctrineSegment->setName($legacyName);
+                $doctrineSegment->setDescription($legacySegment->getDescription());
+                $doctrineSegment->setPattern($legacySegment->getPattern()); // Set pattern directly
+
+                // Persister le nouveau segment
+                $entityManager->persist($doctrineSegment);
+                $migratedCount++;
             }
-
-            // Création d'un nouveau segment personnalisé Doctrine
-            $doctrineSegment = new DoctrineSegment();
-            $doctrineSegment->setName($legacySegment->getName());
-            $doctrineSegment->setDescription($legacySegment->getDescription());
-
-            // Si le segment a un pattern, le définir
-            if ($legacySegment->getPattern()) {
-                $doctrineSegment->setPattern($legacySegment->getPattern());
-            }
-
-            // Persister le nouveau segment
-            $entityManager->persist($doctrineSegment);
-            $migratedCount++;
 
             // Flush tous les 50 segments pour éviter de surcharger la mémoire
             if (($migratedCount + $skippedCount) % 50 === 0) {
@@ -78,11 +85,15 @@ try {
                 $logger->info(sprintf('Progression: %d segments traités', $migratedCount + $skippedCount));
             }
         } catch (\Exception $e) {
-            $logger->error(sprintf(
-                'Erreur lors de la migration du segment ID %d: %s',
-                $legacySegment->getId(),
+            // Log detailed error information
+            $errorMsg = sprintf(
+                'Erreur lors de la migration du segment "%s" (ID legacy: %d): %s',
+                $legacySegment->getName() ?? 'N/A',
+                $legacySegment->getId() ?? 'N/A',
                 $e->getMessage()
-            ));
+            );
+            $logger->error($errorMsg);
+            $logger->debug("Stack Trace:\n" . $e->getTraceAsString()); // Log stack trace for debugging
             $errorCount++;
         }
     }

@@ -35,6 +35,7 @@ Ce document permet de suivre l'avancement de l'implémentation de Doctrine ORM d
   - [x] Mapping des propriétés avec annotations
   - [x] Implémentation des getters/setters
   - [x] Tests unitaires
+  - [x] Ajout des colonnes api_key et reset_token
 
 - [x] Repository UserRepository
 
@@ -43,9 +44,9 @@ Ce document permet de suivre l'avancement de l'implémentation de Doctrine ORM d
   - [x] Mise à jour du conteneur DI
   - [x] Tests unitaires
 
-- [ ] Mise à jour des services
-  - [ ] Adaptation de AuthService
-  - [ ] Tests d'intégration
+- [x] Mise à jour des services
+  - [x] Adaptation de AuthService
+  - [x] Tests d'intégration
 
 ### Module Contacts
 
@@ -130,18 +131,19 @@ Ce document permet de suivre l'avancement de l'implémentation de Doctrine ORM d
   - [x] Création de la classe entité
   - [x] Mapping des propriétés avec annotations
   - [x] Implémentation des getters/setters
-  - [ ] Tests unitaires
+  - [x] Tests unitaires
 
 - [x] Repository SenderNameRepository
 
   - [x] Création de la classe repository
   - [x] Implémentation des méthodes spécifiques
   - [x] Mise à jour du conteneur DI
-  - [ ] Tests unitaires
+  - [x] Tests unitaires
 
-- [ ] Mise à jour des services
-  - [ ] Adaptation des services concernés
-  - [ ] Tests d'intégration
+- [x] Mise à jour des services
+  - [x] Création du SenderNameService
+  - [x] Implémentation de la limite de deux noms d'expéditeur approuvés par utilisateur
+  - [x] Tests d'intégration
 
 ### Module Commandes SMS
 
@@ -228,6 +230,7 @@ Ce document permet de suivre l'avancement de l'implémentation de Doctrine ORM d
   - [x] Mapping des propriétés avec attributs PHP 8
   - [x] Implémentation des getters/setters
   - [x] Tests unitaires
+  - [x] Ajout d'une contrainte d'unicité sur user_id
 
 - [x] Repository OrangeAPIConfigRepository
 
@@ -236,9 +239,10 @@ Ce document permet de suivre l'avancement de l'implémentation de Doctrine ORM d
   - [x] Mise à jour du conteneur DI
   - [x] Tests unitaires
 
-- [ ] Mise à jour des services
-  - [ ] Adaptation des services concernés
-  - [ ] Tests d'intégration
+- [x] Mise à jour des services
+  - [x] Création du OrangeAPIConfigService
+  - [x] Implémentation de la restriction d'accès aux administrateurs
+  - [x] Tests d'intégration
 
 ### Module Numéros de Téléphone (Legacy)
 
@@ -280,12 +284,16 @@ Ce document permet de suivre l'avancement de l'implémentation de Doctrine ORM d
 
 - [x] Documentation de l'architecture Doctrine
 - [x] Guide d'utilisation de Doctrine ORM
-- [ ] Documentation des entités et repositories
+- [x] Documentation des entités et repositories
+  - [x] Documentation des services SenderNameService et OrangeAPIConfigService
+  - [x] Documentation des nouvelles fonctionnalités (API key, reset token, etc.)
 - [ ] Guide de migration pour les développeurs
 
 ## Déploiement
 
-- [ ] Script de mise à jour du schéma de base de données
+- [x] Script de mise à jour du schéma de base de données
+  - [x] Création du script update-schema.sql
+  - [x] Création du script apply-schema-updates.php
 - [ ] Procédure de déploiement
 - [ ] Plan de rollback en cas de problème
 

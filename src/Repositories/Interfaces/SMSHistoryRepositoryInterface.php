@@ -155,4 +155,12 @@ interface SMSHistoryRepositoryInterface extends DoctrineRepositoryInterface
      * @return bool True if successful
      */
     public function updateSegmentIdForPhoneNumbers(array $phoneNumbers, int $segmentId): bool;
+
+    /**
+     * Find SMS history record by message ID
+     * 
+     * @param string $messageId The message ID
+     * @return SMSHistory|null The SMS history record or null if not found
+     */
+    public function findByMessageId(string $messageId): ?SMSHistory;
 }

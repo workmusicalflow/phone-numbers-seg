@@ -171,4 +171,19 @@ class ContactGroupMembershipRepository extends BaseRepository implements Contact
             return false;
         }
     }
+
+    /**
+     * Find membership by contact ID and group ID
+     * 
+     * @param int $contactId The contact ID
+     * @param int $groupId The group ID
+     * @return ContactGroupMembership|null The membership or null if not found
+     */
+    public function findByContactIdAndGroupId(int $contactId, int $groupId): ?ContactGroupMembership
+    {
+        return $this->findOneBy([
+            'contactId' => $contactId,
+            'groupId' => $groupId
+        ]);
+    }
 }

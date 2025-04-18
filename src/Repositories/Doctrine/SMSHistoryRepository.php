@@ -333,6 +333,17 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
     }
 
     /**
+     * Find SMS history record by message ID
+     * 
+     * @param string $messageId The message ID
+     * @return SMSHistory|null The SMS history record or null if not found
+     */
+    public function findByMessageId(string $messageId): ?SMSHistory
+    {
+        return $this->findOneBy(['messageId' => $messageId]);
+    }
+
+    /**
      * Convert a phone number from local to international format
      * 
      * @param string $phoneNumber The phone number

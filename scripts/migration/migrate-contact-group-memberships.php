@@ -57,8 +57,8 @@ try {
             }
 
             // Récupérer le contact et le groupe
-            $contact = $doctrineContactRepository->find($contactId);
-            $group = $doctrineContactGroupRepository->find($groupId);
+            $contact = $doctrineContactRepository->findById($contactId);
+            $group = $doctrineContactGroupRepository->findById($groupId);
 
             if (!$contact) {
                 $logger->warning(sprintf('Contact ID %d non trouvé pour l\'appartenance', $contactId));
@@ -88,12 +88,15 @@ try {
                 $logger->info(sprintf('Progression: %d appartenances traitées', $migratedCount + $skippedCount));
             }
         } catch (\Exception $e) {
-            $logger->error(sprintf(
-                'Erreur lors de la migration de l\'appartenance (contact: %d, groupe: %d): %s',
-                $legacyMembership->getContactId(),
-                $legacyMembership->getGroupId(),
+            // Log detailed error information
+            $errorMsg = sprintf(
+                'Erreur lors de la migration de l\'appartenance (contact ID legacy: %d, groupe ID legacy: %d): %s',
+                $legacyMembership->getContactId() ?? 'N/A',
+                $legacyMembership->getGroupId() ?? 'N/A',
                 $e->getMessage()
-            ));
+            );
+            $logger->error($errorMsg);
+            $logger->debug("Stack Trace:\n" . $e->getTraceAsString()); // Log stack trace for debugging
             $errorCount++;
         }
     }

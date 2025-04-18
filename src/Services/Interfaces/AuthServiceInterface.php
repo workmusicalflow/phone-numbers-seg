@@ -2,7 +2,7 @@
 
 namespace App\Services\Interfaces;
 
-use App\Models\User;
+use App\Entities\User;
 
 /**
  * Interface pour le service d'authentification

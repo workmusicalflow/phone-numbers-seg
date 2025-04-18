@@ -91,7 +91,8 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     
     try {
-      const response = await fetch('/graphql.php', {
+      console.log('Attempting login for user:', username);
+      const response = await fetch('http://localhost:8000/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,9 +104,16 @@ export const useAuthStore = defineStore('auth', () => {
         credentials: 'include' // Important pour inclure les cookies
       });
       
+      if (!response.ok) {
+        console.error('Network response was not ok:', response.status, response.statusText);
+        throw new Error(`Network error: ${response.status} ${response.statusText}`);
+      }
+      
       const result = await response.json();
+      console.log('Login response:', result);
       
       if (result.errors) {
+        console.error('GraphQL errors:', result.errors);
         throw new Error(result.errors[0].message);
       }
       
@@ -114,29 +122,43 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = loginSuccess; 
       
       if (loginSuccess) {
+        console.log('Login successful, fetching user info');
         // Si le login réussit, récupérer les infos utilisateur avec une query 'me'
         try {
-          const meResponse = await fetch('/graphql.php', {
+          const meResponse = await fetch('http://localhost:8000/graphql.php', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ query: ME_QUERY }),
              credentials: 'include' 
           });
+          
+          if (!meResponse.ok) {
+            console.error('Network response for me query was not ok:', meResponse.status, meResponse.statusText);
+            throw new Error(`Network error: ${meResponse.status} ${meResponse.statusText}`);
+          }
+          
           const meResult = await meResponse.json();
+          console.log('Me query response:', meResult);
+          
           if (meResult.errors) {
+             console.error('GraphQL errors in me query:', meResult.errors);
              throw new Error(meResult.errors[0].message);
           }
+          
           if (meResult.data.me) {
              userStore.currentUser = meResult.data.me;
              isAdmin.value = meResult.data.me.isAdmin;
+             console.log('User info retrieved successfully:', meResult.data.me);
              // notification.success('Connexion réussie'); // Removed
              return true;
           } else {
              // Should not happen if login succeeded and session is set
+             console.error('Me query returned null user after successful login');
              throw new Error("Impossible de récupérer les informations utilisateur après connexion.");
           }
         } catch (meErr) {
            // Échec de la récupération des infos utilisateur, annuler le login
+           console.error('Error fetching user info after login:', meErr);
            isAuthenticated.value = false;
            isAdmin.value = false;
            userStore.currentUser = null;
@@ -148,9 +170,11 @@ export const useAuthStore = defineStore('auth', () => {
         }
       } else {
          // Login a retourné false (échec d'authentification)
+         console.error('Login returned false (authentication failed)');
          throw new Error("Nom d'utilisateur ou mot de passe incorrect");
       }
     } catch (err) {
+      console.error('Login error:', err);
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la connexion';
       // notification.error(error.value); // Removed
       // Let the component handle displaying the error based on the thrown exception
@@ -167,7 +191,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     try {
       // Appeler la mutation de déconnexion
-      await fetch('/graphql.php', {
+      await fetch('http://localhost:8000/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +232,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     
     try {
-      const response = await fetch('/graphql.php', {
+      const response = await fetch('http://localhost:8000/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,7 +267,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     
     try {
-      const response = await fetch('/graphql.php', {
+      const response = await fetch('http://localhost:8000/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

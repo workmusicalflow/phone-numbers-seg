@@ -229,15 +229,15 @@ $definitions = [
         );
     }),
 
-    // SMSService now injects OrangeAPIClientInterface and uses legacy repositories
+    // SMSService now injects OrangeAPIClientInterface and uses repository interfaces
     \App\Services\SMSService::class => factory(function (Container $container) {
         return new \App\Services\SMSService(
             $container->get(\App\Services\Interfaces\OrangeAPIClientInterface::class), // Inject the client
-            $container->get(\App\Repositories\PhoneNumberRepository::class),
-            $container->get(\App\Repositories\CustomSegmentRepository::class),
-            $container->get(\App\Repositories\SMSHistoryRepository::class),
-            $container->get(\App\Repositories\UserRepository::class),
-            $container->get(\App\Repositories\ContactRepository::class)
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\ContactRepositoryInterface::class)
         );
     }),
 
@@ -346,8 +346,8 @@ $definitions = [
         return new \App\Controllers\SMSController(
             $container->get(PDO::class),
             $container->get(\App\Services\SMSService::class),
-            $container->get(\App\Repositories\PhoneNumberRepository::class),
-            $container->get(\App\Repositories\CustomSegmentRepository::class)
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class)
         );
     }),
 
@@ -376,7 +376,7 @@ $definitions = [
     // Services d'authentification
     \App\Services\Interfaces\AuthServiceInterface::class => factory(function (Container $container) {
         return new \App\Services\AuthService(
-            $container->get(\App\Repositories\UserRepository::class),
+            $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class),
             $container->get(\App\Services\Interfaces\EmailServiceInterface::class)
         );
     }),
@@ -391,13 +391,13 @@ $definitions = [
         return new \App\Services\NotificationService(
             $container->get(\App\Services\Interfaces\EmailServiceInterface::class),
             $container->get(\App\Services\SMSService::class),
-            $container->get(\App\Repositories\UserRepository::class)
+            $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class)
         );
     }),
 
     \App\Services\Interfaces\RealtimeNotificationServiceInterface::class => factory(function (Container $container) {
         return new \App\Services\RealtimeNotificationService(
-            $container->get(\App\Repositories\UserRepository::class),
+            $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class),
             $container->get(Psr\Log\LoggerInterface::class)
         );
     }),
@@ -413,22 +413,37 @@ $definitions = [
     \App\Services\Interfaces\AdminActionLoggerInterface::class => factory(function (Container $container) {
         return new \App\Services\AdminActionLogger(
             $container->get(PDO::class),
-            $container->get(\App\Repositories\UserRepository::class)
+            $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class)
+        );
+    }),
+
+    // New services for sender names and Orange API configurations
+    \App\Services\SenderNameService::class => factory(function (Container $container) {
+        return new \App\Services\SenderNameService(
+            $container->get(\App\Repositories\Doctrine\SenderNameRepository::class)
+        );
+    }),
+
+    \App\Services\OrangeAPIConfigService::class => factory(function (Container $container) {
+        return new \App\Services\OrangeAPIConfigService(
+            $container->get(\App\Repositories\Doctrine\OrangeAPIConfigRepository::class)
         );
     }),
 
     // GraphQL Formatters
     \App\GraphQL\Formatters\GraphQLFormatterInterface::class => factory(function (Container $container) {
         return new \App\GraphQL\Formatters\GraphQLFormatterService(
-            $container->get(\App\Repositories\CustomSegmentRepository::class),
-            $container->get(Psr\Log\LoggerInterface::class)
+            $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class),
+            $container->get(\App\Services\SenderNameService::class),
+            $container->get(\App\Services\OrangeAPIConfigService::class)
         );
     }),
 
     // GraphQL Resolvers
     \App\GraphQL\Resolvers\UserResolver::class => factory(function (Container $container) {
         return new \App\GraphQL\Resolvers\UserResolver(
-            $container->get(\App\Repositories\UserRepository::class),
+            $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class),
             $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
             $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
             $container->get(Psr\Log\LoggerInterface::class)
@@ -437,9 +452,9 @@ $definitions = [
 
     \App\GraphQL\Resolvers\ContactResolver::class => factory(function (Container $container) {
         return new \App\GraphQL\Resolvers\ContactResolver(
-            $container->get(\App\Repositories\ContactRepository::class),
-            $container->get(\App\Repositories\ContactGroupRepository::class),
-            $container->get(\App\Repositories\ContactGroupMembershipRepository::class),
+            $container->get(\App\Repositories\Interfaces\ContactRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\ContactGroupRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\ContactGroupMembershipRepositoryInterface::class),
             $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
             $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
             $container->get(Psr\Log\LoggerInterface::class)
@@ -448,9 +463,9 @@ $definitions = [
 
     \App\GraphQL\Resolvers\ContactGroupResolver::class => factory(function (Container $container) {
         return new \App\GraphQL\Resolvers\ContactGroupResolver(
-            $container->get(\App\Repositories\ContactGroupRepository::class),
-            $container->get(\App\Repositories\ContactGroupMembershipRepository::class),
-            $container->get(\App\Repositories\ContactRepository::class),
+            $container->get(\App\Repositories\Interfaces\ContactGroupRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\ContactGroupMembershipRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\ContactRepositoryInterface::class),
             $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
             $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
             $container->get(Psr\Log\LoggerInterface::class)
@@ -459,8 +474,8 @@ $definitions = [
 
     \App\GraphQL\Resolvers\SMSResolver::class => factory(function (Container $container) {
         return new \App\GraphQL\Resolvers\SMSResolver(
-            $container->get(\App\Repositories\SMSHistoryRepository::class),
-            $container->get(\App\Repositories\CustomSegmentRepository::class),
+            $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class),
             $container->get(\App\Services\SMSService::class),
             $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
             $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
@@ -471,6 +486,7 @@ $definitions = [
     \App\GraphQL\Resolvers\AuthResolver::class => factory(function (Container $container) {
         return new \App\GraphQL\Resolvers\AuthResolver(
             $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
+            $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
             $container->get(Psr\Log\LoggerInterface::class)
         );
     }),

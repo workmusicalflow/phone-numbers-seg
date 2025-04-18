@@ -2,8 +2,8 @@
 
 namespace App\GraphQL\Resolvers;
 
-use App\Repositories\SMSHistoryRepository;
-use App\Repositories\CustomSegmentRepository;
+use App\Repositories\Interfaces\SMSHistoryRepositoryInterface;
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface;
 use App\Services\SMSService;
 use App\Models\SMSHistory;
 use App\Models\Segment;
@@ -15,16 +15,16 @@ use Psr\Log\LoggerInterface;
 
 class SMSResolver
 {
-    private SMSHistoryRepository $smsHistoryRepository;
-    private CustomSegmentRepository $customSegmentRepository;
+    private SMSHistoryRepositoryInterface $smsHistoryRepository;
+    private CustomSegmentRepositoryInterface $customSegmentRepository;
     private SMSService $smsService;
     private AuthServiceInterface $authService;
     private GraphQLFormatterInterface $formatter;
     private LoggerInterface $logger;
 
     public function __construct(
-        SMSHistoryRepository $smsHistoryRepository,
-        CustomSegmentRepository $customSegmentRepository,
+        SMSHistoryRepositoryInterface $smsHistoryRepository,
+        CustomSegmentRepositoryInterface $customSegmentRepository,
         SMSService $smsService,
         AuthServiceInterface $authService,
         GraphQLFormatterInterface $formatter,

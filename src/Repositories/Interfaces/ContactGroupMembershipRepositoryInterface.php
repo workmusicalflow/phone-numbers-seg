@@ -75,4 +75,13 @@ interface ContactGroupMembershipRepositoryInterface extends DoctrineRepositoryIn
      * @return bool True if the memberships were deleted
      */
     public function deleteByGroupId(int $groupId): bool;
+
+    /**
+     * Find membership by contact ID and group ID
+     * 
+     * @param int $contactId The contact ID
+     * @param int $groupId The group ID
+     * @return ContactGroupMembership|null The membership or null if not found
+     */
+    public function findByContactIdAndGroupId(int $contactId, int $groupId): ?ContactGroupMembership;
 }

@@ -2,15 +2,18 @@
 
 namespace App\GraphQL\Formatters;
 
-use App\Models\User;
-use App\Models\Contact;
-use App\Models\SMSHistory;
-use App\Models\Segment;
-use App\Models\CustomSegment as ModelsCustomSegment;
-use App\Entities\CustomSegment as EntitiesCustomSegment;
-use App\Models\ContactGroup; // Add ContactGroup model
-use App\Models\ContactGroupMembership; // Add ContactGroupMembership model
-use App\Repositories\CustomSegmentRepository;
+use App\Entities\User;
+use App\Entities\Contact;
+use App\Entities\SMSHistory;
+use App\Entities\Segment;
+use App\Entities\CustomSegment;
+use App\Entities\ContactGroup;
+use App\Entities\ContactGroupMembership;
+use App\Entities\SenderName;
+use App\Entities\OrangeAPIConfig;
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface;
+use App\Services\SenderNameService;
+use App\Services\OrangeAPIConfigService;
 use Psr\Log\LoggerInterface;
 use Exception;
 
@@ -19,15 +22,21 @@ use Exception;
  */
 class GraphQLFormatterService implements GraphQLFormatterInterface
 {
-    private CustomSegmentRepository $customSegmentRepository;
+    private CustomSegmentRepositoryInterface $customSegmentRepository;
     private LoggerInterface $logger;
+    private SenderNameService $senderNameService;
+    private OrangeAPIConfigService $orangeAPIConfigService;
 
     public function __construct(
-        CustomSegmentRepository $customSegmentRepository, // Inject dependencies needed for formatting
-        LoggerInterface $logger
+        CustomSegmentRepositoryInterface $customSegmentRepository, // Inject dependencies needed for formatting
+        LoggerInterface $logger,
+        SenderNameService $senderNameService,
+        OrangeAPIConfigService $orangeAPIConfigService
     ) {
         $this->customSegmentRepository = $customSegmentRepository;
         $this->logger = $logger;
+        $this->senderNameService = $senderNameService;
+        $this->orangeAPIConfigService = $orangeAPIConfigService;
     }
 
     /**
@@ -43,8 +52,8 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
             'smsCredit' => $user->getSmsCredit(),
             'smsLimit' => $user->getSmsLimit(),
             'isAdmin' => $user->isAdmin(),
-            'createdAt' => $user->getCreatedAt(), // Ensure format is correct (e.g., ISO 8601)
-            'updatedAt' => $user->getUpdatedAt(), // Ensure format is correct
+            'createdAt' => $user->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
+            'updatedAt' => $user->getUpdatedAt()->format('Y-m-d H:i:s'), // Format as string
         ];
     }
 
@@ -60,8 +69,8 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
             'phoneNumber' => $contact->getPhoneNumber(),
             'email' => $contact->getEmail(),
             'notes' => $contact->getNotes(),
-            'createdAt' => $contact->getCreatedAt(), // Ensure format is correct (e.g., ISO 8601)
-            'updatedAt' => $contact->getUpdatedAt(), // Ensure format is correct
+            'createdAt' => $contact->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
+            'updatedAt' => $contact->getUpdatedAt()->format('Y-m-d H:i:s'), // Format as string
         ];
     }
 
@@ -80,7 +89,7 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
             'errorMessage' => $item->getErrorMessage(),
             'senderAddress' => $item->getSenderAddress(),
             'senderName' => $item->getSenderName(),
-            'createdAt' => $item->getCreatedAt(), // Ensure format
+            'createdAt' => $item->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
             'userId' => $item->getUserId() // Include userId
         ];
 
@@ -139,8 +148,8 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
             'userId' => $group->getUserId(),
             'name' => $group->getName(),
             'description' => $group->getDescription(),
-            'createdAt' => $group->getCreatedAt(),
-            'updatedAt' => $group->getUpdatedAt(),
+            'createdAt' => $group->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
+            'updatedAt' => $group->getUpdatedAt()->format('Y-m-d H:i:s'), // Format as string
         ];
 
         if ($contactCount !== null) {
@@ -159,7 +168,37 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
             'id' => $membership->getId(),
             'contact' => $this->formatContact($contact),
             'group' => $this->formatContactGroup($group), // Reuse formatContactGroup
-            'createdAt' => $membership->getCreatedAt(),
+            'createdAt' => $membership->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function formatSenderName(SenderName $senderName): array
+    {
+        return [
+            'id' => $senderName->getId(),
+            'userId' => $senderName->getUserId(),
+            'name' => $senderName->getName(),
+            'status' => $senderName->getStatus(),
+            'createdAt' => $senderName->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
+            'updatedAt' => $senderName->getUpdatedAt()->format('Y-m-d H:i:s'), // Format as string
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function formatOrangeAPIConfig(OrangeAPIConfig $config): array
+    {
+        return [
+            'id' => $config->getId(),
+            'userId' => $config->getUserId(),
+            'clientId' => $config->getClientId(),
+            'isAdmin' => $config->isAdmin(),
+            'createdAt' => $config->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
+            'updatedAt' => $config->getUpdatedAt()->format('Y-m-d H:i:s'), // Format as string
         ];
     }
 

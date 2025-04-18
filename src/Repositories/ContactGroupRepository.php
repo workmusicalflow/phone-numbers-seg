@@ -38,13 +38,17 @@ class ContactGroupRepository implements RepositoryInterface
 
     public function findAll(?int $limit = null, ?int $offset = null): array
     {
+        // Set default values if null
+        $limitValue = $limit ?? 1000; // Default to 1000 if null
+        $offsetValue = $offset ?? 0;  // Default to 0 if null
+
         $stmt = $this->pdo->prepare("
             SELECT * FROM contact_groups
             ORDER BY name ASC
             LIMIT :limit OFFSET :offset
         ");
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limitValue, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offsetValue, PDO::PARAM_INT);
         $stmt->execute();
 
         $groups = [];
