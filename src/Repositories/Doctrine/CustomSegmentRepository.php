@@ -51,7 +51,7 @@ class CustomSegmentRepository extends BaseRepository implements CustomSegmentRep
             ORDER BY p.createdAt DESC
         ";
 
-        $query = $this->entityManager->createQuery($dql);
+        $query = $this->getEntityManager()->createQuery($dql);
         $query->setParameter('segmentId', $segmentId);
 
         return $query->getResult();
@@ -74,7 +74,7 @@ class CustomSegmentRepository extends BaseRepository implements CustomSegmentRep
             ORDER BY cs.name
         ";
 
-        $query = $this->entityManager->createQuery($dql);
+        $query = $this->getEntityManager()->createQuery($dql);
         $query->setParameter('phoneNumberId', $phoneNumberId);
 
         return $query->getResult();
@@ -90,7 +90,7 @@ class CustomSegmentRepository extends BaseRepository implements CustomSegmentRep
     public function addPhoneNumberToSegment(int $phoneNumberId, int $segmentId): bool
     {
         // Check if the association already exists using QueryBuilder
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('COUNT(pns.id)')
             ->from('App\Entities\PhoneNumberSegment', 'pns')
             ->where('pns.phoneNumberId = :phoneNumberId')
@@ -110,8 +110,8 @@ class CustomSegmentRepository extends BaseRepository implements CustomSegmentRep
         $phoneNumberSegment->setPhoneNumberId($phoneNumberId);
         $phoneNumberSegment->setCustomSegmentId($segmentId);
 
-        $this->entityManager->persist($phoneNumberSegment);
-        $this->entityManager->flush();
+        $this->getEntityManager()->persist($phoneNumberSegment);
+        $this->getEntityManager()->flush();
 
         return true;
     }
@@ -126,7 +126,7 @@ class CustomSegmentRepository extends BaseRepository implements CustomSegmentRep
     public function removePhoneNumberFromSegment(int $phoneNumberId, int $segmentId): bool
     {
         // Using QueryBuilder for delete operation
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->delete('App\Entities\PhoneNumberSegment', 'pns')
             ->where('pns.phoneNumberId = :phoneNumberId')
             ->andWhere('pns.customSegmentId = :segmentId')

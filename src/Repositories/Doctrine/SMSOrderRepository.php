@@ -26,12 +26,14 @@ class SMSOrderRepository extends BaseRepository implements SMSOrderRepositoryInt
     /**
      * Find an entity by its ID
      * 
-     * @param int $id The entity ID
+     * @param mixed $id The entity ID
+     * @param mixed $lockMode The lock mode
+     * @param mixed $lockVersion The lock version
      * @return object|null The entity or null if not found
      */
-    public function find(int $id): ?object
+    public function find($id, $lockMode = null, $lockVersion = null): ?object
     {
-        return $this->findById($id);
+        return parent::find($id, $lockMode, $lockVersion);
     }
 
     /**

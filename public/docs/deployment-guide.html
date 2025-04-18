@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guide de Déploiement - Application SMS</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-okaidia.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.0.0/dist/mermaid.min.js"></script>
+    <style>
+      :root {
+        --primary-color: #4a6fa5;
+        --secondary-color: #6c757d;
+        --accent-color: #ff7e5f;
+        --light-bg: #f8f9fa;
+        --dark-bg: #343a40;
+        --text-color: #333;
+        --light-text: #f8f9fa;
+        --border-color: #dee2e6;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: var(--text-color);
+        background-color: var(--light-bg);
+        position: relative;
+        min-height: 100vh;
+        padding-bottom: 60px;
+      }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 100;
+        padding: 48px 0 0;
+        box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.1);
+        background-color: white;
+        overflow-y: auto;
+        max-height: 100vh;
+      }
+
+      .sidebar-sticky {
+        position: relative;
+        top: 0;
+        height: calc(100vh - 48px);
+        padding-top: 0.5rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      .sidebar .nav-link {
+        font-weight: 500;
+        color: var(--text-color);
+        padding: 0.5rem 1rem;
+        border-left: 3px solid transparent;
+      }
+
+      .sidebar .nav-link:hover {
+        color: var(--primary-color);
+        border-left: 3px solid var(--primary-color);
+      }
+
+      .sidebar .nav-link.active {
+        color: var(--primary-color);
+        border-left: 3px solid var(--primary-color);
+        background-color: rgba(74, 111, 165, 0.1);
+      }
+
+      .sidebar-heading {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        padding: 1rem;
+        color: var(--secondary-color);
+      }
+
+      .main-content {
+        padding-top: 20px;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        color: var(--primary-color);
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+      }
+
+      h1 {
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+      }
+
+      h2 {
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 5px;
+      }
+
+      a {
+        color: var(--primary-color);
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: var(--accent-color);
+        text-decoration: underline;
+      }
+
+      code {
+        color: var(--accent-color);
+        background-color: rgba(255, 126, 95, 0.1);
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+
+      pre {
+        background-color: var(--dark-bg);
+        color: var(--light-text);
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+        margin: 15px 0;
+      }
+
+      .alert {
+        border-radius: 5px;
+        padding: 15px;
+        margin: 15px 0;
+      }
+
+      .alert-info {
+        background-color: rgba(23, 162, 184, 0.1);
+        border-left: 5px solid var(--info-color);
+      }
+
+      .alert-warning {
+        background-color: rgba(255, 193, 7, 0.1);
+        border-left: 5px solid var(--warning-color);
+      }
+
+      .alert-danger {
+        background-color: rgba(220, 53, 69, 0.1);
+        border-left: 5px solid var(--danger-color);
+      }
+
+      .alert-success {
+        background-color: rgba(40, 167, 69, 0.1);
+        border-left: 5px solid var(--success-color);
+      }
+
+      .card {
+        margin-bottom: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .card-header {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: bold;
+      }
+
+      .table {
+        margin: 15px 0;
+      }
+
+      .table th {
+        background-color: var(--primary-color);
+        color: white;
+      }
+
+      .footer {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        height: 60px;
+        line-height: 60px;
+        background-color: var(--dark-bg);
+        color: var(--light-text);
+        text-align: center;
+      }
+
+      .mermaid {
+        margin: 20px 0;
+        text-align: center;
+      }
+
+      .btn-primary {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+      }
+
+      .btn-primary:hover {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+      }
+
+      .btn-outline-primary {
+        color: var(--primary-color);
+        border-color: var(--primary-color);
+      }
+
+      .btn-outline-primary:hover {
+        background-color: var(--primary-color);
+        color: white;
+      }
+
+      .progress-container {
+        margin: 20px 0;
+      }
+
+      .progress {
+        height: 10px;
+        border-radius: 5px;
+      }
+
+      .progress-bar {
+        background-color: var(--primary-color);
+      }
+
+      .checklist-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .checklist-item input[type="checkbox"] {
+        margin-right: 10px;
+      }
+
+      .image-container {
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      .image-container img {
+        max-width: 100%;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .note {
+        background-color: #f8f9fa;
+        border-left: 4px solid #6c757d;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+      }
+
+      .important {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+      }
+
+      .warning {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+      }
+
+      .tip {
+        background-color: #d1e7dd;
+        border-left: 4px solid #198754;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+      }
+
+      #back-to-top {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        display: none;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        text-align: center;
+        line-height: 40px;
+        cursor: pointer;
+        z-index: 1000;
+      }
+
+      #back-to-top:hover {
+        background-color: var(--accent-color);
+      }
+
+      @media (max-width: 767.98px) {
+        .sidebar {
+          position: static;
+          height: auto;
+          padding-bottom: 0;
+          box-shadow: none;
+        }
+        .sidebar-sticky {
+          height: auto;
+        }
+        .main-content {
+          margin-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Sidebar -->
+        <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+          <div class="sidebar-sticky">
+            <h6 class="sidebar-heading">Guide de Déploiement</h6>
+            <ul class="nav flex-column">
+              <li class="nav-item">
+                <a class="nav-link active" href="#introduction">
+                  Introduction
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#prerequis"> Prérequis </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#structure">
+                  Structure des fichiers
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#preparation">
+                  Préparation avant déploiement
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#configuration-env">
+                  Configuration de l'environnement
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#deploiement-filezilla">
+                  Déploiement via FileZilla
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#configuration-db">
+                  Configuration de la base de données
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#migrations">
+                  Migrations de la base de données
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#configuration-web">
+                  Configuration du serveur web
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#verification">
+                  Vérification post-déploiement
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#bonnes-pratiques">
+                  Bonnes pratiques
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#problemes">
+                  Problèmes courants et solutions
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#mises-a-jour">
+                  Mises à jour et maintenance
+                </a>
+              </li>
+            </ul>
+          </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ml-sm-auto col-lg-10 px-md-4 main-content">
+          <div id="introduction">
+            <h1>Guide de Déploiement via cPanel et FileZilla</h1>
+            <p class="lead">
+              Ce document fournit des instructions détaillées pour déployer
+              l'application SMS sur un serveur web via cPanel et FileZilla.
+              Suivez attentivement chaque étape pour assurer un déploiement
+              réussi sans erreurs.
+            </p>
+
+            <div class="mermaid">
+              graph TD A[Préparation] --> B[Configuration de l'environnement] B
+              --> C[Déploiement des fichiers] C --> D[Configuration de la base
+              de données] D --> E[Migrations] E --> F[Configuration du serveur
+              web] F --> G[Vérification] style A
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style B
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style C
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style D
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style E
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style F
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style G
+              fill:#28a745,stroke:#333,stroke-width:2px,color:white
+            </div>
+          </div>
+
+          <div id="prerequis">
+            <h2>Prérequis</h2>
+            <p>
+              Avant de commencer le déploiement, assurez-vous de disposer des
+              éléments suivants :
+            </p>
+
+            <div class="card">
+              <div class="card-header">Liste des prérequis</div>
+              <div class="card-body">
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq1" />
+                  <label for="prereq1"
+                    >Accès à cPanel pour votre hébergement</label
+                  >
+                </div>
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq2" />
+                  <label for="prereq2"
+                    >Logiciel FileZilla installé sur votre ordinateur</label
+                  >
+                </div>
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq3" />
+                  <label for="prereq3"
+                    >Informations de connexion FTP (hôte, nom d'utilisateur, mot
+                    de passe, port)</label
+                  >
+                </div>
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq4" />
+                  <label for="prereq4"
+                    >Accès à phpMyAdmin ou à un autre gestionnaire de base de
+                    données MySQL</label
+                  >
+                </div>
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq5" />
+                  <label for="prereq5"
+                    >PHP 7.4 ou supérieur installé sur le serveur</label
+                  >
+                </div>
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq6" />
+                  <label for="prereq6"
+                    >Extensions PHP requises : PDO, PDO_MySQL, mbstring, json,
+                    xml, fileinfo, openssl</label
+                  >
+                </div>
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq7" />
+                  <label for="prereq7"
+                    >Composer installé sur le serveur (ou possibilité d'exécuter
+                    des commandes composer)</label
+                  >
+                </div>
+                <div class="checklist-item">
+                  <input type="checkbox" id="prereq8" />
+                  <label for="prereq8"
+                    >Node.js et npm installés localement pour la compilation des
+                    assets frontend</label
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="structure">
+            <h2>Structure des fichiers à déployer</h2>
+            <p>
+              Voici la structure des fichiers et dossiers qui doivent être
+              déployés sur le serveur :
+            </p>
+
+            <div class="mermaid">
+              graph TD A[/] --> B[composer.json] A --> C[composer.lock] A -->
+              D[.env] A --> E[public/] A --> F[src/] A --> G[templates/] A -->
+              H[var/] A --> I[vendor/] E --> E1[index.php] E --> E2[graphql.php]
+              E --> E3[api.php] E --> E4[assets/] F --> F1[API/] F -->
+              F2[config/] F --> F3[Controllers/] F --> F4[Entities/] F -->
+              F5[GraphQL/] F --> F6[Repositories/] F --> F7[Services/] G -->
+              G1[emails/] G --> G2[sms/] H --> H1[database.sqlite] style A
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style D
+              fill:#ffc107,stroke:#333,stroke-width:2px,color:black style E
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style F
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style G
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style H
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white
+            </div>
+
+            <div class="important">
+              <h4>Note importante</h4>
+              <p>
+                Les dossiers suivants ne doivent PAS être déployés sur le
+                serveur de production :
+              </p>
+              <ul>
+                <li>
+                  <code>scripts/</code> - Contient des scripts de développement
+                  et de test
+                </li>
+                <li>
+                  <code>tests/</code> - Contient les tests unitaires et
+                  fonctionnels
+                </li>
+                <li>
+                  <code>frontend/node_modules/</code> - Dépendances npm (très
+                  volumineux)
+                </li>
+                <li><code>.git/</code> - Dossier de contrôle de version</li>
+                <li><code>.vscode/</code> - Configuration de l'éditeur</li>
+                <li><code>memory-bank/</code> - Documentation interne</li>
+              </ul>
+            </div>
+          </div>
+
+          <div id="preparation">
+            <h2>Préparation avant déploiement</h2>
+
+            <h3>1. Compilation des assets frontend</h3>
+            <p>
+              Avant de déployer, vous devez compiler les assets frontend pour la
+              production :
+            </p>
+
+            <pre><code class="language-bash">cd frontend
+npm install
+npm run build</code></pre>
+
+            <p>
+              Cette commande générera les fichiers optimisés dans le dossier
+              <code>frontend/dist/</code>. Le contenu de ce dossier devra être
+              copié dans <code>public/assets/</code> sur le serveur.
+            </p>
+
+            <div class="mermaid">
+              graph LR A[frontend/src] --> B[npm run build] B -->
+              C[frontend/dist] C --> D[Copier vers public/assets] style A
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style B
+              fill:#ff7e5f,stroke:#333,stroke-width:2px,color:white style C
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style D
+              fill:#28a745,stroke:#333,stroke-width:2px,color:white
+            </div>
+
+            <h3>2. Configuration des URLs</h3>
+            <p>
+              Assurez-vous que les URLs sont correctement configurées pour
+              l'environnement de production :
+            </p>
+
+            <ol>
+              <li>
+                Modifiez le fichier
+                <code>frontend/src/config/urls.ts</code> pour utiliser les URLs
+                de production
+              </li>
+              <li>
+                Modifiez le fichier <code>src/config/urls.php</code> pour
+                utiliser les URLs de production
+              </li>
+            </ol>
+
+            <div class="card">
+              <div class="card-header">Exemple de configuration des URLs</div>
+              <div class="card-body">
+                <h5>frontend/src/config/urls.ts</h5>
+                <pre><code class="language-typescript">export const API = {
+  BASE: 'https://votre-domaine.com/api',
+  GRAPHQL: 'https://votre-domaine.com/graphql.php'
+};
+
+export const ROUTES = {
+  LOGIN: '/login',
+  HOME: '/',
+  ADMIN: '/admin'
+};</code></pre>
+
+                <h5>src/config/urls.php</h5>
+                <pre><code class="language-php">&lt;?php
+return [
+    'base' => 'https://votre-domaine.com',
+    'api' => 'https://votre-domaine.com/api',
+    'graphql' => 'https://votre-domaine.com/graphql.php'
+];</code></pre>
+              </div>
+            </div>
+
+            <h3>3. Préparation du fichier .env</h3>
+            <p>
+              Créez une copie du fichier <code>.env.example</code> et nommez-la
+              <code>.env</code>. Configurez les variables d'environnement pour
+              la production :
+            </p>
+
+            <pre><code class="language-bash"># Base de données
+DB_CONNECTION=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_DATABASE=nom_de_votre_base_de_donnees
+DB_USERNAME=votre_utilisateur
+DB_PASSWORD=votre_mot_de_passe
+
+# Configuration de l'application
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://votre-domaine.com
+
+# Configuration Orange API
+ORANGE_API_KEY=votre_cle_api
+ORANGE_API_SECRET=votre_secret_api
+
+# Autres configurations
+MAIL_HOST=votre_serveur_smtp
+MAIL_PORT=587
+MAIL_USERNAME=votre_email
+MAIL_PASSWORD=votre_mot_de_passe
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=noreply@votre-domaine.com
+MAIL_FROM_NAME="Nom de votre application"</code></pre>
+          </div>
+
+          <div id="configuration-env">
+            <h2>Configuration de l'environnement</h2>
+
+            <h3>1. Configuration PHP</h3>
+            <p>
+              Assurez-vous que PHP est correctement configuré sur votre serveur.
+              Voici les paramètres recommandés à définir dans le fichier
+              <code>php.ini</code> ou via cPanel :
+            </p>
+
+            <pre><code class="language-ini">memory_limit = 256M
+upload_max_filesize = 64M
+post_max_size = 64M
+max_execution_time = 300
+max_input_time = 300
+display_errors = Off
+log_errors = On
+error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+date.timezone = "Africa/Abidjan"</code></pre>
+
+            <div class="mermaid">
+              graph TD A[cPanel] --> B[PHP Configuration] B --> C[Modifier les
+              valeurs] C --> D[Sauvegarder] style A
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style B
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style C
+              fill:#ff7e5f,stroke:#333,stroke-width:2px,color:white style D
+              fill:#28a745,stroke:#333,stroke-width:2px,color:white
+            </div>
+
+            <h3>2. Configuration des répertoires</h3>
+            <p>
+              Assurez-vous que les répertoires suivants sont accessibles en
+              écriture par le serveur web :
+            </p>
+
+            <pre><code class="language-bash">var/
+public/assets/</code></pre>
+
+            <p>
+              Vous pouvez définir les permissions avec la commande suivante (via
+              SSH) :
+            </p>
+
+            <pre><code class="language-bash">chmod -R 755 public/
+chmod -R 775 var/</code></pre>
+          </div>
+
+          <div id="deploiement-filezilla">
+            <h2>Processus de déploiement via FileZilla</h2>
+
+            <h3>1. Connexion à votre serveur via FileZilla</h3>
+            <ol>
+              <li>Ouvrez FileZilla</li>
+              <li>
+                Entrez les informations de connexion FTP fournies par votre
+                hébergeur :
+                <ul>
+                  <li>Hôte : ftp.votre-domaine.com</li>
+                  <li>Nom d'utilisateur : votre_nom_utilisateur</li>
+                  <li>Mot de passe : votre_mot_de_passe</li>
+                  <li>Port : 21 (ou le port spécifié par votre hébergeur)</li>
+                </ul>
+              </li>
+              <li>Cliquez sur "Connexion rapide"</li>
+            </ol>
+
+            <div class="mermaid">
+              graph LR A[FileZilla] --> B[Connexion FTP] B --> C[Serveur
+              distant] style A
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style B
+              fill:#ff7e5f,stroke:#333,stroke-width:2px,color:white style C
+              fill:#28a745,stroke:#333,stroke-width:2px,color:white
+            </div>
+
+            <h3>2. Navigation vers le répertoire de destination</h3>
+            <p>
+              Dans le panneau de droite (serveur distant), naviguez vers le
+              répertoire où vous souhaitez déployer l'application. Généralement,
+              il s'agit de :
+            </p>
+            <ul>
+              <li><code>public_html/</code> pour le domaine principal</li>
+              <li>
+                <code>public_html/sous-dossier/</code> pour un sous-dossier
+              </li>
+            </ul>
+
+            <h3>3. Transfert des fichiers</h3>
+            <h4>Méthode recommandée</h4>
+            <p>
+              Transférez d'abord les fichiers de base, puis les dossiers plus
+              volumineux :
+            </p>
+
+            <ol type="a">
+              <li>
+                Transférez les fichiers à la racine :
+                <ul>
+                  <li><code>.env</code> (configuré pour la production)</li>
+                  <li><code>composer.json</code></li>
+                  <li><code>composer.lock</code></li>
+                </ul>
+              </li>
+              <li>
+                Créez et transférez les dossiers principaux :
+                <ul>
+                  <li><code>public/</code></li>
+                  <li><code>src/</code></li>
+                  <li><code>templates/</code></li>
+                  <li>
+                    <code>var/</code> (assurez-vous qu'il est vide ou ne
+                    contient que les fichiers nécessaires)
+                  </li>
+                </ul>
+              </li>
+              <li>
+                Transférez le dossier <code>vendor/</code> (cette étape peut
+                prendre du temps en raison du nombre de fichiers)
+              </li>
+            </ol>
+
+            <h4>Alternative</h4>
+            <p>
+              Si vous avez accès SSH, vous pouvez compresser le projet, le
+              transférer, puis le décompresser sur le serveur :
+            </p>
+
+            <pre><code class="language-bash"># Sur votre machine locale
+zip -r projet.zip . -x "node_modules/*" "tests/*" ".git/*" "scripts/*" ".vscode/*" "memory-bank/*"
+
+# Transférez projet.zip via FileZilla
+
+# Sur le serveur (via SSH)
+unzip projet.zip -d /chemin/vers/destination</code></pre>
+
+            <div class="mermaid">
+              graph TD A[Projet local] --> B[Compression] B --> C[projet.zip] C
+              --> D[Transfert FTP] D --> E[Serveur distant] E -->
+              F[Décompression] F --> G[Fichiers déployés] style A
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style B
+              fill:#ff7e5f,stroke:#333,stroke-width:2px,color:white style C
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style D
+              fill:#ff7e5f,stroke:#333,stroke-width:2px,color:white style E
+              fill:#4a6fa5,stroke:#333,stroke-width:2px,color:white style F
+              fill:#ff7e5f,stroke:#333,stroke-width:2px,color:white style G
+              fill:#28a745,stroke:#333,stroke-width:2px,color:white
+            </div>
+
+            <h3>4. Points d'attention lors du transfert</h3>
+            <ul>
+              <li>
+                <strong>Mode de transfert</strong> : Utilisez le mode binaire
+                pour tous les fichiers
+              </li>
+            </ul>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
