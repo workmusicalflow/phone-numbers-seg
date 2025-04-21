@@ -92,7 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     try {
       console.log('Attempting login for user:', username);
-      const response = await fetch('http://localhost:8000/graphql.php', {
+      const response = await fetch('/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
         console.log('Login successful, fetching user info');
         // Si le login réussit, récupérer les infos utilisateur avec une query 'me'
         try {
-          const meResponse = await fetch('http://localhost:8000/graphql.php', {
+          const meResponse = await fetch('/graphql.php', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ query: ME_QUERY }),
@@ -191,7 +191,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     try {
       // Appeler la mutation de déconnexion
-      await fetch('http://localhost:8000/graphql.php', {
+      await fetch('/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +232,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     
     try {
-      const response = await fetch('http://localhost:8000/graphql.php', {
+      const response = await fetch('/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     
     try {
-      const response = await fetch('http://localhost:8000/graphql.php', {
+      const response = await fetch('/graphql.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
