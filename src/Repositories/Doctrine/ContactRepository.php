@@ -247,4 +247,108 @@ class ContactRepository extends BaseRepository implements ContactRepositoryInter
             throw $e;
         }
     }
+
+    /**
+     * Find contacts by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'search' => 'John', 'groupId' => 3])
+     * @param int|null $limit Maximum number of entities to return
+     * @param int|null $offset Number of entities to skip
+     * @return array The contacts
+     */
+    public function findByCriteria(array $criteria, ?int $limit = 100, ?int $offset = 0): array
+    {
+        $queryBuilder = $this->createQueryBuilder('c'); // 'c' is the alias for Contact
+
+        $paramIndex = 1; // Index for unique parameter names
+
+        // Always filter by userId if present
+        if (isset($criteria['userId'])) {
+            $queryBuilder->andWhere('c.userId = :userId')
+                ->setParameter('userId', $criteria['userId']);
+        }
+
+        // Handle groupId filter (requires join)
+        if (isset($criteria['groupId'])) {
+            $groupIdParam = 'groupId' . $paramIndex++;
+            $queryBuilder->join('App\Entities\ContactGroupMembership', 'cgm', 'WITH', 'c.id = cgm.contactId')
+                ->andWhere('cgm.groupId = :' . $groupIdParam)
+                ->setParameter($groupIdParam, $criteria['groupId']);
+        }
+
+        // Handle search filter (across multiple fields)
+        if (isset($criteria['search']) && !empty($criteria['search'])) {
+            $searchParam = 'searchTerm' . $paramIndex++;
+            $searchTerm = '%' . $criteria['search'] . '%';
+
+            $orX = $queryBuilder->expr()->orX();
+            $orX->add($queryBuilder->expr()->like('c.name', ':' . $searchParam));
+            $orX->add($queryBuilder->expr()->like('c.phoneNumber', ':' . $searchParam));
+            $orX->add($queryBuilder->expr()->like('c.email', ':' . $searchParam));
+            // Add other searchable fields if necessary
+            // $orX->add($queryBuilder->expr()->like('c.notes', ':' . $searchParam)); 
+
+            $queryBuilder->andWhere($orX)
+                ->setParameter($searchParam, $searchTerm);
+        }
+
+        // Add default ordering
+        $queryBuilder->orderBy('c.name', 'ASC');
+
+        // Apply limit and offset
+        if ($limit !== null) {
+            $queryBuilder->setMaxResults($limit);
+        }
+        if ($offset !== null) {
+            $queryBuilder->setFirstResult($offset);
+        }
+
+        return $queryBuilder->getQuery()->getResult();
+    }
+
+    /**
+     * Count contacts by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'search' => 'John', 'groupId' => 3])
+     * @return int The number of contacts matching the criteria
+     */
+    public function countByCriteria(array $criteria): int
+    {
+        $queryBuilder = $this->createQueryBuilder('c'); // 'c' is the alias for Contact
+        $queryBuilder->select('COUNT(c.id)');
+
+        $paramIndex = 1; // Index for unique parameter names
+
+        // Always filter by userId if present
+        if (isset($criteria['userId'])) {
+            $queryBuilder->andWhere('c.userId = :userId')
+                ->setParameter('userId', $criteria['userId']);
+        }
+
+        // Handle groupId filter (requires join)
+        if (isset($criteria['groupId'])) {
+            $groupIdParam = 'groupId' . $paramIndex++;
+            $queryBuilder->join('App\Entities\ContactGroupMembership', 'cgm', 'WITH', 'c.id = cgm.contactId')
+                ->andWhere('cgm.groupId = :' . $groupIdParam)
+                ->setParameter($groupIdParam, $criteria['groupId']);
+        }
+
+        // Handle search filter (across multiple fields)
+        if (isset($criteria['search']) && !empty($criteria['search'])) {
+            $searchParam = 'searchTerm' . $paramIndex++;
+            $searchTerm = '%' . $criteria['search'] . '%';
+
+            $orX = $queryBuilder->expr()->orX();
+            $orX->add($queryBuilder->expr()->like('c.name', ':' . $searchParam));
+            $orX->add($queryBuilder->expr()->like('c.phoneNumber', ':' . $searchParam));
+            $orX->add($queryBuilder->expr()->like('c.email', ':' . $searchParam));
+            // Add other searchable fields if necessary
+            // $orX->add($queryBuilder->expr()->like('c.notes', ':' . $searchParam)); 
+
+            $queryBuilder->andWhere($orX)
+                ->setParameter($searchParam, $searchTerm);
+        }
+
+        return (int) $queryBuilder->getQuery()->getSingleScalarResult();
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Repositories\Doctrine;
 
 use App\Entities\SenderName;
 use App\Repositories\Interfaces\DoctrineRepositoryInterface;
+use App\Repositories\Interfaces\SenderNameRepositoryInterface; // Added correct interface
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -11,7 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * 
  * This repository provides methods to access and manipulate SenderName entities.
  */
-class SenderNameRepository extends BaseRepository implements DoctrineRepositoryInterface
+class SenderNameRepository extends BaseRepository implements SenderNameRepositoryInterface // Changed to correct interface
 {
     /**
      * Constructor
@@ -21,6 +22,21 @@ class SenderNameRepository extends BaseRepository implements DoctrineRepositoryI
     public function __construct(EntityManagerInterface $entityManager)
     {
         parent::__construct($entityManager, SenderName::class);
+    }
+
+    /**
+     * Find a SenderName entity by its primary key / identifier.
+     * Overrides BaseRepository method to match SenderNameRepositoryInterface signature.
+     *
+     * @param mixed $id The identifier.
+     * @return SenderName|null The entity instance or NULL if the entity can not be found.
+     */
+    public function findById(mixed $id): ?SenderName
+    {
+        // Call the parent find method which returns object|null, compatible with ?SenderName
+        /** @var SenderName|null $result */
+        $result = parent::findById($id);
+        return $result;
     }
 
     /**

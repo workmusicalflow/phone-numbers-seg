@@ -2,9 +2,9 @@
 
 namespace App\GraphQL\Controllers;
 
-use App\Models\AdminContact;
-use App\Repositories\AdminContactRepository;
-use App\Repositories\CustomSegmentRepository;
+use App\Entities\AdminContact; // Use Entity
+use App\Repositories\Interfaces\AdminContactRepositoryInterface; // Use interface
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface; // Use interface
 use TheCodingMachine\GraphQLite\Annotations\Query;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
 use TheCodingMachine\GraphQLite\Annotations\Type;
@@ -16,12 +16,12 @@ use TheCodingMachine\GraphQLite\Annotations\Type;
  */
 class AdminContactController
 {
-    private $adminContactRepository;
-    private $customSegmentRepository;
+    private AdminContactRepositoryInterface $adminContactRepository; // Use interface
+    private CustomSegmentRepositoryInterface $customSegmentRepository; // Use interface
 
     public function __construct(
-        AdminContactRepository $adminContactRepository,
-        CustomSegmentRepository $customSegmentRepository
+        AdminContactRepositoryInterface $adminContactRepository, // Use interface
+        CustomSegmentRepositoryInterface $customSegmentRepository // Use interface
     ) {
         $this->adminContactRepository = $adminContactRepository;
         $this->customSegmentRepository = $customSegmentRepository;
@@ -31,7 +31,7 @@ class AdminContactController
      * Récupère tous les contacts administrateur
      * 
      * @Query
-     * @return AdminContact[]
+     * @return \App\Entities\AdminContact[]
      */
     public function adminContacts(): array
     {
@@ -44,9 +44,9 @@ class AdminContactController
      * 
      * @Query
      * @param int $id
-     * @return AdminContact|null
+     * @return \App\Entities\AdminContact|null
      */
-    public function adminContact(int $id): ?AdminContact
+    public function adminContact(int $id): ?\App\Entities\AdminContact // Use Entity
     {
         // TODO: Ajouter une vérification d'authentification (admin uniquement)
         return $this->adminContactRepository->findById($id);
@@ -72,15 +72,16 @@ class AdminContactController
      * @param string $phoneNumber
      * @param string|null $name
      * @param int|null $segmentId
-     * @return AdminContact
+     * @return \App\Entities\AdminContact
      */
     public function createAdminContact(
         string $phoneNumber,
         ?string $name = null,
         ?int $segmentId = null
-    ): AdminContact {
+    ): \App\Entities\AdminContact { // Use Entity
         // TODO: Ajouter une vérification d'authentification (admin uniquement)
 
+        $segment = null; // Initialize segment variable
         // Vérifier si le segment existe (si segmentId est fourni)
         if ($segmentId !== null) {
             $segment = $this->customSegmentRepository->findById($segmentId);
@@ -106,10 +107,15 @@ class AdminContactController
         }
 
         // Créer le contact
-        $adminContact = new AdminContact(null, $segmentId, $phoneNumber, $name);
+        $adminContact = new AdminContact(); // Use Entity constructor
+        $adminContact->setPhoneNumber($phoneNumber);
+        $adminContact->setName($name);
+        if ($segment !== null) {
+            $adminContact->setSegment($segment); // Use setSegment with the entity
+        }
 
         // Sauvegarder le contact
-        return $this->adminContactRepository->save($adminContact);
+        return $this->adminContactRepository->save($adminContact); // save expects Entity
     }
 
     /**
@@ -119,13 +125,13 @@ class AdminContactController
      * @param int $id
      * @param string|null $name
      * @param int|null $segmentId
-     * @return AdminContact
+     * @return \App\Entities\AdminContact
      */
     public function updateAdminContact(
         int $id,
         ?string $name = null,
         ?int $segmentId = null
-    ): AdminContact {
+    ): \App\Entities\AdminContact { // Use Entity
         // TODO: Ajouter une vérification d'authentification (admin uniquement)
 
         // Récupérer le contact
@@ -140,8 +146,12 @@ class AdminContactController
             if (!$segment) {
                 throw new \Exception("Segment non trouvé");
             }
-            $adminContact->setSegmentId($segmentId);
+            $adminContact->setSegment($segment); // Use setSegment with the entity
+        } else {
+            // If segmentId is explicitly null, remove the segment association
+            $adminContact->setSegment(null);
         }
+
 
         // Mettre à jour le nom
         if ($name !== null) {
@@ -149,7 +159,7 @@ class AdminContactController
         }
 
         // Sauvegarder le contact
-        return $this->adminContactRepository->save($adminContact);
+        return $this->adminContactRepository->save($adminContact); // save expects Entity
     }
 
     /**
@@ -170,6 +180,6 @@ class AdminContactController
         }
 
         // Supprimer le contact
-        return $this->adminContactRepository->delete($id);
+        return $this->adminContactRepository->deleteById($id); // Use deleteById
     }
 }

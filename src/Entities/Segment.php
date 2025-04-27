@@ -6,7 +6,10 @@ use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\GeneratedValue;
 use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\ManyToOne; // Add ManyToOne
+use Doctrine\ORM\Mapping\JoinColumn; // Add JoinColumn
 use Doctrine\ORM\Mapping\Table;
+use App\Entities\PhoneNumber; // Add PhoneNumber use statement
 
 /**
  * Segment entity
@@ -30,8 +33,13 @@ class Segment
     #[Column(type: "integer")]
     private ?int $id = null;
 
-    #[Column(name: "phone_number_id", type: "integer")]
-    private int $phoneNumberId;
+    // Remove phoneNumberId property, replace with ManyToOne association
+    // #[Column(name: "phone_number_id", type: "integer")]
+    // private int $phoneNumberId;
+
+    #[ManyToOne(targetEntity: PhoneNumber::class, inversedBy: "technicalSegments")]
+    #[JoinColumn(name: "phone_number_id", referencedColumnName: "id", nullable: false)]
+    private ?PhoneNumber $phoneNumber = null; // Changed to nullable for potential lazy loading, adjust if needed
 
     #[Column(name: "segment_type", type: "string", length: 50)]
     private string $segmentType;
@@ -72,22 +80,22 @@ class Segment
     /**
      * Get the phone number ID
      * 
-     * @return int The phone number ID
+     * @return PhoneNumber|null The associated phone number
      */
-    public function getPhoneNumberId(): int
+    public function getPhoneNumber(): ?PhoneNumber
     {
-        return $this->phoneNumberId;
+        return $this->phoneNumber;
     }
 
     /**
-     * Set the phone number ID
+     * Set the associated phone number
      * 
-     * @param int $phoneNumberId The phone number ID
+     * @param PhoneNumber|null $phoneNumber The phone number
      * @return self
      */
-    public function setPhoneNumberId(int $phoneNumberId): self
+    public function setPhoneNumber(?PhoneNumber $phoneNumber): self
     {
-        $this->phoneNumberId = $phoneNumberId;
+        $this->phoneNumber = $phoneNumber;
         return $this;
     }
 
@@ -144,7 +152,7 @@ class Segment
     {
         return [
             'id' => $this->id,
-            'phoneNumberId' => $this->phoneNumberId,
+            'phoneNumberId' => $this->phoneNumber ? $this->phoneNumber->getId() : null, // Get ID from association
             'segmentType' => $this->segmentType,
             'value' => $this->value
         ];

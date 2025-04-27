@@ -2,22 +2,23 @@
 
 namespace App\GraphQL\Controllers;
 
-use App\Models\ContactGroup;
-use App\Repositories\ContactGroupRepository;
+use App\Entities\ContactGroup; // Use Doctrine Entity
+use App\Entities\User; // Use Doctrine Entity
+use App\Repositories\Interfaces\ContactGroupRepositoryInterface; // Use Interface
 use TheCodingMachine\GraphQLite\Annotations\Query;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
 use TheCodingMachine\GraphQLite\Annotations\Logged;
 use TheCodingMachine\GraphQLite\Annotations\Right;
-use App\Models\User;
+// Removed use App\Models\User; as App\Entities\User is imported now
 use Exception;
 use Psr\Log\LoggerInterface;
 
 class ContactGroupController
 {
-    private ContactGroupRepository $contactGroupRepository;
+    private ContactGroupRepositoryInterface $contactGroupRepository; // Use Interface
     private LoggerInterface $logger;
 
-    public function __construct(ContactGroupRepository $contactGroupRepository, LoggerInterface $logger)
+    public function __construct(ContactGroupRepositoryInterface $contactGroupRepository, LoggerInterface $logger) // Use Interface
     {
         $this->contactGroupRepository = $contactGroupRepository;
         $this->logger = $logger;
@@ -27,8 +28,9 @@ class ContactGroupController
      * @Query
      * @Logged
      * @Right("ROLE_USER")
+     * @return ContactGroup[]
      */
-    public function contactGroups(?int $limit = 100, ?int $offset = 0, User $user): array
+    public function contactGroups(?int $limit = 100, ?int $offset = 0, User $user): array // Use Doctrine Entity for User param
     {
         try {
             return $this->contactGroupRepository->findByUserId($user->getId(), $limit, $offset);
@@ -42,8 +44,9 @@ class ContactGroupController
      * @Query
      * @Logged
      * @Right("ROLE_USER")
+     * @return ?ContactGroup
      */
-    public function contactGroup(int $id, User $user): ?ContactGroup
+    public function contactGroup(int $id, User $user): ?ContactGroup // Use Doctrine Entity for User param and return type
     {
         try {
             $group = $this->contactGroupRepository->findById($id);
@@ -64,8 +67,9 @@ class ContactGroupController
      * @Query
      * @Logged
      * @Right("ROLE_USER")
+     * @return ContactGroup[]
      */
-    public function searchContactGroups(string $query, ?int $limit = 100, ?int $offset = 0, User $user): array
+    public function searchContactGroups(string $query, ?int $limit = 100, ?int $offset = 0, User $user): array // Use Doctrine Entity for User param
     {
         try {
             return $this->contactGroupRepository->searchByUserId($query, $user->getId(), $limit, $offset);
@@ -83,17 +87,17 @@ class ContactGroupController
     public function createContactGroup(
         string $name,
         ?string $description = null,
-        User $user
-    ): ?ContactGroup {
+        User $user // Use Doctrine Entity for User param
+    ): ?ContactGroup { // Return Doctrine Entity
         try {
-            $group = new ContactGroup(
-                0, // ID sera généré par la base de données
-                $user->getId(),
-                $name,
-                $description
-            );
+            // Instantiate Doctrine Entity and use setters
+            $group = new ContactGroup();
+            $group->setUserId($user->getId());
+            $group->setName($name);
+            $group->setDescription($description);
+            // createdAt/updatedAt likely handled by Doctrine lifecycle callbacks or BaseRepository->save
 
-            return $this->contactGroupRepository->create($group);
+            return $this->contactGroupRepository->save($group); // Use save method
         } catch (Exception $e) {
             $this->logger->error('Error creating contact group: ' . $e->getMessage());
             return null;
@@ -109,8 +113,8 @@ class ContactGroupController
         int $id,
         string $name,
         ?string $description = null,
-        User $user
-    ): ?ContactGroup {
+        User $user // Use Doctrine Entity for User param
+    ): ?ContactGroup { // Return Doctrine Entity
         try {
             // Récupérer le groupe existant
             $existingGroup = $this->contactGroupRepository->findById($id);
@@ -120,16 +124,12 @@ class ContactGroupController
                 return null;
             }
 
-            // Créer un nouveau groupe avec les données mises à jour
-            $updatedGroup = new ContactGroup(
-                $id,
-                $user->getId(),
-                $name,
-                $description,
-                $existingGroup->getCreatedAt()
-            );
+            // Update existing entity
+            $existingGroup->setName($name);
+            $existingGroup->setDescription($description);
+            // updatedAt likely handled by Doctrine lifecycle callbacks or BaseRepository->save
 
-            return $this->contactGroupRepository->update($updatedGroup);
+            return $this->contactGroupRepository->save($existingGroup); // Use save method
         } catch (Exception $e) {
             $this->logger->error('Error updating contact group: ' . $e->getMessage());
             return null;
@@ -141,7 +141,7 @@ class ContactGroupController
      * @Logged
      * @Right("ROLE_USER")
      */
-    public function deleteContactGroup(int $id, User $user): bool
+    public function deleteContactGroup(int $id, User $user): bool // Use Doctrine Entity for User param
     {
         try {
             // Récupérer le groupe existant
@@ -152,6 +152,7 @@ class ContactGroupController
                 return false;
             }
 
+            // Pass the entity object to delete
             return $this->contactGroupRepository->delete($existingGroup);
         } catch (Exception $e) {
             $this->logger->error('Error deleting contact group: ' . $e->getMessage());
@@ -164,7 +165,7 @@ class ContactGroupController
      * @Logged
      * @Right("ROLE_USER")
      */
-    public function addContactToGroup(int $contactId, int $groupId, User $user): bool
+    public function addContactToGroup(int $contactId, int $groupId, User $user): bool // Use Doctrine Entity for User param
     {
         try {
             // Vérifier que le groupe appartient à l'utilisateur
@@ -185,7 +186,7 @@ class ContactGroupController
      * @Logged
      * @Right("ROLE_USER")
      */
-    public function removeContactFromGroup(int $contactId, int $groupId, User $user): bool
+    public function removeContactFromGroup(int $contactId, int $groupId, User $user): bool // Use Doctrine Entity for User param
     {
         try {
             // Vérifier que le groupe appartient à l'utilisateur
@@ -205,6 +206,7 @@ class ContactGroupController
      * @Query
      * @Logged
      * @Right("ROLE_ADMIN")
+     * @return ContactGroup[]
      */
     public function allContactGroups(?int $limit = 100, ?int $offset = 0): array
     {
@@ -220,6 +222,7 @@ class ContactGroupController
      * @Query
      * @Logged
      * @Right("ROLE_ADMIN")
+     * @return ContactGroup[]
      */
     public function userContactGroups(int $userId, ?int $limit = 100, ?int $offset = 0): array
     {

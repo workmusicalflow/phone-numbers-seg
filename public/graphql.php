@@ -1,7 +1,7 @@
 <?php
 
-// Activer l'affichage des erreurs PHP pour le débogage
-ini_set('display_errors', 1);
+// Désactiver l'affichage direct des erreurs PHP (elles sont toujours journalisées)
+ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
 // Activer la journalisation des erreurs
@@ -33,24 +33,59 @@ register_shutdown_function('handleFatalErrors');
 
 // Gestionnaire d'exceptions personnalisé
 set_exception_handler(function ($e) {
-    header('Content-Type: application/json');
+    // Log the exception details before sending response
+    error_log("Unhandled Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . "\nStack trace:\n" . $e->getTraceAsString());
+
+    // Check if headers already sent to avoid warning
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+        header('HTTP/1.1 500 Internal Server Error');
+    }
     echo json_encode([
         'errors' => [
             [
-                'message' => $e->getMessage(),
-                'location' => $e->getFile() . ':' . $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'message' => 'Internal Server Error: ' . $e->getMessage(),
+                // Avoid sending trace in production for security
+                // 'location' => $e->getFile() . ':' . $e->getLine(),
+                // 'trace' => explode("\n", $e->getTraceAsString())
             ]
         ]
     ]);
     exit;
 });
 
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 // Load environment variables from .env file
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..'); // Specify the directory containing .env
-$dotenv->load();
+try {
+    // Load and validate required environment variables in one go
+    $dotenv->load();
+    $dotenv->required(['ORANGE_API_CLIENT_ID', 'ORANGE_API_CLIENT_SECRET'])->notEmpty();
+    // Add other critical vars if needed, e.g., ->required(['DB_HOST', 'DB_NAME', ...])
+
+} catch (\Dotenv\Exception\InvalidPathException $e) {
+    error_log("Could not find .env file: " . $e->getMessage());
+    header('HTTP/1.1 500 Internal Server Error');
+    header('Content-Type: application/json');
+    echo json_encode(['errors' => [['message' => 'Application configuration error: .env file not found.']]]);
+    exit;
+} catch (\Dotenv\Exception\ValidationException $e) {
+    // Handle missing or empty required variables
+    error_log("Environment variable validation failed: " . $e->getMessage());
+    header('HTTP/1.1 500 Internal Server Error');
+    header('Content-Type: application/json');
+    echo json_encode([
+        'errors' => [
+            [
+                'message' => 'Application configuration error: ' . $e->getMessage()
+            ]
+        ]
+    ]);
+    exit;
+}
+
 
 // Start the session before any output or session access
 if (session_status() === PHP_SESSION_NONE) {
@@ -67,12 +102,12 @@ use App\GraphQL\Resolvers\UserResolver;
 use App\GraphQL\Resolvers\ContactResolver;
 use App\GraphQL\Resolvers\SMSResolver;
 use App\GraphQL\Resolvers\AuthResolver;
-use App\GraphQL\Resolvers\ContactGroupResolver; // Import ContactGroupResolver
-use Psr\Log\LoggerInterface; // For logging
+use App\GraphQL\Resolvers\ContactGroupResolver;
+use Psr\Log\LoggerInterface;
+use GraphQL\Error\DebugFlag;
 
 // Enable CORS for GraphQL endpoint
-// header('Access-Control-Allow-Origin: *'); // Incorrect with credentials
-header('Access-Control-Allow-Origin: http://localhost:5173'); // Correct origin
+header('Access-Control-Allow-Origin: http://localhost:5173');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Credentials: true');
@@ -108,43 +143,37 @@ if (empty($input)) {
     exit;
 }
 
+// --- Main Execution Block ---
 try {
     // Create DI container
     $container = new \App\GraphQL\DIContainer();
 
-    // Get Logger from container (moved before other operations that might fail)
+    // Get Logger from container
     $logger = $container->get(LoggerInterface::class);
-
-    // Get repositories from container
-    $smsHistoryRepository = $container->get(\App\Repositories\SMSHistoryRepository::class);
-    $userRepository = $container->get(\App\Repositories\UserRepository::class);
-    $customSegmentRepository = $container->get(\App\Repositories\CustomSegmentRepository::class);
-    $smsService = $container->get(\App\Services\SMSService::class);
+    $logger->info('GraphQL endpoint request received.');
 
     // Load schema from file
     $schemaString = file_get_contents(__DIR__ . '/../src/GraphQL/schema.graphql');
+    if ($schemaString === false) {
+        throw new \RuntimeException("Failed to load GraphQL schema file.");
+    }
     $schema = BuildSchema::build($schemaString);
-
-    // Log request received after logger is confirmed available
-    $logger->info('GraphQL endpoint request received.');
 
     // Get Resolver instances from container
     $userResolver = $container->get(UserResolver::class);
     $contactResolver = $container->get(ContactResolver::class);
     $smsResolver = $container->get(SMSResolver::class);
     $authResolver = $container->get(AuthResolver::class);
-    $contactGroupResolver = $container->get(ContactGroupResolver::class); // Instantiate ContactGroupResolver
+    $contactGroupResolver = $container->get(ContactGroupResolver::class);
     $logger->info('Resolver instances obtained from DI container.');
 
     // --- Field Resolver Mapping ---
-    // This function maps top-level Query/Mutation fields to our resolver methods.
-    // For nested fields, it falls back to the default resolver.
     $fieldResolver = function ($source, $args, $context, ResolveInfo $info) use (
         $userResolver,
         $contactResolver,
         $smsResolver,
         $authResolver,
-        $contactGroupResolver, // Pass ContactGroupResolver to the closure
+        $contactGroupResolver,
         $logger,
         $container
     ) {
@@ -153,138 +182,142 @@ try {
 
         $logger->debug("Attempting to resolve field: {$parentTypeName}.{$fieldName}");
 
-        // Handle top-level Query fields
-        if ($parentTypeName === 'Query') {
-            $logger->debug("Handling Query field: {$fieldName}");
-            switch ($fieldName) {
-                case 'users':
-                    return $userResolver->resolveUsers();
-                case 'user':
-                    return $userResolver->resolveUser($args);
-                case 'userByUsername':
-                    return $userResolver->resolveUserByUsername($args);
-                case 'me':
-                    return $userResolver->resolveMe(); // Use the dedicated 'me' resolver
-                case 'verifyToken':
-                    return $authResolver->resolveVerifyToken($args, $context); // Placeholder
-                case 'contacts':
-                    return $contactResolver->resolveContacts($args, $context);
-                case 'contact':
-                    return $contactResolver->resolveContact($args, $context);
-                case 'searchContacts':
-                    return $contactResolver->resolveSearchContacts($args, $context);
-                case 'contactsCount':
-                    return $contactResolver->resolveContactsCount($args, $context);
-                    // Contact Group Queries
-                case 'contactGroups':
-                    return $contactGroupResolver->resolveContactGroups($args, $context);
-                case 'contactGroup':
-                    return $contactGroupResolver->resolveContactGroup($args, $context);
-                case 'contactGroupsCount':
-                    return $contactGroupResolver->resolveContactGroupsCount($args, $context);
-                case 'contactsInGroup':
-                    return $contactGroupResolver->resolveContactsInGroup($args, $context);
-                case 'contactsInGroupCount':
-                    return $contactGroupResolver->resolveContactsInGroupCount($args, $context);
-                case 'groupsForContact':
-                    return $contactResolver->resolveGroupsForContact($args, $context);
-                    // End Contact Group Queries
-                case 'smsHistory':
-                    return $smsResolver->resolveSmsHistory($args, $context);
-                case 'smsHistoryCount':
-                    return $smsResolver->resolveSmsHistoryCount($args, $context);
-                case 'segmentsForSMS':
-                    return $smsResolver->resolveSegmentsForSMS($args, $context);
-                case 'test':
-                    return "GraphQL is working via FieldResolver!";
-                case 'hello':
-                    return "Hello, world via FieldResolver!";
-                case 'dashboardStats':
-                    return [ // Keep simple logic here for now
-                        'usersCount' => $container->get(\App\Repositories\UserRepository::class)->count(),
-                        'totalSmsCredits' => 0, // Implement logic
-                        'lastUpdated' => date('Y-m-d H:i:s')
-                    ];
-                    // No default case needed, fall through to default resolver
+        try { // Add try-catch within the resolver for more granular error logging
+            // Handle top-level Query fields
+            if ($parentTypeName === 'Query') {
+                $logger->debug("Handling Query field: {$fieldName}");
+                switch ($fieldName) {
+                    case 'users':
+                        return $userResolver->resolveUsers($args); // Pass $args here
+                    case 'user':
+                        return $userResolver->resolveUser($args);
+                    case 'userByUsername':
+                        return $userResolver->resolveUserByUsername($args);
+                    case 'me':
+                        return $userResolver->resolveMe();
+                    case 'verifyToken':
+                        return $authResolver->resolveVerifyToken($args, $context);
+                    case 'contacts':
+                        return $contactResolver->resolveContacts($args, $context);
+                    case 'contact':
+                        return $contactResolver->resolveContact($args, $context);
+                    case 'searchContacts':
+                        return $contactResolver->resolveSearchContacts($args, $context);
+                    case 'contactsCount':
+                        return $contactResolver->resolveContactsCount($args, $context);
+                    case 'contactGroups':
+                        return $contactGroupResolver->resolveContactGroups($args, $context);
+                    case 'contactGroup':
+                        return $contactGroupResolver->resolveContactGroup($args, $context);
+                    case 'contactGroupsCount':
+                        return $contactGroupResolver->resolveContactGroupsCount($args, $context);
+                    case 'contactsInGroup':
+                        return $contactGroupResolver->resolveContactsInGroup($args, $context);
+                    case 'contactsInGroupCount':
+                        return $contactGroupResolver->resolveContactsInGroupCount($args, $context);
+                    case 'groupsForContact':
+                        return $contactResolver->resolveGroupsForContact($args, $context);
+                    case 'smsHistory':
+                        return $smsResolver->resolveSmsHistory($args, $context);
+                    case 'smsHistoryCount':
+                        return $smsResolver->resolveSmsHistoryCount($args, $context);
+                    case 'segmentsForSMS':
+                        return $smsResolver->resolveSegmentsForSMS($args, $context);
+                    case 'test':
+                        return "GraphQL is working via FieldResolver!";
+                    case 'hello':
+                        return "Hello, world via FieldResolver!";
+                    case 'dashboardStats':
+                        return [
+                            'usersCount' => $container->get(\App\Repositories\UserRepository::class)->count(),
+                            'totalSmsCredits' => 0,
+                            'lastUpdated' => date('Y-m-d H:i:s')
+                        ];
+                }
             }
-        }
-        // Handle top-level Mutation fields
-        elseif ($parentTypeName === 'Mutation') {
-            $logger->debug("Handling Mutation field: {$fieldName}");
-            switch ($fieldName) {
-                case 'createUser':
-                    return $userResolver->mutateCreateUser($args);
-                case 'updateUser':
-                    return $userResolver->mutateUpdateUser($args);
-                case 'changePassword':
-                    return $userResolver->mutateChangePassword($args);
-                case 'addCredits':
-                    return $userResolver->mutateAddCredits($args);
-                case 'deleteUser':
-                    return $userResolver->mutateDeleteUser($args);
-                case 'login':
-                    return $authResolver->mutateLogin($args, $context);
-                case 'refreshToken':
-                    return $authResolver->mutateRefreshToken($args, $context); // Placeholder
-                case 'logout':
-                    return $authResolver->mutateLogout($args, $context);
-                case 'requestPasswordReset':
-                    return $authResolver->mutateRequestPasswordReset($args, $context); // Placeholder
-                case 'resetPassword':
-                    return $authResolver->mutateResetPassword($args, $context); // Placeholder
-                case 'createContact':
-                    return $contactResolver->mutateCreateContact($args, $context);
-                case 'updateContact':
-                    return $contactResolver->mutateUpdateContact($args, $context);
-                case 'deleteContact':
-                    return $contactResolver->mutateDeleteContact($args, $context);
-                    // Contact Group Mutations
-                case 'createContactGroup':
-                    return $contactGroupResolver->mutateCreateContactGroup($args, $context);
-                case 'updateContactGroup':
-                    return $contactGroupResolver->mutateUpdateContactGroup($args, $context);
-                case 'deleteContactGroup':
-                    return $contactGroupResolver->mutateDeleteContactGroup($args, $context);
-                case 'addContactToGroup':
-                    return $contactGroupResolver->mutateAddContactToGroup($args, $context);
-                case 'removeContactFromGroup':
-                    return $contactGroupResolver->mutateRemoveContactFromGroup($args, $context);
-                case 'addContactsToGroup':
-                    return $contactGroupResolver->mutateAddContactsToGroup($args, $context);
-                    // End Contact Group Mutations
-                case 'sendSms':
-                    return $smsResolver->mutateSendSms($args, $context);
-                case 'sendBulkSms':
-                    return $smsResolver->mutateSendBulkSms($args, $context);
-                case 'sendSmsToSegment':
-                    return $smsResolver->mutateSendSmsToSegment($args, $context);
-                case 'sendSmsToAllContacts': // Add mapping for new mutation
-                    return $smsResolver->mutateSendSmsToAllContacts($args, $context);
-                case 'retrySms':
-                    return $smsResolver->mutateRetrySms($args, $context);
-                    // No default case needed, fall through to default resolver
+            // Handle top-level Mutation fields
+            elseif ($parentTypeName === 'Mutation') {
+                $logger->debug("Handling Mutation field: {$fieldName}");
+                switch ($fieldName) {
+                    case 'createUser':
+                        return $userResolver->mutateCreateUser($args);
+                    case 'updateUser':
+                        return $userResolver->mutateUpdateUser($args);
+                    case 'changePassword':
+                        return $userResolver->mutateChangePassword($args);
+                    case 'addCredits':
+                        return $userResolver->mutateAddCredits($args);
+                    case 'deleteUser':
+                        return $userResolver->mutateDeleteUser($args);
+                    case 'login':
+                        return $authResolver->mutateLogin($args, $context);
+                    case 'refreshToken':
+                        return $authResolver->mutateRefreshToken($args, $context);
+                    case 'logout':
+                        return $authResolver->mutateLogout($args, $context);
+                    case 'requestPasswordReset':
+                        return $authResolver->mutateRequestPasswordReset($args, $context);
+                    case 'resetPassword':
+                        return $authResolver->mutateResetPassword($args, $context);
+                    case 'createContact':
+                        return $contactResolver->mutateCreateContact($args, $context);
+                    case 'updateContact':
+                        return $contactResolver->mutateUpdateContact($args, $context);
+                    case 'deleteContact':
+                        return $contactResolver->mutateDeleteContact($args, $context);
+                    case 'createContactGroup':
+                        return $contactGroupResolver->mutateCreateContactGroup($args, $context);
+                    case 'updateContactGroup':
+                        return $contactGroupResolver->mutateUpdateContactGroup($args, $context);
+                    case 'deleteContactGroup':
+                        return $contactGroupResolver->mutateDeleteContactGroup($args, $context);
+                    case 'addContactToGroup':
+                        return $contactGroupResolver->mutateAddContactToGroup($args, $context);
+                    case 'removeContactFromGroup':
+                        return $contactGroupResolver->mutateRemoveContactFromGroup($args, $context);
+                    case 'addContactsToGroup':
+                        return $contactGroupResolver->mutateAddContactsToGroup($args, $context);
+                    case 'sendSms':
+                        return $smsResolver->mutateSendSms($args, $context);
+                    case 'sendBulkSms':
+                        return $smsResolver->mutateSendBulkSms($args, $context);
+                    case 'sendSmsToSegment':
+                        return $smsResolver->mutateSendSmsToSegment($args, $context);
+                    case 'sendSmsToAllContacts':
+                        return $smsResolver->mutateSendSmsToAllContacts($args, $context);
+                    case 'retrySms':
+                        return $smsResolver->mutateRetrySms($args, $context);
+                }
             }
-        }
 
-        // Handle nested field resolvers for specific types
-        if ($parentTypeName === 'Contact' && $fieldName === 'groups') {
-            $logger->debug("Resolving Contact.groups field");
-            return $contactResolver->resolveContactGroups($source, $args, $context);
-        }
+            // Handle nested field resolvers
+            if ($parentTypeName === 'Contact' && $fieldName === 'groups') {
+                $logger->debug("Resolving Contact.groups field");
+                return $contactResolver->resolveContactGroups($source, $args, $context);
+            }
 
-        // If not a top-level Query or Mutation field handled above,
-        // use the default field resolver (handles properties/getters on objects).
-        $logger->debug("Falling back to default resolver for {$parentTypeName}.{$fieldName}");
-        return Executor::defaultFieldResolver($source, $args, $context, $info);
+            // Fallback to default resolver
+            $logger->debug("Falling back to default resolver for {$parentTypeName}.{$fieldName}");
+            return Executor::defaultFieldResolver($source, $args, $context, $info);
+        } catch (\Throwable $e) {
+            // Log error originating from within a specific resolver method
+            $logger->error("Error resolving field {$parentTypeName}.{$fieldName}: " . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString() // Log trace for debugging
+            ]);
+            // Re-throw the exception to be caught by the outer handler and formatted for GraphQL response
+            throw $e;
+        }
     };
     // --- End Field Resolver Mapping ---
-
 
     // Execute the query using the custom field resolver
     $result = GraphQL::executeQuery(
         $schema,
         $input['query'] ?? '',
-        null, // rootValue (logic is now entirely in fieldResolver)
+        null, // rootValue
         null, // context
         $input['variables'] ?? [],
         null, // operationName
@@ -292,29 +325,41 @@ try {
     );
     $logger->info('GraphQL query executed.');
 
-
     // Return the result
     header('Content-Type: application/json');
-    $output = $result->toArray();
+    // Add Debug flags for more detailed errors in the response (useful for debugging)
+    $debugFlags = DebugFlag::INCLUDE_DEBUG_MESSAGE | DebugFlag::INCLUDE_TRACE;
+    $output = $result->toArray($debugFlags);
     echo json_encode($output);
     $logger->info('GraphQL response sent.');
-} catch (Exception $e) {
-    // Handle exceptions
-    $logger->critical('GraphQL execution error: ' . $e->getMessage(), [
-        'exception' => $e,
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-        'trace' => $e->getTraceAsString() // Be careful logging full trace in production
-    ]);
-    header('Content-Type: application/json');
+} catch (\Throwable $e) { // Catch any other Throwable during setup or execution
+    // Log critical error if logger is available
+    if (isset($logger)) {
+        $logger->critical('GraphQL endpoint critical error: ' . $e->getMessage(), [
+            'exception' => get_class($e),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]);
+    } else {
+        // Fallback to PHP error log if logger failed to initialize
+        error_log('GraphQL endpoint critical error (Logger unavailable): ' . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    }
+
     // Format error for GraphQL response
-    echo json_encode([
-        'errors' => [
-            [
-                'message' => $e->getMessage(),
-                // Optionally add more details like 'extensions' => ['code' => 'INTERNAL_SERVER_ERROR']
-                // Avoid exposing file/line/trace in production responses
-            ]
+    $error = [
+        'message' => 'Internal server error: ' . $e->getMessage(),
+        'extensions' => [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString()) // Provide trace for debugging
         ]
-    ]);
+    ];
+    // Check if headers already sent
+    if (!headers_sent()) {
+        header('HTTP/1.1 500 Internal Server Error');
+        header('Content-Type: application/json');
+    }
+    echo json_encode(['errors' => [$error]]);
+    exit;
 }

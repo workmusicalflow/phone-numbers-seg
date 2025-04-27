@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\PhoneNumber;
+use App\Entities\PhoneNumber; // Use Doctrine Entity
 use App\Services\Factories\SegmentationStrategyFactory;
 use App\Services\Interfaces\PhoneNumberValidatorInterface;
 use App\Services\Interfaces\PhoneSegmentationServiceInterface;
@@ -42,15 +42,15 @@ class PhoneSegmentationService implements PhoneSegmentationServiceInterface
     /**
      * Segment a phone number
      * 
-     * @param PhoneNumber $phoneNumber
-     * @return PhoneNumber
+     * @param PhoneNumber $phoneNumber // Use Doctrine Entity
+     * @return PhoneNumber // Return Doctrine Entity
      * @throws InvalidArgumentException If the phone number is invalid
      */
-    public function segmentPhoneNumber(PhoneNumber $phoneNumber): PhoneNumber
+    public function segmentPhoneNumber(PhoneNumber $phoneNumber): PhoneNumber // Use Doctrine Entity
     {
-        // Validate the phone number
-        if (!$this->validator->validate($phoneNumber)) {
-            throw new InvalidArgumentException('Invalid phone number format');
+        // Validate the phone number string using the validator interface method
+        if (!$this->validator->isValid($phoneNumber->getNumber())) {
+            throw new InvalidArgumentException('Invalid phone number format: ' . $phoneNumber->getNumber());
         }
 
         // Extract country code to determine the strategy

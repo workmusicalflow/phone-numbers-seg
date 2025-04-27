@@ -48,7 +48,7 @@ class CustomSegmentRepository extends BaseRepository implements CustomSegmentRep
             FROM App\Entities\PhoneNumber p
             JOIN App\Entities\PhoneNumberSegment pns WITH pns.phoneNumberId = p.id
             WHERE pns.customSegmentId = :segmentId
-            ORDER BY p.createdAt DESC
+            ORDER BY p.id DESC # Changed from p.createdAt to p.id
         ";
 
         $query = $this->getEntityManager()->createQuery($dql);

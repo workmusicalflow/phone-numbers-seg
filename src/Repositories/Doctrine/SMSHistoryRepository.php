@@ -57,6 +57,51 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
     }
 
     /**
+     * Count SMS history records by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'status' => 'SENT', 'search' => '123', 'segmentId' => 5])
+     * @return int The number of matching SMS history records
+     */
+    public function countByCriteria(array $criteria): int
+    {
+        $queryBuilder = $this->createQueryBuilder('s')
+            ->select('COUNT(s.id)'); // Select count instead of the entity
+
+        $paramIndex = 1; // Index for unique parameter names
+
+        foreach ($criteria as $field => $value) {
+            if ($value === null) {
+                continue; // Skip null criteria values
+            }
+
+            $paramName = $field . $paramIndex++;
+
+            switch ($field) {
+                case 'userId':
+                    $queryBuilder->andWhere('s.userId = :' . $paramName)
+                        ->setParameter($paramName, $value);
+                    break;
+                case 'status':
+                    $queryBuilder->andWhere('s.status = :' . $paramName)
+                        ->setParameter($paramName, $value);
+                    break;
+                case 'segmentId':
+                    $queryBuilder->andWhere('s.segmentId = :' . $paramName)
+                        ->setParameter($paramName, $value);
+                    break;
+                case 'search': // Assuming search targets the phone number
+                    $queryBuilder->andWhere('s.phoneNumber LIKE :' . $paramName)
+                        ->setParameter($paramName, '%' . $value . '%');
+                    break;
+                    // Add more cases here if other criteria are needed in the future
+            }
+        }
+
+        // Return the single scalar result (the count)
+        return (int) $queryBuilder->getQuery()->getSingleScalarResult();
+    }
+
+    /**
      * Find SMS history records by phone number
      * 
      * @param string $phoneNumber The phone number
@@ -401,5 +446,89 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
         }
 
         return $phoneNumber;
+    }
+
+    /**
+     * Find SMS history records by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'status' => 'SENT', 'search' => '123', 'segmentId' => 5])
+     * @param int|null $limit Maximum number of entities to return
+     * @param int|null $offset Number of entities to skip
+     * @return array The SMS history records
+     */
+    public function findByCriteria(array $criteria, ?int $limit = 100, ?int $offset = 0): array
+    {
+        $queryBuilder = $this->createQueryBuilder('s'); // 's' is the alias for SMSHistory
+
+        $paramIndex = 1; // Index for unique parameter names
+
+        foreach ($criteria as $field => $value) {
+            if ($value === null) {
+                continue; // Skip null criteria values
+            }
+
+            $paramName = $field . $paramIndex++;
+
+            switch ($field) {
+                case 'userId':
+                    $queryBuilder->andWhere('s.userId = :' . $paramName)
+                        ->setParameter($paramName, $value);
+                    break;
+                case 'status':
+                    $queryBuilder->andWhere('s.status = :' . $paramName)
+                        ->setParameter($paramName, $value);
+                    break;
+                case 'segmentId':
+                    $queryBuilder->andWhere('s.segmentId = :' . $paramName)
+                        ->setParameter($paramName, $value);
+                    break;
+                case 'search': // Assuming search targets the phone number
+                    $queryBuilder->andWhere('s.phoneNumber LIKE :' . $paramName)
+                        ->setParameter($paramName, '%' . $value . '%');
+                    break;
+                    // Add more cases here if other criteria are needed in the future
+            }
+        }
+
+        // Add default ordering
+        $queryBuilder->orderBy('s.createdAt', 'DESC');
+
+        // Apply limit and offset
+        if ($limit !== null) {
+            $queryBuilder->setMaxResults($limit);
+        }
+        if ($offset !== null) {
+            $queryBuilder->setFirstResult($offset);
+        }
+
+        return $queryBuilder->getQuery()->getResult();
+    }
+
+    /**
+     * Save multiple SMS history entities in a single transaction.
+     *
+     * @param SMSHistory[] $histories An array of SMSHistory entities to save.
+     * @return void
+     * @throws \Exception If there's an error during the bulk save operation.
+     */
+    public function saveBulk(array $histories): void
+    {
+        $entityManager = $this->getEntityManager();
+        $entityManager->beginTransaction();
+        try {
+            foreach ($histories as $history) {
+                if (!$history instanceof SMSHistory) {
+                    throw new \InvalidArgumentException('Array must contain only SMSHistory objects.');
+                }
+                $entityManager->persist($history);
+            }
+            $entityManager->flush();
+            $entityManager->commit();
+        } catch (\Exception $e) {
+            $entityManager->rollback();
+            // Log the exception or handle it as needed
+            error_log("Error during bulk save of SMS history: " . $e->getMessage());
+            throw $e; // Re-throw the exception
+        }
     }
 }

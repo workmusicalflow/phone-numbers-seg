@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\SMSHistory;
-use App\Repositories\SMSHistoryRepository;
+use App\Entities\SMSHistory; // Use Doctrine Entity
+use App\Repositories\Interfaces\SMSHistoryRepositoryInterface; // Use Interface
 use App\Services\Interfaces\SMSHistoryServiceInterface;
 
 /**
@@ -12,16 +12,16 @@ use App\Services\Interfaces\SMSHistoryServiceInterface;
 class SMSHistoryService implements SMSHistoryServiceInterface
 {
     /**
-     * @var SMSHistoryRepository
+     * @var SMSHistoryRepositoryInterface
      */
-    private SMSHistoryRepository $smsHistoryRepository;
+    private SMSHistoryRepositoryInterface $smsHistoryRepository; // Use Interface
 
     /**
      * Constructor
      * 
-     * @param SMSHistoryRepository $smsHistoryRepository
+     * @param SMSHistoryRepositoryInterface $smsHistoryRepository // Use Interface
      */
-    public function __construct(SMSHistoryRepository $smsHistoryRepository)
+    public function __construct(SMSHistoryRepositoryInterface $smsHistoryRepository) // Use Interface
     {
         $this->smsHistoryRepository = $smsHistoryRepository;
     }
@@ -38,7 +38,7 @@ class SMSHistoryService implements SMSHistoryServiceInterface
      * @param string|null $errorMessage Error message if failed
      * @param int|null $phoneNumberId Associated phone number ID
      * @param int|null $segmentId Associated segment ID
-     * @return SMSHistory The created history record
+     * @return \App\Entities\SMSHistory The created history record // Return Doctrine Entity
      */
     public function recordSMSHistory(
         string $phoneNumber,
@@ -50,20 +50,20 @@ class SMSHistoryService implements SMSHistoryServiceInterface
         ?string $errorMessage = null,
         ?int $phoneNumberId = null,
         ?int $segmentId = null
-    ): SMSHistory {
-        $smsHistory = new SMSHistory(
-            $phoneNumber,
-            $message,
-            $status,
-            $senderAddress,
-            $senderName,
-            $messageId,
-            $errorMessage,
-            $phoneNumberId,
-            $segmentId
-        );
+    ): \App\Entities\SMSHistory { // Return Doctrine Entity
+        $smsHistory = new \App\Entities\SMSHistory(); // Instantiate Doctrine Entity
+        $smsHistory->setPhoneNumber($phoneNumber);
+        $smsHistory->setMessage($message);
+        $smsHistory->setStatus($status);
+        $smsHistory->setSenderAddress($senderAddress);
+        $smsHistory->setSenderName($senderName);
+        $smsHistory->setMessageId($messageId);
+        $smsHistory->setErrorMessage($errorMessage);
+        $smsHistory->setPhoneNumberId($phoneNumberId);
+        $smsHistory->setSegmentId($segmentId);
+        $smsHistory->setCreatedAt(new \DateTime()); // Assuming createdAt is set here or in save
 
-        return $this->smsHistoryRepository->save($smsHistory);
+        return $this->smsHistoryRepository->save($smsHistory); // Save Doctrine Entity
     }
 
     /**

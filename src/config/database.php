@@ -11,6 +11,7 @@ return [
     'driver' => getenv('DB_DRIVER') ?: 'sqlite', // Default to SQLite
 
     'sqlite' => [
-        'path' => __DIR__ . '/../database/database.sqlite',
+        // Point to the same database used by Doctrine bootstrap
+        'path' => __DIR__ . '/../../var/database.sqlite',
     ],
 ];

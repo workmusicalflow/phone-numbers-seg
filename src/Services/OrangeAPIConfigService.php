@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Entities\OrangeAPIConfig;
 use App\Entities\User;
-use App\Repositories\Interfaces\DoctrineRepositoryInterface;
+use App\Repositories\Interfaces\OrangeAPIConfigRepositoryInterface; // Use specific interface
 
 /**
  * Service for managing Orange API configurations
@@ -12,16 +12,16 @@ use App\Repositories\Interfaces\DoctrineRepositoryInterface;
 class OrangeAPIConfigService
 {
     /**
-     * @var DoctrineRepositoryInterface
+     * @var OrangeAPIConfigRepositoryInterface // Use specific interface
      */
-    private $orangeAPIConfigRepository;
+    private OrangeAPIConfigRepositoryInterface $orangeAPIConfigRepository; // Use specific interface
 
     /**
      * Constructor
      * 
-     * @param DoctrineRepositoryInterface $orangeAPIConfigRepository
+     * @param OrangeAPIConfigRepositoryInterface $orangeAPIConfigRepository // Use specific interface
      */
-    public function __construct(DoctrineRepositoryInterface $orangeAPIConfigRepository)
+    public function __construct(OrangeAPIConfigRepositoryInterface $orangeAPIConfigRepository) // Use specific interface
     {
         $this->orangeAPIConfigRepository = $orangeAPIConfigRepository;
     }

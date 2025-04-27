@@ -7,6 +7,15 @@ use Doctrine\ORM\Mapping\Table;
 use Doctrine\ORM\Mapping\Id;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\GeneratedValue;
+use Doctrine\ORM\Mapping\OneToMany; // Add OneToMany
+use Doctrine\ORM\Mapping\ManyToMany; // Add ManyToMany
+use Doctrine\ORM\Mapping\JoinTable; // Add JoinTable
+use Doctrine\ORM\Mapping\JoinColumn; // Add JoinColumn
+use Doctrine\ORM\Mapping\InverseJoinColumn; // Add InverseJoinColumn
+use Doctrine\Common\Collections\ArrayCollection; // Add ArrayCollection
+use Doctrine\Common\Collections\Collection; // Add Collection
+use App\Entities\Segment; // Add Segment use statement
+use App\Entities\CustomSegment; // Add CustomSegment use statement
 
 /**
  * PhoneNumber entity
@@ -48,15 +57,20 @@ class PhoneNumber
 
     /**
      * Technical segments associated with this phone number
-     * This is a transient property, not stored in the database
+     * @var Collection<int, Segment> Technical segments associated with this phone number
      */
-    private array $technicalSegments = [];
+    #[OneToMany(targetEntity: Segment::class, mappedBy: "phoneNumber", cascade: ["persist", "remove"], orphanRemoval: true)]
+    private Collection $technicalSegments;
 
     /**
      * Custom segments associated with this phone number
-     * This is a transient property, not stored in the database
+     * @var Collection<int, CustomSegment> Custom segments associated with this phone number
      */
-    private array $customSegments = [];
+    #[ManyToMany(targetEntity: CustomSegment::class, inversedBy: "phoneNumbers")]
+    #[JoinTable(name: "phone_number_custom_segment")]
+    #[JoinColumn(name: "phone_number_id", referencedColumnName: "id", onDelete: "CASCADE")]
+    #[InverseJoinColumn(name: "custom_segment_id", referencedColumnName: "id", onDelete: "CASCADE")]
+    private Collection $customSegments;
 
     /**
      * Constructor
@@ -64,6 +78,8 @@ class PhoneNumber
     public function __construct()
     {
         $this->dateAdded = new \DateTime();
+        $this->technicalSegments = new ArrayCollection(); // Initialize collection
+        $this->customSegments = new ArrayCollection(); // Initialize collection
     }
 
     /**
@@ -267,24 +283,30 @@ class PhoneNumber
     /**
      * Get the technical segments
      * 
-     * @return array The technical segments
+     * @return Collection<int, Segment> The technical segments
      */
-    public function getTechnicalSegments(): array
+    public function getTechnicalSegments(): Collection
     {
         return $this->technicalSegments;
     }
 
     /**
-     * Set the technical segments
-     * 
-     * @param array $segments The technical segments
-     * @return self
-     */
-    public function setTechnicalSegments(array $segments): self
-    {
-        $this->technicalSegments = $segments;
-        return $this;
-    }
+    // Setting the entire collection might not be typical, consider removing or adjusting
+    // /**
+    //  * Set the technical segments
+    //  * 
+    //  * @param Collection<int, Segment> $segments The technical segments
+    //  * @return self
+    //  */
+    // public function setTechnicalSegments(Collection $segments): self
+    // {
+    //     // Clear existing segments and add new ones, managing the inverse side
+    //     $this->technicalSegments->clear();
+    //     foreach ($segments as $segment) {
+    //         $this->addTechnicalSegment($segment);
+    //     }
+    //     return $this;
+    // }
 
     /**
      * Add a technical segment
@@ -294,77 +316,91 @@ class PhoneNumber
      */
     public function addTechnicalSegment(Segment $segment): self
     {
-        $this->technicalSegments[] = $segment;
+        if (!$this->technicalSegments->contains($segment)) {
+            $this->technicalSegments->add($segment);
+            $segment->setPhoneNumber($this); // Set the inverse side
+        }
+        return $this;
+    }
+
+    /**
+     * Remove a technical segment
+     * 
+     * @param Segment $segment The segment to remove
+     * @return self
+     */
+    public function removeTechnicalSegment(Segment $segment): self
+    {
+        if ($this->technicalSegments->removeElement($segment)) {
+            // If orphanRemoval=true, setting the inverse side to null is important
+            // if ($segment->getPhoneNumber() === $this) {
+            //     $segment->setPhoneNumber(null);
+            // }
+            // Note: With orphanRemoval=true, Doctrine handles removal, setting null might not be needed
+            // depending on exact cascade/fetch configurations. Test carefully.
+        }
         return $this;
     }
 
     /**
      * Get the custom segments
      * 
-     * @return array The custom segments
+     * @return Collection<int, CustomSegment> The custom segments
      */
-    public function getCustomSegments(): array
+    public function getCustomSegments(): Collection
     {
         return $this->customSegments;
     }
 
     /**
-     * Set the custom segments
-     * 
-     * @param array $segments The custom segments
-     * @return self
-     */
-    public function setCustomSegments(array $segments): self
-    {
-        $this->customSegments = $segments;
-        return $this;
-    }
+    // Setting the entire collection might not be typical, consider removing or adjusting
+    // /**
+    //  * Set the custom segments
+    //  * 
+    //  * @param Collection<int, CustomSegment> $segments The custom segments
+    //  * @return self
+    //  */
+    // public function setCustomSegments(Collection $segments): self
+    // {
+    //     // Clear existing and add new, managing both sides if bidirectional
+    //     $this->customSegments->clear();
+    //     foreach ($segments as $segment) {
+    //         $this->addCustomSegment($segment);
+    //     }
+    //     return $this;
+    // }
 
     /**
-     * Add a custom segment
-     * 
      * @param CustomSegment $segment The segment to add
      * @return self
      */
-    public function addCustomSegment($segment): self
+    public function addCustomSegment(CustomSegment $segment): self
     {
-        $this->customSegments[] = $segment;
+        if (!$this->customSegments->contains($segment)) {
+            $this->customSegments->add($segment);
+            $segment->addPhoneNumber($this); // Add to the inverse side
+        }
         return $this;
     }
 
     /**
-     * For backward compatibility
+     * Remove a custom segment
      * 
-     * @return array
-     */
-    public function getSegments(): array
-    {
-        return $this->technicalSegments;
-    }
-
-    /**
-     * For backward compatibility
-     * 
-     * @param array $segments
+     * @param CustomSegment $segment The segment to remove
      * @return self
      */
-    public function setSegments(array $segments): self
+    public function removeCustomSegment(CustomSegment $segment): self
     {
-        $this->technicalSegments = $segments;
+        if ($this->customSegments->removeElement($segment)) {
+            $segment->removePhoneNumber($this); // Remove from the inverse side
+        }
         return $this;
     }
 
-    /**
-     * For backward compatibility
-     * 
-     * @param Segment $segment
-     * @return self
-     */
-    public function addSegment(Segment $segment): self
-    {
-        $this->technicalSegments[] = $segment;
-        return $this;
-    }
+    // Remove legacy compatibility methods
+    // public function getSegments(): array ...
+    // public function setSegments(array $segments): self ...
+    // public function addSegment(Segment $segment): self ...
 
     /**
      * Normalize a phone number to a standard format
@@ -425,12 +461,10 @@ class PhoneNumber
             'sector' => $this->sector,
             'notes' => $this->notes,
             'dateAdded' => $this->dateAdded->format('Y-m-d H:i:s'),
-            'technicalSegments' => array_map(function ($segment) {
-                return $segment->toArray();
-            }, $this->technicalSegments),
-            'customSegments' => array_map(function ($segment) {
-                return $segment instanceof \stdClass ? $segment : $segment->toArray();
-            }, $this->customSegments)
+            // Avoid including full related entities in basic toArray to prevent issues.
+            // Formatters/Serializers should handle this based on context (e.g., GraphQL query).
+            // 'technicalSegments' => $this->technicalSegments->map(fn(Segment $s) => $s->getId())->toArray(),
+            // 'customSegments' => $this->customSegments->map(fn(CustomSegment $cs) => $cs->getId())->toArray(),
         ];
     }
 }

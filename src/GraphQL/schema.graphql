@@ -1,10 +1,22 @@
 type Query {
-  smsHistory(limit: Int, offset: Int, userId: ID): [SMSHistory!]!
-  smsHistoryCount(userId: ID): Int!
+  smsHistory(
+    limit: Int
+    offset: Int
+    userId: ID
+    status: String
+    search: String
+    segmentId: ID
+  ): [SMSHistory!]! # Added status, search, segmentId filters
+  smsHistoryCount(
+    userId: ID
+    status: String
+    search: String
+    segmentId: ID
+  ): Int! # Added status, search, segmentId filters
   test: String!
   hello: String!
   segmentsForSMS: [Segment!]!
-  users: [User!]!
+  users(limit: Int, offset: Int, search: String): [User!]! # Added limit, offset, search
   user(id: ID!): User
   userByUsername(username: String!): User
   verifyToken(token: String!): TokenVerificationResult!
@@ -12,11 +24,10 @@ type Query {
   dashboardStats: DashboardStats!
 
   # Contact queries
-  contacts(limit: Int, offset: Int): [Contact!]!
+  contacts(limit: Int, offset: Int, search: String, groupId: ID): [Contact!]! # Added search and groupId filters
   contact(id: ID!): Contact
-  searchContacts(query: String!, limit: Int, offset: Int): [Contact!]!
-  contactsCount: Int!
-
+  searchContacts(query: String!, limit: Int, offset: Int): [Contact!]! # This might become redundant or be merged with contacts query
+  contactsCount(search: String, groupId: ID): Int! # Added search and groupId filters
   # Contact Group queries
   contactGroups(limit: Int, offset: Int): [ContactGroup!]!
   contactGroup(id: ID!): ContactGroup

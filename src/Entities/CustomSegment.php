@@ -6,7 +6,14 @@ use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\GeneratedValue;
 use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\ManyToMany; // Add ManyToMany
+use Doctrine\ORM\Mapping\JoinTable; // Add JoinTable
+use Doctrine\ORM\Mapping\JoinColumn; // Add JoinColumn
+use Doctrine\ORM\Mapping\InverseJoinColumn; // Add InverseJoinColumn
 use Doctrine\ORM\Mapping\Table;
+use Doctrine\Common\Collections\ArrayCollection; // Add ArrayCollection
+use Doctrine\Common\Collections\Collection; // Add Collection
+use App\Entities\PhoneNumber; // Add PhoneNumber use statement
 
 /**
  * CustomSegment entity
@@ -32,16 +39,17 @@ class CustomSegment
     private ?string $pattern = null;
 
     /**
-     * @var array Phone numbers associated with this segment (not persisted)
+     * @var Collection<int, PhoneNumber> Phone numbers associated with this segment
      */
-    private array $phoneNumbers = [];
+    #[ManyToMany(targetEntity: PhoneNumber::class, mappedBy: "customSegments")]
+    private Collection $phoneNumbers;
 
     /**
      * Constructor
      */
     public function __construct()
     {
-        // Default constructor
+        $this->phoneNumbers = new ArrayCollection(); // Initialize collection
     }
 
     /**
@@ -135,58 +143,73 @@ class CustomSegment
     /**
      * Get the phone numbers
      * 
-     * @return array The phone numbers
+     * @return Collection<int, PhoneNumber> The phone numbers
      */
-    public function getPhoneNumbers(): array
+    public function getPhoneNumbers(): Collection
     {
         return $this->phoneNumbers;
     }
 
     /**
-     * Set the phone numbers
-     * 
-     * @param array $phoneNumbers The phone numbers
-     * @return self
-     */
-    public function setPhoneNumbers(array $phoneNumbers): self
-    {
-        $this->phoneNumbers = $phoneNumbers;
-        return $this;
-    }
+    // Setting the entire collection might not be typical, consider removing or adjusting
+    // /**
+    //  * Set the phone numbers
+    //  * 
+    //  * @param Collection<int, PhoneNumber> $phoneNumbers The phone numbers
+    //  * @return self
+    //  */
+    // public function setPhoneNumbers(Collection $phoneNumbers): self
+    // {
+    //     $this->phoneNumbers = $phoneNumbers;
+    //     return $this;
+    // }
 
     /**
      * Add a phone number
      * 
-     * @param object $phoneNumber The phone number
+     * @param PhoneNumber $phoneNumber The phone number
      * @return self
      */
-    public function addPhoneNumber(object $phoneNumber): self
+    public function addPhoneNumber(PhoneNumber $phoneNumber): self
     {
-        $this->phoneNumbers[] = $phoneNumber;
+        if (!$this->phoneNumbers->contains($phoneNumber)) {
+            $this->phoneNumbers->add($phoneNumber);
+            // If the relationship is bidirectional, set the other side:
+            // $phoneNumber->addCustomSegment($this); // Requires addCustomSegment method in PhoneNumber
+        }
+        return $this;
+    }
+
+    /**
+     * Remove a phone number
+     * 
+     * @param PhoneNumber $phoneNumber The phone number to remove
+     * @return self
+     */
+    public function removePhoneNumber(PhoneNumber $phoneNumber): self
+    {
+        if ($this->phoneNumbers->removeElement($phoneNumber)) {
+            // If the relationship is bidirectional, remove from the other side:
+            // $phoneNumber->removeCustomSegment($this); // Requires removeCustomSegment method in PhoneNumber
+        }
         return $this;
     }
 
     /**
      * Convert the entity to an array
      * 
-     * @param bool $includePhoneNumbers Whether to include phone numbers in the array
      * @return array The entity as an array
      */
-    public function toArray(bool $includePhoneNumbers = false): array
+    public function toArray(): array
     {
-        $array = [
+        // Note: Including related entities in toArray can lead to performance issues
+        // or circular references if not handled carefully. Often better handled by serializers/formatters.
+        return [
             'id' => $this->id,
             'name' => $this->name,
             'description' => $this->description,
-            'pattern' => $this->pattern
+            'pattern' => $this->pattern,
+            // 'phoneNumbers' => $this->phoneNumbers->map(fn(PhoneNumber $p) => $p->getId())->toArray() // Example: return only IDs
         ];
-
-        if ($includePhoneNumbers) {
-            $array['phoneNumbers'] = array_map(function ($phoneNumber) {
-                return method_exists($phoneNumber, 'toArray') ? $phoneNumber->toArray() : $phoneNumber;
-            }, $this->phoneNumbers);
-        }
-
-        return $array;
     }
 }

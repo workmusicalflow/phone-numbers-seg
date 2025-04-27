@@ -342,11 +342,23 @@ const columns = [
 const fetchSmsHistory = async () => {
   loading.value = true;
   try {
-    // Utiliser une requête GraphQL directe
+    // Utiliser une requête GraphQL directe avec les filtres
     const result = await apolloClient.query({
       query: gql`
-        query GetSmsHistory($limit: Int!, $offset: Int!) {
-          smsHistory(limit: $limit, offset: $offset) {
+        query GetSmsHistory(
+          $limit: Int!
+          $offset: Int!
+          $status: String
+          $search: String
+          $segmentId: ID
+        ) {
+          smsHistory(
+            limit: $limit
+            offset: $offset
+            status: $status
+            search: $search
+            segmentId: $segmentId
+          ) {
             id
             phoneNumber
             message
@@ -361,43 +373,30 @@ const fetchSmsHistory = async () => {
               name
             }
           }
-          smsHistoryCount
+          smsHistoryCount(
+            status: $status
+            search: $search
+            segmentId: $segmentId
+          )
         }
       `,
       variables: {
         limit: pagination.value.rowsPerPage,
         offset: (pagination.value.page - 1) * pagination.value.rowsPerPage,
+        // Ajouter les filtres aux variables
+        status: filters.value.status || null, // Envoyer null si pas de filtre
+        search: filters.value.search || null,
+        segmentId: filters.value.segment || null,
       },
-      fetchPolicy: "network-only",
+      fetchPolicy: "network-only", // Important pour obtenir les données fraîches
     });
 
     const data = result.data;
 
-    // Filtrer les résultats côté client
-    let filteredHistory = data.smsHistory;
-
-    if (filters.value.search && filters.value.search.trim() !== '') {
-      const searchTerm = filters.value.search.toLowerCase();
-      filteredHistory = filteredHistory.filter(
-        (sms: any) => sms.phoneNumber.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    if (filters.value.status) {
-      filteredHistory = filteredHistory.filter(
-        (sms: any) => sms.status === filters.value.status
-      );
-    }
-
-    if (filters.value.segment) {
-      const segmentId = filters.value.segment.toString();
-      filteredHistory = filteredHistory.filter(
-        (sms: any) => sms.segment && sms.segment.id === segmentId
-      );
-    }
-
-    smsHistory.value = filteredHistory;
-    pagination.value.rowsNumber = data.smsHistoryCount || filteredHistory.length;
+    // Les données sont maintenant filtrées côté serveur
+    smsHistory.value = data.smsHistory;
+    // Mettre à jour le nombre total de lignes basé sur le compte filtré du backend
+    pagination.value.rowsNumber = data.smsHistoryCount || 0;
   } catch (error) {
     console.error("Error fetching SMS history:", error);
     // Utiliser la référence $q déjà importée

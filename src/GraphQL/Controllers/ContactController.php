@@ -2,8 +2,8 @@
 
 namespace App\GraphQL\Controllers;
 
-use App\Models\Contact;
-use App\Repositories\ContactRepository;
+use App\Entities\Contact; // Use Doctrine Entity
+use App\Repositories\Interfaces\ContactRepositoryInterface; // Use Interface
 use TheCodingMachine\GraphQLite\Annotations\Query;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
 use TheCodingMachine\GraphQLite\Annotations\Logged;
@@ -15,10 +15,10 @@ use Psr\Log\LoggerInterface;
 
 class ContactController
 {
-    private ContactRepository $contactRepository;
+    private ContactRepositoryInterface $contactRepository; // Use Interface
     private LoggerInterface $logger;
 
-    public function __construct(ContactRepository $contactRepository, LoggerInterface $logger)
+    public function __construct(ContactRepositoryInterface $contactRepository, LoggerInterface $logger) // Use Interface
     {
         $this->contactRepository = $contactRepository;
         $this->logger = $logger;
@@ -43,11 +43,12 @@ class ContactController
      * @Query
      * @Logged
      * @Right("ROLE_USER")
+     * @return Contact|null
      */
-    public function contact(int $id, User $user): ?Contact
+    public function contact(int $id, User $user): ?Contact // Return type hint is Entity
     {
         try {
-            $contact = $this->contactRepository->findById($id);
+            $contact = $this->contactRepository->findById($id); // findById is available via DoctrineRepositoryInterface
 
             // Vérifier que le contact appartient à l'utilisateur
             if ($contact && $contact->getUserId() === $user->getId()) {
@@ -80,6 +81,7 @@ class ContactController
      * @Mutation
      * @Logged
      * @Right("ROLE_USER")
+     * @return Contact|null
      */
     public function createContact(
         string $name,
@@ -87,28 +89,32 @@ class ContactController
         ?string $email = null,
         ?string $notes = null,
         User $user
-    ): ?Contact {
+    ): ?Contact { // Return type hint is Entity
         try {
-            $contact = new Contact(
-                0, // ID sera généré par la base de données
-                $user->getId(),
-                $name,
-                $phoneNumber,
-                $email,
-                $notes
-            );
+            // Use the Entity constructor or setters
+            $contact = new Contact();
+            $contact->setUserId($user->getId());
+            $contact->setName($name);
+            $contact->setPhoneNumber($phoneNumber);
+            $contact->setEmail($email);
+            $contact->setNotes($notes);
+            // createdAt and updatedAt are handled by Doctrine Lifecycle Callbacks if configured, or set manually
 
-            return $this->contactRepository->create($contact);
+            $this->contactRepository->save($contact); // Use save instead of create
+            // Assuming save modifies the entity with the ID
+            return $contact;
         } catch (Exception $e) {
             $this->logger->error('Error creating contact: ' . $e->getMessage());
             return null;
         }
     }
+    // Removed stray lines: $name, $phoneNumber,
 
     /**
      * @Mutation
      * @Logged
      * @Right("ROLE_USER")
+     * @return Contact|null
      */
     public function updateContact(
         int $id,
@@ -117,30 +123,28 @@ class ContactController
         ?string $email = null,
         ?string $notes = null,
         User $user
-    ): ?Contact {
+    ): ?Contact { // Return type hint is Entity
         try {
             // Récupérer le contact existant
-            $existingContact = $this->contactRepository->findById($id);
+            $existingContact = $this->contactRepository->findById($id); // findById is available
 
             // Vérifier que le contact existe et appartient à l'utilisateur
             if (!$existingContact || $existingContact->getUserId() !== $user->getId()) {
+                $this->logger->warning('Attempt to update contact not owned by user or not found', ['contactId' => $id, 'userId' => $user->getId()]);
                 return null;
             }
 
-            // Créer un nouveau contact avec les données mises à jour
-            $updatedContact = new Contact(
-                $id,
-                $user->getId(),
-                $name,
-                $phoneNumber,
-                $email,
-                $notes,
-                $existingContact->getCreatedAt()
-            );
+            // Mettre à jour l'entité existante
+            $existingContact->setName($name);
+            $existingContact->setPhoneNumber($phoneNumber);
+            $existingContact->setEmail($email);
+            $existingContact->setNotes($notes);
+            // updatedAt should be handled by Doctrine Lifecycle Callbacks if configured
 
-            return $this->contactRepository->update($updatedContact);
+            $this->contactRepository->save($existingContact); // Use save instead of update
+            return $existingContact;
         } catch (Exception $e) {
-            $this->logger->error('Error updating contact: ' . $e->getMessage());
+            $this->logger->error('Error updating contact: ' . $e->getMessage(), ['contactId' => $id]);
             return null;
         }
     }
@@ -154,16 +158,17 @@ class ContactController
     {
         try {
             // Récupérer le contact existant
-            $existingContact = $this->contactRepository->findById($id);
+            $existingContact = $this->contactRepository->findById($id); // findById is available
 
             // Vérifier que le contact existe et appartient à l'utilisateur
             if (!$existingContact || $existingContact->getUserId() !== $user->getId()) {
+                $this->logger->warning('Attempt to delete contact not owned by user or not found', ['contactId' => $id, 'userId' => $user->getId()]);
                 return false;
             }
 
-            return $this->contactRepository->delete($existingContact);
+            return $this->contactRepository->delete($existingContact); // Use delete instead of remove
         } catch (Exception $e) {
-            $this->logger->error('Error deleting contact: ' . $e->getMessage());
+            $this->logger->error('Error deleting contact: ' . $e->getMessage(), ['contactId' => $id]);
             return false;
         }
     }

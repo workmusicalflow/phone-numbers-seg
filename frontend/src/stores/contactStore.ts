@@ -34,36 +34,37 @@ export const useContactStore = defineStore('contact', () => {
   const currentPage = ref(1);
   const itemsPerPage = ref(10);
   const totalCount = ref(0);
-  const searchTerm = ref('');
+  const searchTerm = ref(''); // Stores the current search term
+  const currentGroupId = ref<string | null>(null); // Stores the current group filter ID
+  const sortBy = ref('name'); // Default sort column
+  const sortDesc = ref(false); // Default sort direction
 
   // Getters
-  const filteredContacts = computed(() => {
-    if (!searchTerm.value) {
-      return contacts.value;
-    }
-    
-    const term = searchTerm.value.toLowerCase();
-    return contacts.value.filter(contact => 
-      contact.name.toLowerCase().includes(term) ||
-      contact.phoneNumber.includes(term) ||
-      (contact.email && contact.email.toLowerCase().includes(term))
-    );
-  });
-
-  const paginatedContacts = computed(() => {
-    const start = (currentPage.value - 1) * itemsPerPage.value;
-    const end = start + itemsPerPage.value;
-    return filteredContacts.value.slice(start, end);
-  });
+  // Removed filteredContacts and paginatedContacts as data fetching handles this now.
+  // Components should use the main 'contacts' ref which holds the current page's data.
 
   const pageCount = computed(() => {
-    return Math.ceil(filteredContacts.value.length / itemsPerPage.value);
+    // Calculate page count based on the total count from the backend
+    if (totalCount.value === 0) return 1; // Avoid division by zero, show at least 1 page
+    return Math.ceil(totalCount.value / itemsPerPage.value);
   });
 
   // GraphQL Queries
   const FETCH_CONTACTS = gql`
-    query GetContacts($limit: Int, $offset: Int) {
-      contacts(limit: $limit, offset: $offset) {
+    query GetContacts(
+      $limit: Int
+      $offset: Int
+      $search: String
+      $groupId: ID
+      # $sortBy: String # TODO: Add sorting to backend schema
+      # $sortDesc: Boolean
+    ) {
+      contacts(
+        limit: $limit
+        offset: $offset
+        search: $search
+        groupId: $groupId
+      ) {
         id
         name
         phoneNumber
@@ -79,9 +80,20 @@ export const useContactStore = defineStore('contact', () => {
     }
   `;
 
+  // Updated COUNT_CONTACTS to accept filters
   const COUNT_CONTACTS = gql`
-    query CountContacts {
-      contactsCount
+    query CountContacts(
+      $search: String,
+      $groupId: ID
+      # $sortBy: String # TODO: Add sorting to backend schema
+      # $sortDesc: Boolean
+      ) {
+      contactsCount(
+        search: $search,
+        groupId: $groupId
+        # sortBy: $sortBy # TODO: Add sorting to backend schema
+        # sortDesc: $sortDesc
+        )
     }
   `;
 
@@ -171,6 +183,8 @@ export const useContactStore = defineStore('contact', () => {
     }
   `;
 
+  // Removed SEARCH_CONTACTS as FETCH_CONTACTS now handles filtering
+
   // Query to fetch groups for a specific contact
   const FETCH_CONTACT_GROUPS = gql`
     query GetGroupsForContact($contactId: ID!) {
@@ -182,19 +196,27 @@ export const useContactStore = defineStore('contact', () => {
   `;
 
   // Actions
+
+  // Unified fetch function with filtering
   async function fetchContacts() {
     loading.value = true;
     error.value = null;
-    
+    const variables = {
+      limit: itemsPerPage.value,
+      offset: (currentPage.value - 1) * itemsPerPage.value,
+      search: searchTerm.value || null, // Use current searchTerm or null
+      groupId: currentGroupId.value || null, // Use current group filter or null
+      // sortBy: sortBy.value, // TODO: Add sorting to backend schema
+      // sortDesc: sortDesc.value,
+    };
+
     try {
       const response = await apolloClient.query({
-        query: FETCH_CONTACTS,
-        variables: {
-          limit: itemsPerPage.value,
-          offset: (currentPage.value - 1) * itemsPerPage.value
-        }
+        query: FETCH_CONTACTS, // Always use the main query now
+        variables,
+        fetchPolicy: 'network-only', // Ensure fresh data
       });
-      
+
       // Transformer les contacts pour correspondre à l'interface Contact
       contacts.value = response.data.contacts.map((contact: any): Contact => {
         // Map groups directly if they are fetched
@@ -210,11 +232,16 @@ export const useContactStore = defineStore('contact', () => {
           updatedAt: contact.updatedAt
         };
       });
-      
-      totalCount.value = response.data.contacts.length;
+
+      // Fetch the total count based on current filters
+      await fetchContactsCount(searchTerm.value || null, currentGroupId.value || null);
+
     } catch (err: any) {
-      console.error('Erreur lors de la récupération des contacts:', err);
-      error.value = err.message || 'Erreur lors de la récupération des contacts';
+      const action = searchTerm.value || currentGroupId.value ? 'du filtrage' : 'des contacts';
+      console.error(`Erreur lors de la récupération ${action}:`, err);
+      error.value = err.message || `Erreur lors de la récupération ${action}`;
+      contacts.value = []; // Clear contacts on error
+      totalCount.value = 0; // Reset count on error
     } finally {
       loading.value = false;
     }
@@ -250,9 +277,11 @@ export const useContactStore = defineStore('contact', () => {
         updatedAt: newContact.updatedAt
       };
       
-      contacts.value.push(formattedContact);
-      totalCount.value++;
-      return formattedContact;
+      // Instead of pushing locally, refetch the current page to ensure consistency
+      await fetchContacts(); 
+      // Optionally, navigate to the page where the new contact would appear if needed
+      
+      return formattedContact; // Return the newly created contact data
     } catch (err: any) {
       console.error('Erreur lors de la création du contact:', err);
       error.value = err.message || 'Erreur lors de la création du contact';
@@ -326,8 +355,9 @@ export const useContactStore = defineStore('contact', () => {
         }
       });
       
-      contacts.value = contacts.value.filter(c => c.id !== id);
-      totalCount.value--;
+      // Refetch the current page's data and total count after deletion
+      await fetchContacts(); 
+
     } catch (err: any) {
       console.error('Erreur lors de la suppression du contact:', err);
       error.value = err.message || 'Erreur lors de la suppression du contact';
@@ -337,74 +367,58 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
+  // Action to initiate a search or clear it
   async function searchContacts(term: string) {
     searchTerm.value = term;
-    currentPage.value = 1; // Réinitialiser à la première page lors d'une recherche
-    
-    if (term.length > 2) {
-      loading.value = true;
-      error.value = null;
-      
-      try {
-        const response = await apolloClient.query({
-          query: SEARCH_CONTACTS,
-          variables: {
-            query: term,
-            limit: itemsPerPage.value,
-            offset: 0
-          }
-        });
-        
-        // Transformer les contacts pour correspondre à l'interface Contact
-        contacts.value = response.data.searchContacts.map((contact: any): Contact => {
-           // Map groups directly if they are fetched (assuming search might return groups too)
-           const groups = contact.groups ? contact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
-          return {
-            id: contact.id,
-            name: contact.name, // Use name directly
-            phoneNumber: contact.phoneNumber,
-            email: contact.email,
-            notes: contact.notes,
-            groups: groups, // Assign fetched groups
-            createdAt: contact.createdAt,
-            updatedAt: contact.updatedAt
-          };
-        });
-        
-        totalCount.value = response.data.searchContacts.length;
-      } catch (err: any) {
-        console.error('Erreur lors de la recherche de contacts:', err);
-        error.value = err.message || 'Erreur lors de la recherche de contacts';
-      } finally {
-        loading.value = false;
-      }
-    } else if (term.length === 0) {
-      fetchContacts();
-    }
+    currentPage.value = 1; // Reset to first page for new search/filter
+    await fetchContacts();
   }
 
+  // Action to filter by group
+  async function filterByGroup(groupId: string | null) {
+    currentGroupId.value = groupId;
+    currentPage.value = 1; // Reset to first page for new filter
+    await fetchContacts();
+  }
+
+  // Action to change the current page
   function setPage(page: number) {
     currentPage.value = page;
     fetchContacts();
   }
 
+  // Action to change items per page
   function setItemsPerPage(limit: number) {
     itemsPerPage.value = limit;
+    currentPage.value = 1; // Reset to first page when changing limit
     fetchContacts();
   }
 
-  async function fetchContactsCount() {
-    loading.value = true;
+  // Action to change sorting
+  function setSorting(column: string, descending: boolean) {
+    sortBy.value = column;
+    sortDesc.value = descending;
+    currentPage.value = 1; // Reset to first page when changing sort
+    fetchContacts();
+  }
+
+  // Fetches the total count based on filters
+  async function fetchContactsCount(search: string | null = null, groupId: string | null = null) {
+    // No need to set loading here as it's usually called within fetchContacts
     try {
       const response = await apolloClient.query({
         query: COUNT_CONTACTS,
-        fetchPolicy: 'network-only' // Force a network request to get the latest count
+        variables: {
+          search: search,
+          groupId: groupId,
+        },
+        fetchPolicy: 'network-only', // Force a network request
       });
       totalCount.value = response.data.contactsCount;
       return totalCount.value;
     } catch (err: any) {
-      console.error('Erreur lors du comptage des contacts:', err);
-      error.value = err.message || 'Erreur lors du comptage des contacts';
+      console.error('Erreur lors du comptage des contacts filtrés:', err);
+      // Don't overwrite main error, just log count error
       return 0;
     } finally {
       loading.value = false;
@@ -453,17 +467,21 @@ export const useContactStore = defineStore('contact', () => {
     currentPage,
     itemsPerPage,
     totalCount,
-    filteredContacts,
-    paginatedContacts,
+    searchTerm,
+    currentGroupId, // Export group filter state
     pageCount,
     fetchContacts,
     fetchContactsCount,
     createContact,
     updateContact,
     deleteContact,
-    searchContacts,
-    fetchGroupsForContact, // Add the new function
+    searchContacts, // Keep for triggering search
+    filterByGroup, // Add action for group filtering
+    fetchGroupsForContact,
     setPage,
-    setItemsPerPage
+    setItemsPerPage,
+    setSorting, // Add sorting action
+    sortBy, // Export sorting state
+    sortDesc, // Export sorting state
   };
 });

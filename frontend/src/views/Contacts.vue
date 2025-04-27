@@ -12,19 +12,50 @@
       />
     </div>
 
-    <!-- Barre d'outils -->
-    <ContactsToolbar
-      :search-query="searchQuery"
-      @search="onSearch"
-      @add="openContactDialog"
-    />
+    <!-- Barre d'outils avec Filtres -->
+    <div class="row q-col-gutter-md q-mb-md">
+       <div class="col-12 col-sm-5">
+         <q-input
+           v-model="searchTermModel"
+           label="Rechercher nom/numéro..."
+           dense
+           clearable
+           debounce="300"
+         >
+           <template v-slot:append>
+             <q-icon name="search" />
+           </template>
+         </q-input>
+       </div>
+       <div class="col-12 col-sm-4">
+         <q-select
+           v-model="selectedGroupIdModel"
+           :options="groupOptions"
+           label="Filtrer par groupe"
+           dense
+           clearable
+           emit-value
+           map-options
+           :loading="contactGroupStore.isLoading" 
+         />
+       </div>
+       <div class="col-12 col-sm-3">
+         <q-btn
+           color="primary"
+           icon="add"
+           label="Ajouter Contact"
+           @click="openContactDialog()"
+           class="full-width"
+         />
+       </div>
+     </div>
+
 
     <!-- Tableau des contacts -->
     <ContactTable
-      :contacts="contactStore.filteredContacts"
+      :contacts="contactStore.contacts"
       :loading="contactStore.loading"
-      :pagination="pagination"
-      :filter="searchQuery"
+      :pagination="{ ...pagination, rowsNumber: contactStore.totalCount }" 
       @request="onRequest"
       @edit="openContactDialog"
       @delete="confirmDelete"
@@ -82,7 +113,7 @@ import BasePagination from '../components/BasePagination.vue';
 import ContactTable from '../components/contacts/ContactTable.vue';
 import ContactFormDialog from '../components/contacts/ContactFormDialog.vue';
 import ConfirmationDialog from '../components/common/ConfirmationDialog.vue';
-import ContactsToolbar from '../components/contacts/ContactsToolbar.vue';
+// import ContactsToolbar from '../components/contacts/ContactsToolbar.vue'; // Removed unused import
 
 // Router et Quasar
 const router = useRouter();
@@ -93,7 +124,6 @@ const contactStore = useContactStore();
 const contactGroupStore = useContactGroupStore();
 
 // État local
-const searchQuery = ref('');
 const contactDialog = ref(false);
 const deleteDialog = ref(false);
 const saving = ref(false);
@@ -108,22 +138,45 @@ const refreshContactsCount = async () => {
   contactsCount.value = await contactStore.fetchContactsCount();
 };
 
-// Pagination
+// Pagination & Filtres
 const pagination = ref({
-  sortBy: 'lastName',
+  sortBy: 'lastName', // Default sort
   descending: false,
   page: 1,
   rowsPerPage: 10,
-  rowsNumber: 0
+  // rowsNumber will be dynamically updated via watchEffect or similar
 });
 
-// Méthodes
-function onSearch(value: string) {
-  searchQuery.value = value;
-  if (value.length > 2 || value.length === 0) {
-    contactStore.searchContacts(value);
+// Computed property for search term model
+const searchTermModel = computed({
+  get: () => contactStore.searchTerm, // Corrected: use searchTerm
+  set: (value) => {
+    // Trigger search action in the store
+    contactStore.searchContacts(value || ''); // Ensure empty string if null/undefined
   }
-}
+});
+
+// Computed property for selected group ID model
+const selectedGroupIdModel = computed({
+  get: () => contactStore.currentGroupId,
+  set: (value) => {
+    // Trigger filter action in the store
+    contactStore.filterByGroup(value);
+  }
+});
+
+// Computed property for group options for the select dropdown
+const groupOptions = computed(() => {
+  // Map groups to the format required by q-select: { label: string, value: number | null }
+  // Add an option for "All Groups"
+  return [
+    { label: 'Tous les groupes', value: null },
+    ...contactGroupStore.groupsForSelect
+  ];
+});
+
+
+// Méthodes
 
 function onPageChange(page: number) {
   currentPage.value = page;
@@ -138,13 +191,23 @@ function onItemsPerPageChange(itemsPerPage: number) {
   contactStore.setPage(1);
 }
 
-function onRequest(paginationData: any) {
-  const { page, rowsPerPage } = paginationData;
+// QTable @request handler
+function onRequest(paginationPayload: { page: number; rowsPerPage: number; sortBy: string; descending: boolean }) {
+  const { page, rowsPerPage, sortBy, descending } = paginationPayload;
+
+  // Update local pagination state used by QTable
   pagination.value.page = page;
   pagination.value.rowsPerPage = rowsPerPage;
+  pagination.value.sortBy = sortBy;
+  pagination.value.descending = descending;
+
+  // Update store state which triggers fetchContacts with current filters AND new pagination/sorting
   contactStore.setPage(page);
   contactStore.setItemsPerPage(rowsPerPage);
+  contactStore.setSorting(sortBy, descending);
+  // fetchContacts is automatically called by the store actions
 }
+
 
 function openContactDialog(contact?: Contact) {
   selectedContact.value = contact || null;
@@ -243,21 +306,34 @@ function sendSMS(contact: Contact) {
 
 // Cycle de vie
 onMounted(async () => {
-  await contactStore.fetchContacts();
-  await contactGroupStore.fetchContactGroups(); // Corrected function name
-  // Récupérer le nombre de contacts
-  contactsCount.value = await contactStore.fetchContactsCount();
+  // Fetch initial data including groups for the filter dropdown
+  await contactGroupStore.fetchContactGroups(); // Fetch groups first
+  await contactStore.fetchContacts(); // Fetch contacts using internal store state
+  // Récupérer le nombre de contacts initial
+  contactsCount.value = contactStore.totalCount; // Use count from store state after fetch
 });
 
-// Surveiller les changements de pagination
+// Surveiller les changements dans le store pour mettre à jour la pagination locale et le compte total
 watch(() => contactStore.currentPage, (newPage) => {
   currentPage.value = newPage;
-  pagination.value.page = newPage;
+  pagination.value.page = newPage; // Keep local pagination in sync
 });
 
 watch(() => contactStore.totalCount, (newCount) => {
-  pagination.value.rowsNumber = newCount;
+  // Update the total rows number for QTable pagination
+  // QTable uses this value internally, no need for a separate computed property in pagination ref
+  // This ensures the pagination component reflects the total number of items correctly
+  // pagination.value.rowsNumber = newCount; // QTable handles this internally based on the prop passed to it
+  contactsCount.value = newCount; // Update the badge as well
 });
+
+// Watch for changes in items per page from the BasePagination component
+watch(() => pagination.value.rowsPerPage, (newItemsPerPage) => {
+    if (newItemsPerPage !== contactStore.itemsPerPage) {
+        contactStore.setItemsPerPage(newItemsPerPage);
+    }
+});
+
 </script>
 
 <style scoped>

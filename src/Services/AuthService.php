@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Entities\User;
+// Removed duplicate User import
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\Interfaces\AuthServiceInterface;
 use App\Services\Interfaces\EmailServiceInterface;
+use Psr\Log\LoggerInterface; // Import LoggerInterface
 
 /**
  * Service d'authentification
@@ -21,6 +23,11 @@ class AuthService implements AuthServiceInterface
      * @var EmailServiceInterface
      */
     private $emailService;
+
+    /**
+     * @var LoggerInterface
+     */
+    private $logger; // Add logger property
 
     /**
      * @var array
@@ -56,13 +63,16 @@ class AuthService implements AuthServiceInterface
      * 
      * @param UserRepositoryInterface $userRepository
      * @param EmailServiceInterface $emailService
+     * @param LoggerInterface $logger // Inject Logger
      */
     public function __construct(
         UserRepositoryInterface $userRepository,
-        EmailServiceInterface $emailService
+        EmailServiceInterface $emailService,
+        LoggerInterface $logger // Add logger parameter
     ) {
         $this->userRepository = $userRepository;
         $this->emailService = $emailService;
+        $this->logger = $logger; // Store logger instance
     }
 
     /**
@@ -70,8 +80,10 @@ class AuthService implements AuthServiceInterface
      */
     public function authenticate(string $username, string $password): ?User
     {
+        $this->logger->info("Tentative de connexion pour l'utilisateur: {$username}");
         // Vérifier si le compte est verrouillé
         if ($this->isAccountLocked($username)) {
+            $this->logger->warning("Échec de la connexion: Compte verrouillé pour {$username}");
             return null;
         }
 
@@ -81,6 +93,7 @@ class AuthService implements AuthServiceInterface
         // Si l'utilisateur n'existe pas ou le mot de passe est incorrect
         if (!$user || !$user->verifyPassword($password)) {
             $this->incrementFailedLoginAttempts($username);
+            $this->logger->warning("Échec de la connexion: Identifiants invalides pour {$username}");
             return null;
         }
 
@@ -89,6 +102,7 @@ class AuthService implements AuthServiceInterface
 
         // Créer la session utilisateur
         $this->createUserSession($user);
+        $this->logger->info("Connexion réussie pour l'utilisateur: {$username} (ID: {$user->getId()})");
 
         return $user;
     }
@@ -106,11 +120,17 @@ class AuthService implements AuthServiceInterface
             session_start();
         }
 
+        $userId = $user->getId();
+        $username = $user->getUsername();
+        $isAdmin = $user->isAdmin();
+
         // Stocker les informations de l'utilisateur en session
-        $_SESSION['user_id'] = $user->getId();
-        $_SESSION['username'] = $user->getUsername();
-        $_SESSION['is_admin'] = $user->isAdmin();
+        $_SESSION['user_id'] = $userId;
+        $_SESSION['username'] = $username;
+        $_SESSION['is_admin'] = $isAdmin;
         $_SESSION['auth_time'] = time();
+
+        $this->logger->info("Session créée pour l'utilisateur: {$username} (ID: {$userId})");
 
         // Régénérer l'ID de session pour éviter les attaques de fixation de session
         // Seulement si la session est active
@@ -151,7 +171,10 @@ class AuthService implements AuthServiceInterface
             }
 
             // Détruire la session
+            $userId = $_SESSION['user_id'] ?? 'inconnu';
+            $username = $_SESSION['username'] ?? 'inconnu';
             session_destroy();
+            $this->logger->info("Session détruite pour l'utilisateur: {$username} (ID: {$userId})");
         }
     }
 
@@ -234,6 +257,7 @@ class AuthService implements AuthServiceInterface
 
         // Si le compte est verrouillé mais que le temps de verrouillage est écoulé, déverrouiller le compte
         if (isset($this->accountLockTime[$username]) && time() - $this->accountLockTime[$username] > $this->lockDuration) {
+            $this->logger->info("Déverrouillage automatique du compte pour {$username} après expiration du délai.");
             $this->resetFailedLoginAttempts($username);
             return false;
         }
@@ -258,6 +282,7 @@ class AuthService implements AuthServiceInterface
         // Si le nombre de tentatives échouées atteint le maximum, verrouiller le compte
         if ($this->failedLoginAttempts[$username] >= $this->maxFailedAttempts) {
             $this->accountLockTime[$username] = time();
+            $this->logger->warning("Compte verrouillé pour {$username} après {$this->maxFailedAttempts} tentatives échouées.");
         }
     }
 
@@ -267,6 +292,9 @@ class AuthService implements AuthServiceInterface
     public function resetFailedLoginAttempts(string $username): void
     {
         // Réinitialiser le compteur et le temps de verrouillage
+        if (isset($this->failedLoginAttempts[$username]) && $this->failedLoginAttempts[$username] > 0) {
+            $this->logger->info("Réinitialisation des tentatives de connexion échouées pour {$username}.");
+        }
         $this->failedLoginAttempts[$username] = 0;
         unset($this->accountLockTime[$username]);
     }
@@ -276,10 +304,12 @@ class AuthService implements AuthServiceInterface
      */
     public function generatePasswordResetToken(string $email): ?string
     {
+        $this->logger->info("Demande de réinitialisation de mot de passe pour l'email: {$email}");
         // Rechercher l'utilisateur par email
         $user = $this->userRepository->findByEmail($email);
 
         if (!$user) {
+            $this->logger->warning("Demande de réinitialisation échouée: Aucun utilisateur trouvé pour l'email {$email}");
             return null;
         }
 
@@ -297,7 +327,15 @@ class AuthService implements AuthServiceInterface
         $subject = 'Réinitialisation de votre mot de passe';
         $body = "Bonjour,\n\nVous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le lien suivant pour réinitialiser votre mot de passe :\n\n$resetLink\n\nCe lien est valable pendant 24 heures.\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez cet email.\n\nCordialement,\nL'équipe Oracle SMS";
 
-        $this->emailService->sendEmail($email, $subject, $body);
+        try {
+            $this->emailService->sendEmail($email, $subject, $body);
+            $this->logger->info("Email de réinitialisation envoyé à {$email} pour l'utilisateur ID: {$user->getId()}");
+        } catch (\Exception $e) {
+            $this->logger->error("Échec de l'envoi de l'email de réinitialisation à {$email}. Erreur: " . $e->getMessage());
+            // Ne pas retourner le token si l'email échoue ? Ou le retourner quand même ?
+            // Pour l'instant, on le retourne mais on logue l'erreur.
+        }
+
 
         return $token;
     }
@@ -307,13 +345,16 @@ class AuthService implements AuthServiceInterface
      */
     public function verifyPasswordResetToken(string $token): ?User
     {
+        $this->logger->info("Vérification du token de réinitialisation: " . substr($token, 0, 8) . "...");
         // Vérifier si le token existe
         if (!isset($this->passwordResetTokens[$token])) {
+            $this->logger->warning("Échec de la vérification du token: Token invalide ou inexistant.");
             return null;
         }
 
         // Vérifier si le token n'est pas expiré
         if ($this->passwordResetTokens[$token]['expiration'] < time()) {
+            $this->logger->warning("Échec de la vérification du token: Token expiré.");
             // Supprimer le token expiré
             unset($this->passwordResetTokens[$token]);
             return null;
@@ -329,25 +370,33 @@ class AuthService implements AuthServiceInterface
      */
     public function resetPassword(string $token, string $newPassword): bool
     {
+        $this->logger->info("Tentative de réinitialisation de mot de passe avec token: " . substr($token, 0, 8) . "...");
         // Vérifier le token et récupérer l'utilisateur
         $user = $this->verifyPasswordResetToken($token);
 
         if (!$user) {
+            $this->logger->error("Échec de la réinitialisation: Token invalide ou expiré.");
             return false;
         }
 
         // Vérifier la complexité du mot de passe
         if (!$this->isPasswordComplex($newPassword)) {
+            $this->logger->error("Échec de la réinitialisation pour l'utilisateur ID {$user->getId()}: Nouveau mot de passe trop simple.");
             return false;
         }
 
-        // Mettre à jour le mot de passe
-        $user->setPassword(password_hash($newPassword, PASSWORD_DEFAULT));
-        $this->userRepository->save($user);
+        try {
+            // Mettre à jour le mot de passe
+            $user->setPassword(password_hash($newPassword, PASSWORD_DEFAULT));
+            $this->userRepository->save($user);
 
-        // Supprimer le token
-        unset($this->passwordResetTokens[$token]);
-
-        return true;
+            // Supprimer le token
+            unset($this->passwordResetTokens[$token]);
+            $this->logger->info("Mot de passe réinitialisé avec succès pour l'utilisateur ID {$user->getId()}.");
+            return true;
+        } catch (\Exception $e) {
+            $this->logger->error("Erreur lors de la sauvegarde du nouveau mot de passe pour l'utilisateur ID {$user->getId()}: " . $e->getMessage());
+            return false;
+        }
     }
 }

@@ -60,4 +60,14 @@ interface UserRepositoryInterface extends DoctrineRepositoryInterface
      * @return bool
      */
     public function updateCredits(int $userId, int $credits): bool;
+
+    /**
+     * Find users by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['search' => 'admin'])
+     * @param int|null $limit Maximum number of entities to return
+     * @param int|null $offset Number of entities to skip
+     * @return array The users
+     */
+    public function findByCriteria(array $criteria, ?int $limit = null, ?int $offset = 0): array;
 }

@@ -51,4 +51,16 @@ interface OrangeAPIConfigRepositoryInterface extends DoctrineRepositoryInterface
      * @return bool True if the API configuration was deleted
      */
     public function deleteByUserId(int $userId): bool;
+
+    /**
+     * Finds entities by a set of criteria.
+     *
+     * @param array      $criteria
+     * @param array|null $orderBy
+     * @param int|null   $limit
+     * @param int|null   $offset
+     *
+     * @return array The objects.
+     */
+    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array;
 }

@@ -9,22 +9,26 @@
         :totalSmsCredits="totalSmsCredits" 
       />
       
-      <!-- Barre d'actions -->
+      <!-- Barre d&#39;actions -->
       <UserActionBar 
-        v-model:searchQuery="searchQuery" 
+        v-model:searchQuery="localSearchTerm" 
         @create-user="openCreateUserDialog" 
       />
       
       <!-- Tableau des utilisateurs -->
       <UsersTable 
-        :users="filteredUsers" 
+        :users="users" 
         :loading="loading" 
-        :filter="searchQuery"
+        :pagination="pagination" 
+        @request="onRequest" 
         @edit-user="openEditUserDialog"
         @add-credits="openAddCreditsDialog"
         @change-password="openChangePasswordDialog"
         @delete-user="confirmDeleteUser"
       />
+
+      <!-- Removed :filter prop as filtering is server-side -->
+      <!-- Pagination is now handled internally by QTable via @request -->
       
       <!-- Dialogues -->
       <CreateUserDialog 
@@ -58,10 +62,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue'; 
 import { useUserStore, User } from '../stores/userStore';
 
 // Composants
+// import BasePagination from '../components/BasePagination.vue'; // Removed BasePagination import
 import UserStatistics from '../components/users/UserStatistics.vue';
 import UserActionBar from '../components/users/UserActionBar.vue';
 import UsersTable from '../components/users/UsersTable.vue';
@@ -73,42 +78,37 @@ import ChangePasswordDialog from '../components/users/dialogs/ChangePasswordDial
 // Store
 const userStore = useUserStore();
 
-// État local
-const searchQuery = ref('');
+// État local pour les dialogues et l'utilisateur sélectionné
 const createUserDialog = ref(false);
 const editUserDialog = ref(false);
 const addCreditsDialog = ref(false);
 const changePasswordDialog = ref(false);
 const selectedUser = ref<User | null>(null);
+const localSearchTerm = ref(''); // Local ref for debounced search input
+const newPassword = ref(''); // Added for change password dialog state
+const confirmPassword = ref(''); // Added for change password dialog state
 
 // Computed properties
 const loading = computed(() => userStore.loading);
-const filteredUsers = computed(() => {
-  console.log('Computing filteredUsers, all users:', userStore.users);
-  if (!searchQuery.value) {
-    console.log('No search query, returning all users');
-    return userStore.users;
-  }
-  
-  const query = searchQuery.value.toLowerCase();
-  const filtered = userStore.users.filter(user => 
-    user.username.toLowerCase().includes(query) || 
-    (user.email && user.email.toLowerCase().includes(query))
-  );
-  console.log('Filtered users:', filtered);
-  return filtered;
+const users = computed(() => userStore.users); // Get users directly from store
+const totalUsers = computed(() => userStore.totalCount); // Use totalCount from store
+const totalSmsCredits = computed(() => userStore.totalSmsCredits); // Keep this as is
+
+// Pagination computed property for table and pagination component
+const pagination = computed(() => ({
+  sortBy: 'username', // Default sort, can be updated by onRequest
+  descending: false,
+  page: userStore.currentPage,
+  rowsPerPage: userStore.itemsPerPage,
+  rowsNumber: userStore.totalCount // Total rows from the store
+}));
+
+// Watch local search term and call debounced store action
+watch(localSearchTerm, (newValue) => {
+  userStore.searchUsers(newValue || '');
 });
 
-const totalUsers = computed(() => {
-  console.log('Computing totalUsers:', userStore.totalUsers);
-  return userStore.totalUsers;
-});
-const totalSmsCredits = computed(() => {
-  console.log('Computing totalSmsCredits:', userStore.totalSmsCredits);
-  return userStore.totalSmsCredits;
-});
-
-// Méthodes
+// Méthodes pour les dialogues
 function openCreateUserDialog() {
   createUserDialog.value = true;
 }
@@ -130,6 +130,7 @@ function openChangePasswordDialog(user: User) {
   changePasswordDialog.value = true;
 }
 
+// --- CRUD Action Handlers ---
 async function createUser(userData: {
   username: string;
   password: string;
@@ -180,24 +181,27 @@ async function confirmDeleteUser(user: User) {
   if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.username} ?`)) return;
   
   await userStore.deleteUser(user.id);
+  // Optionally show confirmation dialog first
 }
 
-// Variables pour le changement de mot de passe
-const newPassword = ref('');
-const confirmPassword = ref('');
+// --- Pagination and Sorting Handler ---
+// Type matches the payload emitted by UsersTable (which is the QTable pagination object)
+function onRequest(paginationPayload: { page: number; rowsPerPage: number; sortBy: string; descending: boolean }) {
+  const { page, rowsPerPage, sortBy, descending } = paginationPayload; // Destructure directly from payload
+  console.log('onRequest triggered in Users.vue:', paginationPayload);
+  // Update store state which triggers fetchUsers
+  userStore.setPage(page);
+  userStore.setItemsPerPage(rowsPerPage);
+  // TODO: Add sorting to store and backend if needed
+  // userStore.setSorting(sortBy, descending);
+}
+
+// Removed onPageChange and onItemsPerPageChange as QTable handles this via @request
 
 // Cycle de vie
-onMounted(async () => {
-  console.log('Users.vue mounted, fetching users...');
-  await userStore.fetchUsers();
-  console.log('Initial fetch complete, users:', userStore.users);
-  
-  // Force a refresh after a short delay
-  setTimeout(async () => {
-    console.log('Forcing refresh...');
-    await userStore.fetchUsers();
-    console.log('Refresh complete, users:', userStore.users);
-  }, 500);
+onMounted(() => {
+  console.log('Users.vue mounted, fetching initial users...');
+  userStore.fetchUsers(); // Fetch initial data
 });
 </script>
 

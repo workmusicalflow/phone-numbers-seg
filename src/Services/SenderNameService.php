@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Entities\SenderName;
-use App\Repositories\Interfaces\DoctrineRepositoryInterface;
+use App\Repositories\Interfaces\SenderNameRepositoryInterface; // Use specific interface
 
 /**
  * Service for managing sender names
@@ -11,9 +11,9 @@ use App\Repositories\Interfaces\DoctrineRepositoryInterface;
 class SenderNameService
 {
     /**
-     * @var DoctrineRepositoryInterface
+     * @var SenderNameRepositoryInterface // Use specific interface
      */
-    private $senderNameRepository;
+    private SenderNameRepositoryInterface $senderNameRepository; // Use specific interface
 
     /**
      * Maximum number of approved sender names per user
@@ -25,9 +25,9 @@ class SenderNameService
     /**
      * Constructor
      * 
-     * @param DoctrineRepositoryInterface $senderNameRepository
+     * @param SenderNameRepositoryInterface $senderNameRepository // Use specific interface
      */
-    public function __construct(DoctrineRepositoryInterface $senderNameRepository)
+    public function __construct(SenderNameRepositoryInterface $senderNameRepository) // Use specific interface
     {
         $this->senderNameRepository = $senderNameRepository;
     }

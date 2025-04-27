@@ -42,7 +42,7 @@ class ContactResolver
      * Resolver for the 'contacts' query.
      * Fetches contacts for the currently authenticated user.
      *
-     * @param array<string, mixed> $args Contains limit and offset
+     * @param array<string, mixed> $args Contains limit, offset, search, groupId
      * @param mixed $context Context potentially containing the user
      * @param \GraphQL\Type\Definition\ResolveInfo $info Resolve info
      * @return array<int, array<string, mixed>>
@@ -63,9 +63,23 @@ class ContactResolver
 
             $limit = isset($args['limit']) ? (int)$args['limit'] : 100;
             $offset = isset($args['offset']) ? (int)$args['offset'] : 0;
+            $search = $args['search'] ?? null;
+            $groupId = isset($args['groupId']) ? (int)$args['groupId'] : null;
 
-            $contacts = $this->contactRepository->findByUserId($userId, $limit, $offset);
-            $this->logger->info('Found ' . count($contacts) . ' contacts for user ' . $userId);
+            // Build criteria array
+            $criteria = ['userId' => $userId]; // Always filter by current user
+            if ($search !== null) {
+                $criteria['search'] = $search; // Repository needs to handle LIKE query on name, phone, email etc.
+            }
+            if ($groupId !== null) {
+                $criteria['groupId'] = $groupId; // Repository needs to handle join with membership
+            }
+            $this->logger->debug('Constructed criteria for contacts query', ['criteria' => $criteria]);
+
+            // Call a new repository method that handles multiple criteria
+            // Assuming findByCriteria exists or will be created in the repository
+            $contacts = $this->contactRepository->findByCriteria($criteria, $limit, $offset);
+            $this->logger->info('Found ' . count($contacts) . ' contacts based on criteria for user ' . $userId);
 
             // Convert Contact objects to arrays using the formatter service
             $result = [];
@@ -456,6 +470,8 @@ class ContactResolver
      *
      * @param array<string, mixed> $args
      * @param mixed $context
+     * @param array<string, mixed> $args Contains optional 'search', 'groupId'
+     * @param mixed $context
      * @return int
      * @throws Exception
      */
@@ -473,8 +489,24 @@ class ContactResolver
             $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
-            $count = $this->contactRepository->countByUserId($userId);
-            $this->logger->info('Found ' . $count . ' contacts for user ' . $userId);
+            // Extract filter arguments
+            $search = $args['search'] ?? null;
+            $groupId = isset($args['groupId']) ? (int)$args['groupId'] : null;
+
+            // Build criteria array
+            $criteria = ['userId' => $userId]; // Always filter by current user
+            if ($search !== null) {
+                $criteria['search'] = $search;
+            }
+            if ($groupId !== null) {
+                $criteria['groupId'] = $groupId;
+            }
+            $this->logger->debug('Constructed criteria for contactsCount query', ['criteria' => $criteria]);
+
+            // Call a repository method that handles multiple criteria for counting
+            // Assuming countByCriteria exists or will be created in the repository
+            $count = $this->contactRepository->countByCriteria($criteria);
+            $this->logger->info('Found ' . $count . ' contacts matching criteria for user ' . $userId);
 
             return $count;
         } catch (Exception $e) {

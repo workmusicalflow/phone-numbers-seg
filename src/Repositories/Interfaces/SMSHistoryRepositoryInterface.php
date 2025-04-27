@@ -171,4 +171,31 @@ interface SMSHistoryRepositoryInterface extends DoctrineRepositoryInterface
      * @return bool True if successful
      */
     public function removeAllByUserId(int $userId): bool;
+
+    /**
+     * Find SMS history records by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'status' => 'SENT', 'search' => '123', 'segmentId' => 5])
+     * @param int|null $limit Maximum number of entities to return
+     * @param int|null $offset Number of entities to skip
+     * @return array The SMS history records
+     */
+    public function findByCriteria(array $criteria, ?int $limit = 100, ?int $offset = 0): array;
+
+    /**
+     * Count SMS history records by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'status' => 'SENT', 'search' => '123', 'segmentId' => 5])
+     * @return int The number of matching SMS history records
+     */
+    public function countByCriteria(array $criteria): int;
+
+    /**
+     * Save multiple SMS history entities in a single transaction.
+     *
+     * @param SMSHistory[] $histories An array of SMSHistory entities to save.
+     * @return void
+     * @throws \Exception If there's an error during the bulk save operation.
+     */
+    public function saveBulk(array $histories): void;
 }

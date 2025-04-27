@@ -2,8 +2,12 @@
 
 namespace App\Repositories\Doctrine;
 
+use App\Entities\Contact;
 use App\Entities\ContactGroup;
+use App\Entities\ContactGroupMembership;
 use App\Repositories\Interfaces\ContactGroupRepositoryInterface;
+use App\Repositories\Interfaces\ContactRepositoryInterface; // Add interface
+use App\Repositories\Interfaces\ContactGroupMembershipRepositoryInterface; // Add interface
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 
@@ -14,14 +18,24 @@ use Exception;
  */
 class ContactGroupRepository extends BaseRepository implements ContactGroupRepositoryInterface
 {
+    private ContactRepositoryInterface $contactRepository;
+    private ContactGroupMembershipRepositoryInterface $membershipRepository;
+
     /**
      * Constructor
      * 
      * @param EntityManagerInterface $entityManager The entity manager
+     * @param ContactRepositoryInterface $contactRepository
+     * @param ContactGroupMembershipRepositoryInterface $membershipRepository
      */
-    public function __construct(EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        ContactRepositoryInterface $contactRepository,
+        ContactGroupMembershipRepositoryInterface $membershipRepository
+    ) {
         parent::__construct($entityManager, ContactGroup::class);
+        $this->contactRepository = $contactRepository;
+        $this->membershipRepository = $membershipRepository;
     }
 
     /**
@@ -178,8 +192,8 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
      */
     public function getContactsInGroup(int $groupId, ?int $limit = null, ?int $offset = null): array
     {
-        $contactRepository = new ContactRepository($this->getEntityManager());
-        return $contactRepository->findByGroupId($groupId, $limit, $offset);
+        // Use the injected contact repository
+        return $this->contactRepository->findByGroupId($groupId, $limit, $offset);
     }
 
     /**
@@ -191,8 +205,8 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
      */
     public function addContactToGroup(int $contactId, int $groupId): bool
     {
-        $membershipRepository = new ContactGroupMembershipRepository($this->getEntityManager());
-        return $membershipRepository->addContactToGroup($contactId, $groupId);
+        // Delegate directly to the injected membership repository's method
+        return $this->membershipRepository->addContactToGroup($contactId, $groupId);
     }
 
     /**
@@ -204,7 +218,7 @@ class ContactGroupRepository extends BaseRepository implements ContactGroupRepos
      */
     public function removeContactFromGroup(int $contactId, int $groupId): bool
     {
-        $membershipRepository = new ContactGroupMembershipRepository($this->getEntityManager());
-        return $membershipRepository->removeContactFromGroup($contactId, $groupId);
+        // Delegate directly to the injected membership repository's method
+        return $this->membershipRepository->removeContactFromGroup($contactId, $groupId);
     }
 }

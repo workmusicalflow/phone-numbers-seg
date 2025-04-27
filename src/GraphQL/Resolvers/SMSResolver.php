@@ -40,13 +40,25 @@ class SMSResolver
 
     /**
      * Resolver for the 'smsHistory' query.
+     * Handles filtering by userId, status, search term (phone number), and segmentId.
      */
     public function resolveSmsHistory(array $args, $context): array
     {
         $limit = isset($args['limit']) ? (int)$args['limit'] : 100;
         $offset = isset($args['offset']) ? (int)$args['offset'] : 0;
         $userId = isset($args['userId']) ? (int)$args['userId'] : null;
-        $this->logger->info('Executing SMSResolver::resolveSmsHistory', ['limit' => $limit, 'offset' => $offset, 'userId' => $userId]);
+        $status = $args['status'] ?? null;
+        $search = $args['search'] ?? null;
+        $segmentId = isset($args['segmentId']) ? (int)$args['segmentId'] : null;
+
+        $this->logger->info('Executing SMSResolver::resolveSmsHistory', [
+            'limit' => $limit,
+            'offset' => $offset,
+            'userId' => $userId,
+            'status' => $status,
+            'search' => $search,
+            'segmentId' => $segmentId
+        ]);
 
         try {
             $currentUser = $this->authService->getCurrentUser();
@@ -56,16 +68,37 @@ class SMSResolver
             $requestingUserId = $currentUser->getId();
             $isAdmin = $currentUser->isAdmin();
 
+            // Authorization: Non-admins can only see their own history unless explicitly querying for someone else (which is denied if not admin)
             if ($userId !== null && $userId !== $requestingUserId && !$isAdmin) {
+                $this->logger->warning('Permission denied: User ' . $requestingUserId . ' attempted to access history for user ' . $userId);
                 throw new Exception("Permission denied");
             }
+            // If no specific user is requested by an admin, show all. If no user requested by non-admin, show their own.
+            $effectiveUserId = $userId;
             if ($userId === null && !$isAdmin) {
-                $userId = $requestingUserId;
+                $effectiveUserId = $requestingUserId;
             }
 
-            $history = $userId !== null
-                ? $this->smsHistoryRepository->findByUserId($userId, $limit, $offset)
-                : $this->smsHistoryRepository->findAll($limit, $offset);
+            // Build criteria array
+            $criteria = [];
+            if ($effectiveUserId !== null) {
+                $criteria['userId'] = $effectiveUserId;
+            }
+            if ($status !== null) {
+                $criteria['status'] = $status;
+            }
+            if ($search !== null) {
+                $criteria['search'] = $search; // Repository needs to handle LIKE query
+            }
+            if ($segmentId !== null) {
+                $criteria['segmentId'] = $segmentId;
+            }
+            $this->logger->debug('Constructed criteria for smsHistory query', ['criteria' => $criteria]);
+
+            // Call a new repository method that handles multiple criteria
+            // Assuming findByCriteria exists or will be created in the repository
+            $history = $this->smsHistoryRepository->findByCriteria($criteria, $limit, $offset);
+            $this->logger->info('Fetched ' . count($history) . ' SMS history records based on criteria.');
 
             $result = [];
             foreach ($history as $item) {
@@ -84,7 +117,16 @@ class SMSResolver
     public function resolveSmsHistoryCount(array $args, $context): int
     {
         $userId = isset($args['userId']) ? (int)$args['userId'] : null;
-        $this->logger->info('Executing SMSResolver::resolveSmsHistoryCount', ['userId' => $userId]);
+        $status = $args['status'] ?? null;
+        $search = $args['search'] ?? null;
+        $segmentId = isset($args['segmentId']) ? (int)$args['segmentId'] : null;
+
+        $this->logger->info('Executing SMSResolver::resolveSmsHistoryCount', [
+            'userId' => $userId,
+            'status' => $status,
+            'search' => $search,
+            'segmentId' => $segmentId
+        ]);
 
         try {
             $currentUser = $this->authService->getCurrentUser();
@@ -97,13 +139,32 @@ class SMSResolver
             if ($userId !== null && $userId !== $requestingUserId && !$isAdmin) {
                 throw new Exception("Permission denied");
             }
+            // If no specific user is requested by an admin, show all. If no user requested by non-admin, show their own.
+            $effectiveUserId = $userId;
             if ($userId === null && !$isAdmin) {
-                $userId = $requestingUserId;
+                $effectiveUserId = $requestingUserId;
             }
 
-            $count = $userId !== null
-                ? $this->smsHistoryRepository->countByUserId($userId)
-                : $this->smsHistoryRepository->count();
+            // Build criteria array
+            $criteria = [];
+            if ($effectiveUserId !== null) {
+                $criteria['userId'] = $effectiveUserId;
+            }
+            if ($status !== null) {
+                $criteria['status'] = $status;
+            }
+            if ($search !== null) {
+                $criteria['search'] = $search; // Repository needs to handle LIKE query
+            }
+            if ($segmentId !== null) {
+                $criteria['segmentId'] = $segmentId;
+            }
+            $this->logger->debug('Constructed criteria for smsHistoryCount query', ['criteria' => $criteria]);
+
+            // Call repository method that handles multiple criteria
+            // Assuming countByCriteria exists or will be created in the repository
+            $count = $this->smsHistoryRepository->countByCriteria($criteria);
+            $this->logger->info('Counted ' . $count . ' SMS history records based on criteria.');
 
             return $count;
         } catch (Exception $e) {

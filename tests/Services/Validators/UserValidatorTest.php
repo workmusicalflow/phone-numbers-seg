@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 class UserValidatorTest extends TestCase
 {
-    private $userRepositoryMock;
+    private \PHPUnit\Framework\MockObject\MockObject&\App\Repositories\UserRepository $userRepositoryMock;
     private $userValidator;
 
     protected function setUp(): void
@@ -34,7 +34,13 @@ class UserValidatorTest extends TestCase
             ->willReturn(null);
 
         // Act
-        $result = $this->userValidator->validateCreate($username, $password, $email, $smsCredit, $smsLimit);
+        $result = $this->userValidator->validateCreate([
+            'username' => $username,
+            'password' => $password,
+            'email' => $email,
+            'smsCredit' => $smsCredit,
+            'smsLimit' => $smsLimit
+        ]);
 
         // Assert
         $this->assertEquals($username, $result['username']);
@@ -63,7 +69,13 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateCreate($username, $password, $email, $smsCredit, $smsLimit);
+        $this->userValidator->validateCreate([
+            'username' => $username,
+            'password' => $password,
+            'email' => $email,
+            'smsCredit' => $smsCredit,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateCreateWithInvalidUsername()
@@ -77,7 +89,13 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateCreate($username, $password, $email, $smsCredit, $smsLimit);
+        $this->userValidator->validateCreate([
+            'username' => $username,
+            'password' => $password,
+            'email' => $email,
+            'smsCredit' => $smsCredit,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateCreateWithInvalidPassword()
@@ -96,7 +114,13 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateCreate($username, $password, $email, $smsCredit, $smsLimit);
+        $this->userValidator->validateCreate([
+            'username' => $username,
+            'password' => $password,
+            'email' => $email,
+            'smsCredit' => $smsCredit,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateCreateWithInvalidEmail()
@@ -115,7 +139,13 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateCreate($username, $password, $email, $smsCredit, $smsLimit);
+        $this->userValidator->validateCreate([
+            'username' => $username,
+            'password' => $password,
+            'email' => $email,
+            'smsCredit' => $smsCredit,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateCreateWithNegativeSmsCredit()
@@ -134,7 +164,13 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateCreate($username, $password, $email, $smsCredit, $smsLimit);
+        $this->userValidator->validateCreate([
+            'username' => $username,
+            'password' => $password,
+            'email' => $email,
+            'smsCredit' => $smsCredit,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateCreateWithNegativeSmsLimit()
@@ -153,7 +189,13 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateCreate($username, $password, $email, $smsCredit, $smsLimit);
+        $this->userValidator->validateCreate([
+            'username' => $username,
+            'password' => $password,
+            'email' => $email,
+            'smsCredit' => $smsCredit,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateUpdateWithValidData()
@@ -172,7 +214,10 @@ class UserValidatorTest extends TestCase
             ->willReturn($existingUser);
 
         // Act
-        $result = $this->userValidator->validateUpdate($id, $email, $smsLimit);
+        $result = $this->userValidator->validateUpdate($id, [
+            'email' => $email,
+            'smsLimit' => $smsLimit
+        ]);
 
         // Assert
         $this->assertEquals($id, $result['id']);
@@ -194,7 +239,10 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateUpdate($id, $email, $smsLimit);
+        $this->userValidator->validateUpdate($id, [
+            'email' => $email,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateUpdateWithInvalidEmail()
@@ -214,7 +262,10 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateUpdate($id, $email, $smsLimit);
+        $this->userValidator->validateUpdate($id, [
+            'email' => $email,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidateUpdateWithNegativeSmsLimit()
@@ -234,7 +285,10 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateUpdate($id, $email, $smsLimit);
+        $this->userValidator->validateUpdate($id, [
+            'email' => $email,
+            'smsLimit' => $smsLimit
+        ]);
     }
 
     public function testValidatePasswordChangeWithValidData()
@@ -252,7 +306,9 @@ class UserValidatorTest extends TestCase
             ->willReturn($existingUser);
 
         // Act
-        $result = $this->userValidator->validatePasswordChange($id, $newPassword);
+        $result = $this->userValidator->validatePasswordChange($id, [
+            'newPassword' => $newPassword
+        ]);
 
         // Assert
         $this->assertEquals($id, $result['id']);
@@ -272,7 +328,9 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validatePasswordChange($id, $newPassword);
+        $this->userValidator->validatePasswordChange($id, [
+            'newPassword' => $newPassword
+        ]);
     }
 
     public function testValidatePasswordChangeWithInvalidPassword()
@@ -291,7 +349,9 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validatePasswordChange($id, $newPassword);
+        $this->userValidator->validatePasswordChange($id, [
+            'newPassword' => $newPassword
+        ]);
     }
 
     public function testValidateAddCreditsWithValidData()
@@ -309,7 +369,9 @@ class UserValidatorTest extends TestCase
             ->willReturn($existingUser);
 
         // Act
-        $result = $this->userValidator->validateAddCredits($id, $amount);
+        $result = $this->userValidator->validateAddCredits($id, [
+            'amount' => $amount
+        ]);
 
         // Assert
         $this->assertEquals($id, $result['id']);
@@ -329,7 +391,9 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateAddCredits($id, $amount);
+        $this->userValidator->validateAddCredits($id, [
+            'amount' => $amount
+        ]);
     }
 
     public function testValidateAddCreditsWithInvalidAmount()
@@ -348,7 +412,9 @@ class UserValidatorTest extends TestCase
 
         // Act & Assert
         $this->expectException(ValidationException::class);
-        $this->userValidator->validateAddCredits($id, $amount);
+        $this->userValidator->validateAddCredits($id, [
+            'amount' => $amount
+        ]);
     }
 
     public function testValidateDeleteWithValidData()

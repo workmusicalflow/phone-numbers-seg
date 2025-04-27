@@ -13,12 +13,8 @@
 
 - Code PHP 8+ moderne, typé, bien commenté.
 - Gestion robuste des erreurs dans les services clés (ex: SMSService).
-- Conteneur DI complet et cohérent, favorisant testabilité et modularité.
+- Conteneur DI modularisé (complet et cohérent)
 - Points d’amélioration :
-  - Gestion plus stricte et robuste des variables d’environnement sensibles (ex: clés API).
-  - Refactoring possible pour alléger certains services complexes.
-  - Gestion explicite des exceptions dans les repositories à renforcer.
-  - Implémentation manquante de la gestion des limites d’envoi SMS.
   - Journalisation et monitoring à renforcer.
 
 ## 3. Qualité du Code Frontend
@@ -44,15 +40,5 @@
 
 ## 6. Points d’Attention et Recommandations Prioritaires
 
-- Finaliser migration complète vers Doctrine ORM pour homogénéité.
-- Implémenter gestion des limites d’envoi SMS dans SMSService.
-- Améliorer gestion des erreurs et validation des variables d’environnement.
-- Ajouter pagination et filtrage dans les stores frontend.
 - Renforcer couverture des tests, notamment intégration et fonctionnels.
 - Optimiser journalisation et monitoring des services critiques.
-- Modulariser configuration DI pour faciliter maintenance.
-- Revoir gestion des mises à jour en masse dans SMSHistory pour éviter N+1.
-
----
-
-Ce rapport synthétise les forces et axes d’amélioration pour garantir la qualité, maintenabilité et scalabilité du projet Oracle.

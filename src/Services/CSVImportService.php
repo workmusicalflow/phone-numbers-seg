@@ -2,21 +2,22 @@
 
 namespace App\Services;
 
-use App\Models\Contact;
-use App\Models\PhoneNumber;
-use App\Repositories\ContactRepository;
-use App\Repositories\PhoneNumberRepository;
+use App\Entities\Contact; // Use Doctrine Entity
+use App\Entities\PhoneNumber; // Use Doctrine Entity
+use App\Repositories\Interfaces\ContactRepositoryInterface; // Use interface
+use App\Repositories\Interfaces\PhoneNumberRepositoryInterface; // Use interface
 use App\Services\Interfaces\PhoneSegmentationServiceInterface;
+use Psr\Log\LoggerInterface; // Import LoggerInterface
 
 /**
- * Service for importing phone numbers from CSV files
+ * Service for importing phone numbers from CSV files or arrays.
  */
 class CSVImportService
 {
     /**
-     * @var PhoneNumberRepository
+     * @var PhoneNumberRepositoryInterface
      */
-    private PhoneNumberRepository $phoneNumberRepository;
+    private PhoneNumberRepositoryInterface $phoneNumberRepository;
 
     /**
      * @var PhoneSegmentationServiceInterface
@@ -24,9 +25,14 @@ class CSVImportService
     private PhoneSegmentationServiceInterface $segmentationService;
 
     /**
-     * @var ContactRepository
+     * @var ContactRepositoryInterface
      */
-    private ContactRepository $contactRepository;
+    private ContactRepositoryInterface $contactRepository;
+
+    /**
+     * @var LoggerInterface
+     */
+    private LoggerInterface $logger;
 
     /**
      * @var array Current import options
@@ -74,18 +80,21 @@ class CSVImportService
     /**
      * Constructor
      * 
-     * @param PhoneNumberRepository $phoneNumberRepository
+     * @param PhoneNumberRepositoryInterface $phoneNumberRepository
      * @param PhoneSegmentationServiceInterface $segmentationService
-     * @param ContactRepository $contactRepository
+     * @param ContactRepositoryInterface $contactRepository
+     * @param LoggerInterface $logger
      */
     public function __construct(
-        PhoneNumberRepository $phoneNumberRepository,
+        PhoneNumberRepositoryInterface $phoneNumberRepository,
         PhoneSegmentationServiceInterface $segmentationService,
-        ContactRepository $contactRepository
+        ContactRepositoryInterface $contactRepository,
+        LoggerInterface $logger // Inject Logger
     ) {
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->segmentationService = $segmentationService;
         $this->contactRepository = $contactRepository;
+        $this->logger = $logger; // Store Logger
     }
 
     /**
@@ -97,9 +106,7 @@ class CSVImportService
      */
     public function importFromFile(string $filePath, array $options = []): array
     {
-        // Log pour déboguer
-        error_log("CSVImportService::importFromFile called with filePath: {$filePath}");
-        error_log("Import options: " . print_r($options, true));
+        $this->logger->info("Début de l'importation CSV depuis le fichier", ['filePath' => $filePath, 'options' => $options]);
 
         // Reset statistics, errors and line counter
         $this->resetStats();
@@ -108,18 +115,19 @@ class CSVImportService
 
         // Check if file exists
         if (!file_exists($filePath)) {
-            $errorMessage = "File not found: {$filePath}";
-            error_log("Import error: " . $errorMessage);
+            $errorMessage = "Fichier non trouvé: {$filePath}";
+            $this->logger->error($errorMessage);
             $this->errors[] = $errorMessage;
             return $this->getResults();
         }
 
-        // Check file extension - plus permissif, accepte les fichiers sans extension
+        // Check file extension - more permissive, accepts files without extension
         $extension = pathinfo($filePath, PATHINFO_EXTENSION);
-        error_log("File extension: " . $extension);
+        $this->logger->debug("Extension du fichier détectée", ['extension' => $extension]);
+        // Allow empty extension or 'csv'
         if ($extension && strtolower($extension) !== 'csv') {
-            $errorMessage = "Invalid file format. Only CSV files are supported. Extension detected: {$extension}";
-            error_log("Import error: " . $errorMessage);
+            $errorMessage = "Format de fichier invalide. Seuls les fichiers CSV (ou sans extension) sont supportés. Extension détectée: {$extension}";
+            $this->logger->error($errorMessage, ['filePath' => $filePath]);
             $this->errors[] = $errorMessage;
             return $this->getResults();
         }
@@ -145,29 +153,39 @@ class CSVImportService
             'userId' => null, // User ID to associate contacts with
             'defaultUserId' => 2 // Default to AfricaQSHE (ID 2)
         ], $options);
+        $this->logger->debug("Options d'importation finales", ['options' => $this->options]);
 
         try {
+            $this->logger->info("Ouverture du fichier CSV", ['filePath' => $filePath]);
             // Open the file
             $handle = fopen($filePath, 'r');
             if ($handle === false) {
-                $this->errors[] = "Failed to open file: {$filePath}";
+                $errorMessage = "Échec de l'ouverture du fichier: {$filePath}";
+                $this->logger->error($errorMessage);
+                $this->errors[] = $errorMessage;
                 return $this->getResults();
             }
 
             // Skip header if needed
             if ($this->options['hasHeader']) {
+                $this->logger->debug("Saut de l'en-tête");
                 fgetcsv($handle, 0, $this->options['delimiter'], $this->options['enclosure'], $this->options['escape']);
                 $this->currentLine = 1; // Set to 1 after skipping header
+            } else {
+                $this->logger->debug("Pas d'en-tête à sauter");
+                $this->currentLine = 0;
             }
 
             $batch = [];
-            $lineNumber = $this->options['hasHeader'] ? 2 : 1;
-            $this->currentLine = $lineNumber - 1; // Initialize current line
+            // $lineNumber = $this->options['hasHeader'] ? 2 : 1; // lineNumber is redundant with currentLine
+            // $this->currentLine = $lineNumber - 1; // Initialize current line - already done above
 
+            $this->logger->info("Début du traitement des lignes du fichier");
             // Process each line
             while (($data = fgetcsv($handle, 0, $this->options['delimiter'], $this->options['enclosure'], $this->options['escape'])) !== false) {
                 $this->stats['total']++;
                 $this->currentLine++; // Increment line counter for each processed line
+                $this->logger->debug("Traitement de la ligne", ['lineNumber' => $this->currentLine]);
 
                 // Validate column indices against actual data
                 $columnCount = count($data);
@@ -175,15 +193,17 @@ class CSVImportService
 
                 // Check if phone column index is valid
                 if ($phoneColumnIndex < 0 || $phoneColumnIndex >= $columnCount) {
+                    $errorMessage = "Index de colonne téléphone invalide: {$phoneColumnIndex}. Le fichier n'a que {$columnCount} colonnes.";
+                    $this->logger->warning($errorMessage, ['lineNumber' => $this->currentLine]);
                     if (count($this->detailedErrors) < $this->maxDetailedErrors) {
                         $this->detailedErrors[] = [
                             'line' => $this->currentLine,
                             'value' => 'N/A',
-                            'message' => "Index de colonne téléphone invalide: {$phoneColumnIndex}. Le fichier n'a que {$columnCount} colonnes."
+                            'message' => $errorMessage
                         ];
                     }
                     $this->stats['invalid']++;
-                    $lineNumber++;
+                    // $lineNumber++; // Redundant
                     continue;
                 }
 
@@ -192,9 +212,11 @@ class CSVImportService
 
                 // Validate phone number
                 if (empty($phoneNumber)) {
+                    $errorMessage = "Numéro de téléphone vide";
+                    $this->logger->warning($errorMessage, ['lineNumber' => $this->currentLine]);
                     $this->stats['invalid']++;
                     if (!$this->options['skipInvalid']) {
-                        $this->errors[] = "Line {$lineNumber}: Empty phone number";
+                        $this->errors[] = "Ligne {$this->currentLine}: Numéro de téléphone vide";
                     }
 
                     // Add detailed error
@@ -202,20 +224,23 @@ class CSVImportService
                         $this->detailedErrors[] = [
                             'line' => $this->currentLine,
                             'value' => 'empty',
-                            'message' => "Numéro de téléphone vide"
+                            'message' => $errorMessage
                         ];
                     }
 
-                    $lineNumber++;
+                    // $lineNumber++; // Redundant
                     continue;
                 }
 
                 // Normalize phone number
+                $this->logger->debug("Normalisation du numéro", ['lineNumber' => $this->currentLine, 'original' => $phoneNumber]);
                 $normalizedNumber = $this->normalizePhoneNumber($phoneNumber);
                 if ($normalizedNumber === null) {
+                    $errorMessage = "Format de numéro invalide";
+                    $this->logger->warning($errorMessage, ['lineNumber' => $this->currentLine, 'value' => $phoneNumber]);
                     $this->stats['invalid']++;
                     if (!$this->options['skipInvalid']) {
-                        $this->errors[] = "Line {$lineNumber}: Invalid phone number format: {$phoneNumber}";
+                        $this->errors[] = "Ligne {$this->currentLine}: Format de numéro invalide: {$phoneNumber}";
                     }
 
                     // Add detailed error
@@ -223,19 +248,22 @@ class CSVImportService
                         $this->detailedErrors[] = [
                             'line' => $this->currentLine,
                             'value' => $phoneNumber,
-                            'message' => "Format de numéro invalide"
+                            'message' => $errorMessage
                         ];
                     }
 
-                    $lineNumber++;
+                    // $lineNumber++; // Redundant
                     continue;
                 }
+                $this->logger->debug("Numéro normalisé", ['lineNumber' => $this->currentLine, 'normalized' => $normalizedNumber]);
 
                 // Check for duplicates in the current batch
                 if (in_array($normalizedNumber, array_column($batch, 'number'))) {
+                    $errorMessage = "Doublon détecté dans le fichier (batch actuel)";
+                    $this->logger->warning($errorMessage, ['lineNumber' => $this->currentLine, 'value' => $normalizedNumber]);
                     $this->stats['duplicates']++;
                     if (!$this->options['skipInvalid']) {
-                        $this->errors[] = "Line {$lineNumber}: Duplicate phone number: {$normalizedNumber}";
+                        $this->errors[] = "Ligne {$this->currentLine}: Doublon détecté dans le fichier: {$normalizedNumber}";
                     }
 
                     // Add detailed error
@@ -243,11 +271,11 @@ class CSVImportService
                         $this->detailedErrors[] = [
                             'line' => $this->currentLine,
                             'value' => $normalizedNumber,
-                            'message' => "Doublon détecté dans le fichier"
+                            'message' => $errorMessage
                         ];
                     }
 
-                    $lineNumber++;
+                    // $lineNumber++; // Redundant
                     continue;
                 }
 
@@ -261,6 +289,7 @@ class CSVImportService
                     'notes' => $this->getColumnValue($data, $this->options['notesColumn'], $columnCount),
                     'email' => $this->getColumnValue($data, $this->options['emailColumn'], $columnCount)
                 ];
+                $this->logger->debug("Champs additionnels extraits", ['lineNumber' => $this->currentLine, 'fields' => $additionalFields]);
 
                 // Add to batch with additional fields
                 $batch[] = [
@@ -271,21 +300,27 @@ class CSVImportService
 
                 // Process batch if it reaches the maximum size
                 if (count($batch) >= $this->options['batchSize']) {
+                    $this->logger->info("Traitement du batch", ['batchSize' => count($batch), 'currentLine' => $this->currentLine]);
                     $this->processBatch($batch, $this->options['segmentImmediately']);
-                    $batch = [];
+                    $batch = []; // Reset batch
                 }
 
-                $lineNumber++;
+                // $lineNumber++; // Redundant
             }
+            $this->logger->info("Fin du traitement des lignes");
 
             // Process remaining batch
             if (!empty($batch)) {
+                $this->logger->info("Traitement du batch final", ['batchSize' => count($batch)]);
                 $this->processBatch($batch, $this->options['segmentImmediately']);
             }
 
+            $this->logger->info("Fermeture du fichier CSV", ['filePath' => $filePath]);
             fclose($handle);
         } catch (\Exception $e) {
-            $this->errors[] = "Error processing CSV file: " . $e->getMessage();
+            $errorMessage = "Erreur lors du traitement du fichier CSV: " . $e->getMessage();
+            $this->logger->error($errorMessage, ['filePath' => $filePath, 'lineNumber' => $this->currentLine, 'exception' => $e]);
+            $this->errors[] = $errorMessage;
 
             // Add detailed error for exception
             if (count($this->detailedErrors) < $this->maxDetailedErrors) {
@@ -297,6 +332,7 @@ class CSVImportService
             }
         }
 
+        $this->logger->info("Importation depuis fichier terminée", ['filePath' => $filePath, 'results' => $this->getResults()]);
         return $this->getResults();
     }
 
@@ -309,6 +345,7 @@ class CSVImportService
      */
     public function importFromArray(array $numbers, array $options = []): array
     {
+        $this->logger->info("Début de l'importation depuis un tableau", ['count' => count($numbers), 'options' => $options]);
         // Reset statistics and errors
         $this->resetStats();
 
@@ -321,39 +358,50 @@ class CSVImportService
             'userId' => null, // User ID to associate contacts with
             'defaultUserId' => 2 // Default to AfricaQSHE (ID 2)
         ], $options);
+        $this->logger->debug("Options d'importation finales (tableau)", ['options' => $this->options]);
 
         try {
             $batch = [];
             $this->stats['total'] = count($numbers);
+            $this->logger->info("Début du traitement des numéros du tableau");
 
             // Process each number
             foreach ($numbers as $index => $phoneNumber) {
+                $this->logger->debug("Traitement de l'index", ['index' => $index]);
                 $phoneNumber = trim($phoneNumber);
 
                 // Validate phone number
                 if (empty($phoneNumber)) {
+                    $errorMessage = "Numéro de téléphone vide";
+                    $this->logger->warning($errorMessage, ['index' => $index]);
                     $this->stats['invalid']++;
                     if (!$this->options['skipInvalid']) {
-                        $this->errors[] = "Index {$index}: Empty phone number";
+                        $this->errors[] = "Index {$index}: Numéro de téléphone vide";
                     }
                     continue;
                 }
 
                 // Normalize phone number
+                $this->logger->debug("Normalisation du numéro", ['index' => $index, 'original' => $phoneNumber]);
                 $normalizedNumber = $this->normalizePhoneNumber($phoneNumber);
                 if ($normalizedNumber === null) {
+                    $errorMessage = "Format de numéro invalide";
+                    $this->logger->warning($errorMessage, ['index' => $index, 'value' => $phoneNumber]);
                     $this->stats['invalid']++;
                     if (!$this->options['skipInvalid']) {
-                        $this->errors[] = "Index {$index}: Invalid phone number format: {$phoneNumber}";
+                        $this->errors[] = "Index {$index}: Format de numéro invalide: {$phoneNumber}";
                     }
                     continue;
                 }
+                $this->logger->debug("Numéro normalisé", ['index' => $index, 'normalized' => $normalizedNumber]);
 
                 // Check for duplicates in the current batch
                 if (in_array($normalizedNumber, array_column($batch, 'number'))) {
+                    $errorMessage = "Doublon détecté dans le tableau (batch actuel)";
+                    $this->logger->warning($errorMessage, ['index' => $index, 'value' => $normalizedNumber]);
                     $this->stats['duplicates']++;
                     if (!$this->options['skipInvalid']) {
-                        $this->errors[] = "Index {$index}: Duplicate phone number: {$normalizedNumber}";
+                        $this->errors[] = "Index {$index}: Doublon détecté dans le tableau: {$normalizedNumber}";
                     }
                     continue;
                 }
@@ -375,19 +423,25 @@ class CSVImportService
 
                 // Process batch if it reaches the maximum size
                 if (count($batch) >= $this->options['batchSize']) {
+                    $this->logger->info("Traitement du batch (tableau)", ['batchSize' => count($batch), 'currentIndex' => $index]);
                     $this->processBatch($batch, $this->options['segmentImmediately']);
-                    $batch = [];
+                    $batch = []; // Reset batch
                 }
             }
+            $this->logger->info("Fin du traitement des numéros du tableau");
 
             // Process remaining batch
             if (!empty($batch)) {
+                $this->logger->info("Traitement du batch final (tableau)", ['batchSize' => count($batch)]);
                 $this->processBatch($batch, $this->options['segmentImmediately']);
             }
         } catch (\Exception $e) {
-            $this->errors[] = "Error processing phone numbers: " . $e->getMessage();
+            $errorMessage = "Erreur lors du traitement des numéros du tableau: " . $e->getMessage();
+            $this->logger->error($errorMessage, ['exception' => $e]);
+            $this->errors[] = $errorMessage;
         }
 
+        $this->logger->info("Importation depuis tableau terminée", ['results' => $this->getResults()]);
         return $this->getResults();
     }
 
@@ -417,39 +471,44 @@ class CSVImportService
      */
     private function processBatch(array $batch, bool $segment = true): void
     {
+        $this->logger->debug("Début du traitement du batch", ['count' => count($batch), 'segment' => $segment]);
         // Store phone numbers in the database
         foreach ($batch as $item) {
             try {
                 $number = $item['number'];
                 $fields = $item['fields'];
+                $this->logger->debug("Traitement de l'élément du batch", ['number' => $number, 'fields' => $fields]);
 
                 // Check if the number already exists in the database
+                $this->logger->debug("Vérification de l'existence du numéro", ['number' => $number]);
                 $existingNumber = $this->phoneNumberRepository->findByNumber($number);
                 $phoneNumber = null;
 
                 if ($existingNumber === null) {
-                    // Create a new phone number with additional fields
-                    $phoneNumber = new PhoneNumber(
-                        $number,
-                        null, // id
-                        $fields['civility'],
-                        $fields['firstName'],
-                        $fields['name'],
-                        $fields['company'],
-                        $fields['sector'],
-                        $fields['notes']
-                    );
+                    $this->logger->info("Numéro non trouvé, création...", ['number' => $number]);
+                    // Create a new phone number entity with additional fields
+                    $phoneNumber = new PhoneNumber(); // Instantiate Doctrine Entity
+                    $phoneNumber->setNumber($number);
+                    $phoneNumber->setCivility($fields['civility']);
+                    $phoneNumber->setFirstName($fields['firstName']);
+                    $phoneNumber->setName($fields['name']);
+                    $phoneNumber->setCompany($fields['company']);
+                    $phoneNumber->setSector($fields['sector']);
+                    $phoneNumber->setNotes($fields['notes']);
+                    // Note: Email field is collected but PhoneNumber entity doesn't have email property
+                    // If needed in the future, extend the PhoneNumber entity to include email
 
-                    // Note: Email field is collected but PhoneNumber model doesn't have email property
-                    // If needed in the future, extend the PhoneNumber model to include email
-
-                    $this->phoneNumberRepository->save($phoneNumber);
+                    $this->phoneNumberRepository->save($phoneNumber); // Save Doctrine Entity
+                    $this->logger->info("Nouveau numéro enregistré", ['number' => $number, 'id' => $phoneNumber->getId()]);
 
                     // Segment the number if requested
                     if ($segment) {
+                        $this->logger->debug("Segmentation du nouveau numéro", ['number' => $number]);
                         $this->segmentationService->segmentPhoneNumber($phoneNumber);
+                        $this->logger->debug("Segmentation terminée", ['number' => $number]);
                     }
                 } else {
+                    $this->logger->info("Numéro déjà existant", ['number' => $number, 'id' => $existingNumber->getId()]);
                     // Number already exists, increment duplicates count
                     $this->stats['duplicates']++;
                     $phoneNumber = $existingNumber;
@@ -465,6 +524,7 @@ class CSVImportService
 
                     // Optionally update existing record with new information if provided
                     $updated = false;
+                    $this->logger->debug("Vérification des champs à mettre à jour pour le numéro existant", ['number' => $number, 'fields' => $fields]);
                     if (!empty(array_filter($fields, function ($value) {
                         return $value !== null;
                     }))) {
@@ -494,7 +554,10 @@ class CSVImportService
                         }
 
                         if ($updated) {
+                            $this->logger->info("Mise à jour du numéro existant", ['number' => $number, 'id' => $existingNumber->getId()]);
                             $this->phoneNumberRepository->save($existingNumber);
+                        } else {
+                            $this->logger->debug("Aucune mise à jour nécessaire pour le numéro existant", ['number' => $number]);
                         }
                     }
                 }
@@ -504,14 +567,18 @@ class CSVImportService
                 $userId = $this->options['userId'] ?? $this->options['defaultUserId'] ?? null;
 
                 if ($createContacts && $userId && $phoneNumber) {
+                    $this->logger->debug("Tentative de création/vérification du contact", ['number' => $number, 'userId' => $userId]);
                     try {
-                        // Check if a contact with this number exists already for this user
-                        $existingContacts = $this->contactRepository->findBy([
-                            'user_id' => $userId,
-                            'phone_number' => $number
-                        ]);
+                        // Check if a contact with this number exists already for this user using findByCriteria
+                        $this->logger->debug("Vérification de l'existence du contact via findByCriteria", ['number' => $number, 'userId' => $userId]);
+                        $existingContacts = $this->contactRepository->findByCriteria(
+                            ['phoneNumber' => $number, 'userId' => $userId],
+                            1 // Limit to 1, we only need to know if it exists
+                        );
+                        $contactExists = !empty($existingContacts);
 
-                        if (empty($existingContacts)) {
+                        if (!$contactExists) {
+                            $this->logger->info("Contact non trouvé, création...", ['number' => $number, 'userId' => $userId]);
                             // Prepare the name for the contact
                             $firstName = $fields['firstName'] ?? '';
                             $lastName = $fields['name'] ?? '';
@@ -521,26 +588,30 @@ class CSVImportService
                                 // Generate a name from the number if no name is provided
                                 $lastDigits = substr($number, -6);
                                 $name = "Contact " . $lastDigits;
+                                $this->logger->debug("Nom du contact généré à partir du numéro", ['name' => $name]);
                             }
 
-                            // Create the contact
-                            $contact = new Contact(
-                                0, // ID will be generated
-                                $userId,
-                                $name,
-                                $number,
-                                $fields['email'] ?? null,
-                                $fields['notes'] ?? null
-                            );
+                            // Create the contact entity
+                            $contact = new Contact(); // Instantiate Doctrine Entity
+                            $contact->setUserId($userId);
+                            $contact->setName($name);
+                            $contact->setPhoneNumber($number);
+                            $contact->setEmail($fields['email'] ?? null);
+                            $contact->setNotes($fields['notes'] ?? null);
+                            $contact->setCreatedAt(new \DateTime()); // Assuming createdAt is set here or in save
 
-                            $this->contactRepository->create($contact);
+                            $this->contactRepository->save($contact); // Save Doctrine Entity
                             $this->stats['contactsCreated']++;
+                            $this->logger->info("Contact créé avec succès", ['number' => $number, 'userId' => $userId, 'contactId' => $contact->getId()]);
                         } else {
+                            $this->logger->info("Contact déjà existant pour ce numéro et cet utilisateur", ['number' => $number, 'userId' => $userId]);
                             $this->stats['contactsDuplicates']++;
                         }
                     } catch (\Exception $e) {
                         // Log the error but continue processing
-                        error_log("Error creating contact for number {$number}: " . $e->getMessage());
+                        $errorMessage = "Erreur lors de la création du contact pour le numéro {$number}: " . $e->getMessage();
+                        $this->logger->error($errorMessage, ['number' => $number, 'userId' => $userId, 'exception' => $e]);
+                        // error_log("Error creating contact for number {$number}: " . $e->getMessage()); // Replaced by logger
 
                         // Add detailed error for contact creation exception
                         if (count($this->detailedErrors) < $this->maxDetailedErrors) {
@@ -551,11 +622,15 @@ class CSVImportService
                             ];
                         }
                     }
+                } else {
+                    $this->logger->debug("Création de contact désactivée ou userId/phoneNumber manquant", ['createContacts' => $createContacts, 'userId' => $userId, 'hasPhoneNumber' => ($phoneNumber !== null)]);
                 }
 
                 $this->stats['processed']++;
             } catch (\Exception $e) {
-                $this->errors[] = "Error processing number {$item['number']}: " . $e->getMessage();
+                $errorMessage = "Erreur lors du traitement du numéro {$item['number']}: " . $e->getMessage();
+                $this->logger->error($errorMessage, ['number' => $item['number'], 'exception' => $e]);
+                $this->errors[] = $errorMessage;
 
                 // Add detailed error for processing exception
                 if (count($this->detailedErrors) < $this->maxDetailedErrors) {
@@ -567,6 +642,7 @@ class CSVImportService
                 }
             }
         }
+        $this->logger->debug("Fin du traitement du batch", ['processedInBatch' => count($batch)]);
     }
 
     /**
@@ -577,17 +653,20 @@ class CSVImportService
      */
     private function normalizePhoneNumber(string $number): ?string
     {
+        $originalNumber = $number; // Keep original for logging
         // Remove all non-numeric characters except the + sign
         $number = preg_replace('/[^0-9+]/', '', $number);
 
         // If the number is empty after cleaning, it's invalid
         if (empty($number)) {
+            $this->logger->debug("Numéro vide après nettoyage", ['original' => $originalNumber]);
             return null;
         }
 
         // If the number starts with 00, replace with +
         if (strpos($number, '00') === 0) {
             $number = '+' . substr($number, 2);
+            $this->logger->debug("Remplacement de '00' par '+'", ['original' => $originalNumber, 'result' => $number]);
         }
 
         // If the number doesn't start with +, add the default country code (225 for Côte d'Ivoire)
@@ -595,16 +674,21 @@ class CSVImportService
             // Check if the number already has the country code without the +
             if (strpos($number, '225') === 0) {
                 $number = '+' . $number;
+                $this->logger->debug("Ajout de '+' au numéro commençant par 225", ['original' => $originalNumber, 'result' => $number]);
             } else {
+                // Assume it's a local number needing the country code
                 $number = '+225' . $number;
+                $this->logger->debug("Ajout du code pays '+225'", ['original' => $originalNumber, 'result' => $number]);
             }
         }
 
         // Validate the number format (basic validation)
         if (!preg_match('/^\+[0-9]{6,15}$/', $number)) {
+            $this->logger->warning("Format final du numéro invalide après normalisation", ['original' => $originalNumber, 'normalized' => $number]);
             return null;
         }
 
+        $this->logger->debug("Normalisation réussie", ['original' => $originalNumber, 'normalized' => $number]);
         return $number;
     }
 

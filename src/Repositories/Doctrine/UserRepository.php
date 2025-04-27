@@ -216,4 +216,42 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     {
         return $this->updateSmsCredits($userId, $credits);
     }
+
+    /**
+     * Find users by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['search' => 'admin'])
+     * @param int|null $limit Maximum number of entities to return
+     * @param int|null $offset Number of entities to skip
+     * @return array The users
+     */
+    public function findByCriteria(array $criteria, ?int $limit = null, ?int $offset = 0): array
+    {
+        $queryBuilder = $this->createQueryBuilder('u'); // 'u' is the alias for User
+
+        // Handle search filter (across username and email)
+        if (isset($criteria['search']) && !empty($criteria['search'])) {
+            $searchTerm = '%' . $criteria['search'] . '%';
+            $queryBuilder->andWhere(
+                $queryBuilder->expr()->orX(
+                    $queryBuilder->expr()->like('u.username', ':searchTerm'),
+                    $queryBuilder->expr()->like('u.email', ':searchTerm')
+                )
+            )
+                ->setParameter('searchTerm', $searchTerm);
+        }
+
+        // Add default ordering
+        $queryBuilder->orderBy('u.username', 'ASC');
+
+        // Apply limit and offset
+        if ($limit !== null) {
+            $queryBuilder->setMaxResults($limit);
+        }
+        if ($offset !== null) {
+            $queryBuilder->setFirstResult($offset);
+        }
+
+        return $queryBuilder->getQuery()->getResult();
+    }
 }

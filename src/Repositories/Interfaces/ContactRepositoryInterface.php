@@ -85,4 +85,22 @@ interface ContactRepositoryInterface extends DoctrineRepositoryInterface
      * @return Contact|null The contact if found, null otherwise
      */
     public function findByPhoneNumber(string $phoneNumber): ?Contact;
+
+    /**
+     * Find contacts by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'search' => 'John', 'groupId' => 3])
+     * @param int|null $limit Maximum number of entities to return
+     * @param int|null $offset Number of entities to skip
+     * @return array The contacts
+     */
+    public function findByCriteria(array $criteria, ?int $limit = 100, ?int $offset = 0): array;
+
+    /**
+     * Count contacts by multiple criteria
+     * 
+     * @param array $criteria Associative array of criteria (e.g., ['userId' => 1, 'search' => 'John', 'groupId' => 3])
+     * @return int The number of contacts matching the criteria
+     */
+    public function countByCriteria(array $criteria): int;
 }
