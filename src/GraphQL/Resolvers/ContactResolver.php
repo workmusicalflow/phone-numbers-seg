@@ -19,8 +19,9 @@ class ContactResolver
     private ContactGroupRepositoryInterface $groupRepository;
     private ContactGroupMembershipRepositoryInterface $membershipRepository;
     private AuthServiceInterface $authService;
-    private GraphQLFormatterInterface $formatter; // Add Formatter property
+    private GraphQLFormatterInterface $formatter;
     private LoggerInterface $logger;
+    private \App\GraphQL\DataLoaders\ContactGroupDataLoader $contactGroupDataLoader;
 
     public function __construct(
         ContactRepositoryInterface $contactRepository,
@@ -28,14 +29,16 @@ class ContactResolver
         ContactGroupMembershipRepositoryInterface $membershipRepository,
         AuthServiceInterface $authService,
         GraphQLFormatterInterface $formatter,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        \App\GraphQL\DataLoaders\ContactGroupDataLoader $contactGroupDataLoader
     ) {
         $this->contactRepository = $contactRepository;
-        $this->groupRepository = $groupRepository; // Added
-        $this->membershipRepository = $membershipRepository; // Added
+        $this->groupRepository = $groupRepository;
+        $this->membershipRepository = $membershipRepository;
         $this->authService = $authService;
-        $this->formatter = $formatter; // Assign Formatter
+        $this->formatter = $formatter;
         $this->logger = $logger;
+        $this->contactGroupDataLoader = $contactGroupDataLoader;
     }
 
     /**
@@ -517,7 +520,7 @@ class ContactResolver
 
     /**
      * Field resolver for the 'groups' field of the Contact type.
-     * Fetches the groups a contact belongs to.
+     * Fetches the groups a contact belongs to using DataLoader for batching.
      *
      * @param array<string, mixed> $contact The contact object
      * @param array<string, mixed> $args Arguments for the field
@@ -528,7 +531,8 @@ class ContactResolver
     public function resolveContactGroups(array $contact, array $args, $context): array
     {
         $contactId = (int)($contact['id'] ?? 0);
-        $this->logger->info('Executing ContactResolver::resolveContactGroups for contact ID: ' . $contactId);
+        $this->logger->debug('Resolving Contact.groups field');
+        $this->logger->debug('Executing ContactResolver::resolveContactGroups for contact ID: ' . $contactId);
 
         if ($contactId <= 0) {
             $this->logger->warning('Invalid contact ID in resolveContactGroups.');
@@ -545,33 +549,15 @@ class ContactResolver
             $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
-            // Verify the contact belongs to the current user
-            $contactObj = $this->contactRepository->findById($contactId);
-            if (!$contactObj || $contactObj->getUserId() !== $userId) {
-                $this->logger->warning('User ' . $userId . ' attempted to access groups for contact ' . $contactId . ' that does not belong to them.');
-                return []; // Return empty array for security
-            }
+            // Set the user ID on the DataLoader (for security filtering)
+            $this->contactGroupDataLoader->setUserId($userId);
 
-            // Fetch memberships
-            $memberships = $this->membershipRepository->findByContactId($contactId);
-            $groupIds = array_map(fn($m) => $m->getGroupId(), $memberships);
-
-            if (empty($groupIds)) {
-                return [];
-            }
-
-            // Fetch group details
-            $groups = $this->groupRepository->findByIds($groupIds, $userId);
-
-            // Format the groups
-            $result = [];
-            foreach ($groups as $group) {
-                $contactCount = count($this->groupRepository->getContactsInGroup($group->getId(), 1000, 0));
-                $result[] = $this->formatter->formatContactGroup($group, $contactCount);
-            }
-
-            $this->logger->info('Found ' . count($result) . ' groups for contact ' . $contactId);
-            return $result;
+            // Use the DataLoader to load the groups
+            $groups = $this->contactGroupDataLoader->load($contactId);
+            
+            // The DataLoader already handled batching, formatting and security checks
+            return $groups;
+            
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::resolveContactGroups: ' . $e->getMessage(), ['exception' => $e]);
             return []; // Return empty array on error for field resolver

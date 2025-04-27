@@ -20,6 +20,7 @@ $configFiles = [
     $configDir . 'validators.php',
     $configDir . 'factories.php',
     $configDir . 'interfaces.php',
+    $configDir . 'dataloaders.php', // Added DataLoaders configuration
     $configDir . 'other.php', // Core setup, controllers, middleware, observers
 ];
 
