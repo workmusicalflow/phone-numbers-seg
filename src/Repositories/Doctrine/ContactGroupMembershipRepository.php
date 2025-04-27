@@ -23,6 +23,71 @@ class ContactGroupMembershipRepository extends BaseRepository implements Contact
     {
         parent::__construct($entityManager, ContactGroupMembership::class);
     }
+    
+    /**
+     * Find memberships by multiple contact IDs in a single query (optimized batch loading)
+     * 
+     * @param array $contactIds Array of contact IDs
+     * @return array The memberships grouped by contact ID
+     */
+    public function findByContactIds(array $contactIds): array
+    {
+        if (empty($contactIds)) {
+            return [];
+        }
+        
+        // Use a cache key for efficient query execution and to avoid duplicates
+        $sortedIds = $contactIds;
+        sort($sortedIds);
+        $cacheKey = md5(json_encode($sortedIds));
+        static $queryCache = [];
+
+        // Check if we've already executed this exact query in this request
+        if (isset($queryCache[$cacheKey])) {
+            return $queryCache[$cacheKey];
+        }
+        
+        // Use a single optimized query with IN clause to get all memberships at once
+        // This is far more efficient than individual queries
+        $queryBuilder = $this->createQueryBuilder('m');
+        $queryBuilder->select('m')
+            ->where($queryBuilder->expr()->in('m.contactId', ':contactIds'))
+            ->setParameter('contactIds', $contactIds)
+            ->orderBy('m.contactId', 'ASC');
+            
+        // Try to add an index hint if the database supports it
+        try {
+            $connection = $this->getEntityManager()->getConnection();
+            $driver = $connection->getDriver();
+            $driverClass = get_class($driver);
+            
+            // Check if we're using MySQL by looking at the driver class name
+            if (strpos($driverClass, 'MySQL') !== false || strpos($driverClass, 'pdo_mysql') !== false) {
+                $queryBuilder->from(ContactGroupMembership::class, 'm', 'USE INDEX (idx_contact_group_memberships_contact_id)');
+            }
+        } catch (\Exception $e) {
+            // If we can't determine the driver or it doesn't support hints, just continue without the hint
+        }
+        
+        $memberships = $queryBuilder->getQuery()->getResult();
+        
+        // Group memberships by contact ID for easy retrieval by the DataLoader
+        $membershipsByContactId = [];
+        foreach ($contactIds as $contactId) {
+            $membershipsByContactId[$contactId] = [];
+        }
+        
+        // Efficiently distribute the memberships to their respective contact IDs
+        foreach ($memberships as $membership) {
+            $contactId = $membership->getContactId();
+            $membershipsByContactId[$contactId][] = $membership;
+        }
+        
+        // Cache the result for this request
+        $queryCache[$cacheKey] = $membershipsByContactId;
+        
+        return $membershipsByContactId;
+    }
 
     /**
      * Find memberships by contact ID

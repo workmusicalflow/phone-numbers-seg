@@ -109,6 +109,17 @@ class ContactGroupDataLoaderTest extends TestCase
         ];
         
         // Configure mocks
+        // Mock the new findByContactIds method to return grouped memberships
+        $membershipsByContactId = [
+            1 => [$membership1, $membership2],
+            2 => [$membership3],
+            3 => []
+        ];
+        $this->membershipRepository->method('findByContactIds')
+            ->with($contactIds)
+            ->willReturn($membershipsByContactId);
+            
+        // Still need to configure getResult for backward compatibility
         $this->query->method('getResult')->willReturn($memberships);
         
         $this->groupRepository->method('findByIds')
@@ -149,6 +160,10 @@ class ContactGroupDataLoaderTest extends TestCase
         $contactIds = [5, 6];
         
         // Configure the mock to return empty results
+        $this->membershipRepository->method('findByContactIds')
+            ->with($contactIds)
+            ->willReturn([5 => [], 6 => []]);
+            
         $this->query->method('getResult')->willReturn([]);
         
         $results = $this->dataLoader->batchLoadContactGroups($contactIds);
@@ -164,7 +179,8 @@ class ContactGroupDataLoaderTest extends TestCase
         $contactIds = [1, 2];
         
         // Configure the mock to throw an exception
-        $this->query->method('getResult')
+        $this->membershipRepository->method('findByContactIds')
+            ->with($contactIds)
             ->willThrowException(new \Exception('Database error'));
         
         $results = $this->dataLoader->batchLoadContactGroups($contactIds);

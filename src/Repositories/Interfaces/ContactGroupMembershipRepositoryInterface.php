@@ -11,6 +11,14 @@ use Exception;
 interface ContactGroupMembershipRepositoryInterface extends DoctrineRepositoryInterface
 {
     /**
+     * Find memberships by multiple contact IDs in a single query (optimized batch loading)
+     * 
+     * @param array $contactIds Array of contact IDs
+     * @return array The memberships grouped by contact ID
+     */
+    public function findByContactIds(array $contactIds): array;
+    
+    /**
      * Find memberships by contact ID
      * 
      * @param int $contactId The contact ID

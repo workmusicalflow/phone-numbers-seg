@@ -69,6 +69,14 @@ return [
         );
     }),
 
+    // GraphQL Context Factory
+    \App\GraphQL\Context\GraphQLContextFactory::class => factory(function (Container $container) {
+        return new \App\GraphQL\Context\GraphQLContextFactory(
+            $container,
+            $container->get(\App\Services\Interfaces\AuthServiceInterface::class)
+        );
+    }),
+
     // GraphQL Controllers (If used directly, otherwise resolvers handle logic)
     // Example: (Adjust based on actual usage)
     // \App\GraphQL\Controllers\AdminContactController::class => factory(function (Container $container) {

@@ -531,8 +531,7 @@ class ContactResolver
     public function resolveContactGroups(array $contact, array $args, $context): array
     {
         $contactId = (int)($contact['id'] ?? 0);
-        $this->logger->debug('Resolving Contact.groups field');
-        $this->logger->debug('Executing ContactResolver::resolveContactGroups for contact ID: ' . $contactId);
+        $this->logger->debug('Resolving Contact.groups field for contact ID: ' . $contactId);
 
         if ($contactId <= 0) {
             $this->logger->warning('Invalid contact ID in resolveContactGroups.');
@@ -540,6 +539,23 @@ class ContactResolver
         }
 
         try {
+            // Get the context-scoped DataLoader
+            if (isset($context) && method_exists($context, 'getDataLoader')) {
+                // Context is a GraphQLContext object
+                $dataLoader = $context->getDataLoader('contactGroups');
+                if ($dataLoader) {
+                    $this->logger->debug('Using context-scoped ContactGroupDataLoader for contact ID: ' . $contactId);
+                    
+                    // Store this request in a RequestScoped property for batched execution
+                    // The actual loading will be triggered at the end of the request cycle
+                    // when all Contact.groups fields have been collected
+                    return $dataLoader->load($contactId);
+                }
+            }
+
+            // Fallback to instance DataLoader if context-scoped one is not available
+            $this->logger->debug('Using instance ContactGroupDataLoader for contact ID: ' . $contactId);
+            
             // --- Authentication/User Context Handling (Using AuthService) ---
             $currentUser = $this->authService->getCurrentUser();
             if (!$currentUser) {
@@ -549,14 +565,14 @@ class ContactResolver
             $userId = $currentUser->getId();
             // --- End Authentication Handling ---
 
-            // Set the user ID on the DataLoader (for security filtering)
-            $this->contactGroupDataLoader->setUserId($userId);
+            // Set the user ID if not already set
+            if ($this->contactGroupDataLoader->getUserId() !== $userId) {
+                $this->contactGroupDataLoader->setUserId($userId);
+                $this->logger->debug('Set userId ' . $userId . ' on instance ContactGroupDataLoader');
+            }
 
             // Use the DataLoader to load the groups
-            $groups = $this->contactGroupDataLoader->load($contactId);
-            
-            // The DataLoader already handled batching, formatting and security checks
-            return $groups;
+            return $this->contactGroupDataLoader->load($contactId);
             
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::resolveContactGroups: ' . $e->getMessage(), ['exception' => $e]);

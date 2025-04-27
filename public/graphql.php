@@ -152,6 +152,11 @@ try {
     $logger = $container->get(LoggerInterface::class);
     $logger->info('GraphQL endpoint request received.');
 
+    // Create GraphQL context using the factory
+    $contextFactory = $container->get(\App\GraphQL\Context\GraphQLContextFactory::class);
+    $graphQLContext = $contextFactory->create();
+    $logger->info('GraphQL context created.');
+
     // Load schema from file
     $schemaString = file_get_contents(__DIR__ . '/../src/GraphQL/schema.graphql');
     if ($schemaString === false) {
@@ -175,12 +180,20 @@ try {
         $authResolver,
         $contactGroupResolver,
         $logger,
-        $container
+        $container,
+        $graphQLContext // Add the GraphQL context
     ) {
         $fieldName = $info->fieldName;
         $parentTypeName = $info->parentType->name;
 
         $logger->debug("Attempting to resolve field: {$parentTypeName}.{$fieldName}");
+        
+        // Always use our GraphQLContext for consistent access to DataLoaders
+        // If $context is not already our GraphQLContext, use the one we created
+        if (!($context instanceof \App\GraphQL\Context\GraphQLContext)) {
+            $context = $graphQLContext;
+            $logger->debug("Using global GraphQLContext for field: {$parentTypeName}.{$fieldName}");
+        }
 
         try { // Add try-catch within the resolver for more granular error logging
             // Handle top-level Query fields
@@ -293,6 +306,80 @@ try {
             // Handle nested field resolvers
             if ($parentTypeName === 'Contact' && $fieldName === 'groups') {
                 $logger->debug("Resolving Contact.groups field");
+                
+                // Capture all contact IDs for batch processing
+                static $isFirstContact = true;
+                static $allContactIds = [];
+                static $contactGroupsCache = [];
+                static $batchProcessed = false;
+                
+                $contactId = (int)($source['id'] ?? 0);
+                if ($contactId <= 0) {
+                    return [];
+                }
+                
+                // If we've already processed contacts in batch and have this result cached
+                if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
+                    $logger->debug("Returning cached groups for contact ID: $contactId from batch");
+                    return $contactGroupsCache[$contactId];
+                }
+                
+                // For the first contact, get ALL contacts and process them
+                if ($isFirstContact) {
+                    $isFirstContact = false;
+                    
+                    // Get all contact IDs from the source data
+                    if (isset($info) && isset($info->operation) && isset($info->operation->selectionSet)) {
+                        $selections = $info->operation->selectionSet->selections;
+                        foreach ($selections as $selection) {
+                            if ($selection->name->value === 'contacts' && isset($selection->selectionSet)) {
+                                // Find the 'contacts' field and extract all contact IDs
+                                $rootValue = $info->path->key;
+                                if ($rootValue && is_array($rootValue) && isset($rootValue['contacts'])) {
+                                    $contacts = $rootValue['contacts'];
+                                    foreach ($contacts as $contact) {
+                                        if (isset($contact['id'])) {
+                                            $allContactIds[] = (int)$contact['id'];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If we couldn't get all contacts, at least add this one
+                    if (empty($allContactIds)) {
+                        $allContactIds[] = $contactId;
+                    }
+                    
+                    $uniqueContactIds = array_values(array_unique($allContactIds));
+                    $logger->info("SUPER BATCH OPTIMIZATION: Pre-loading ALL " . count($uniqueContactIds) . " contacts' groups in one batch");
+                    
+                    // Get the context-scoped DataLoader
+                    if (isset($context) && method_exists($context, 'getDataLoader')) {
+                        $dataLoader = $context->getDataLoader('contactGroups');
+                        if ($dataLoader) {
+                            // Load all contact groups at once
+                            $results = $dataLoader->loadMany($uniqueContactIds);
+                            $batchProcessed = true;
+                            
+                            // Map results to contact IDs
+                            foreach ($uniqueContactIds as $index => $cId) {
+                                $contactGroupsCache[$cId] = $results[$index] ?? [];
+                            }
+                        }
+                    }
+                }
+                
+                // Always collect this contact ID for potential future batching
+                $allContactIds[] = $contactId;
+                
+                // If we have already processed in batch, return from cache
+                if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
+                    return $contactGroupsCache[$contactId];
+                }
+                
+                // If not batched yet, process normally
                 return $contactResolver->resolveContactGroups($source, $args, $context);
             }
 
@@ -313,17 +400,34 @@ try {
     };
     // --- End Field Resolver Mapping ---
 
-    // Execute the query using the custom field resolver
+    // Execute the query using the custom field resolver and context
     $result = GraphQL::executeQuery(
         $schema,
         $input['query'] ?? '',
         null, // rootValue
-        null, // context
+        $graphQLContext, // Use our GraphQL context
         $input['variables'] ?? [],
         null, // operationName
         $fieldResolver // Use the custom field resolver
     );
-    $logger->info('GraphQL query executed.');
+    $logger->info('GraphQL query executed with context.');
+
+    // Ensure any pending DataLoader batches are dispatched
+    if (isset($graphQLContext) && method_exists($graphQLContext, 'getDataLoader')) {
+        // Dispatch ContactGroups DataLoader
+        $contactGroupsLoader = $graphQLContext->getDataLoader('contactGroups');
+        if ($contactGroupsLoader && method_exists($contactGroupsLoader, 'dispatchQueue')) {
+            $contactGroupsLoader->dispatchQueue();
+            $logger->debug('Final ContactGroups DataLoader batch dispatched');
+        }
+        
+        // Dispatch SMSHistory DataLoader
+        $smsHistoryLoader = $graphQLContext->getDataLoader('smsHistory');
+        if ($smsHistoryLoader && method_exists($smsHistoryLoader, 'dispatchQueue')) {
+            $smsHistoryLoader->dispatchQueue();
+            $logger->debug('Final SMSHistory DataLoader batch dispatched');
+        }
+    }
 
     // Return the result
     header('Content-Type: application/json');

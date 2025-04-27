@@ -58,7 +58,7 @@ class ContactGroupDataLoader extends DataLoader
         $this->formatter = $formatter;
         $this->logger = $logger;
 
-        parent::__construct([$this, 'batchLoadContactGroups']);
+        parent::__construct([$this, 'batchLoadContactGroups'], $logger);
     }
 
     /**
@@ -71,6 +71,16 @@ class ContactGroupDataLoader extends DataLoader
     {
         $this->userId = $userId;
         return $this;
+    }
+    
+    /**
+     * Get the current user ID
+     * 
+     * @return int|null The user ID
+     */
+    public function getUserId(): ?int
+    {
+        return $this->userId;
     }
 
     /**
@@ -85,15 +95,54 @@ class ContactGroupDataLoader extends DataLoader
             return [];
         }
 
-        $this->logger->info('BatchLoadContactGroups for ' . count($contactIds) . ' contacts');
+        // Use a static variable to collect all contact IDs that are processed
+        // This allows us to potentially use a single query for all contacts
+        static $processedContactIds = [];
+        static $batchResults = [];
+        
+        // Check if we've already processed a batch that includes these contacts
+        $allAlreadyProcessed = true;
+        foreach ($contactIds as $id) {
+            if (!isset($batchResults[$id])) {
+                $allAlreadyProcessed = false;
+                break;
+            }
+        }
+        
+        if ($allAlreadyProcessed) {
+            $this->logger->info('CACHE HIT: All ' . count($contactIds) . ' contact IDs already batched and cached');
+            $results = [];
+            foreach ($contactIds as $id) {
+                $results[] = $batchResults[$id];
+            }
+            return $results;
+        }
+        
+        // Combine with previously processed IDs
+        $newContactIds = array_diff($contactIds, $processedContactIds);
+        if (!empty($newContactIds)) {
+            $processedContactIds = array_merge($processedContactIds, $newContactIds);
+        }
+        
+        // Deduplicate contact IDs (in case the same ID was requested multiple times)
+        $uniqueContactIds = array_values(array_unique($contactIds));
+        
+        // If we're batching a larger number of contacts, log this as a performance win
+        if (count($uniqueContactIds) > 1) {
+            $this->logger->info('BATCH OPTIMIZATION: BatchLoadContactGroups for ' . count($uniqueContactIds) . 
+                                 ' contacts in a single batch (requested: ' . count($contactIds) . ')');
+        } else {
+            $this->logger->info('BatchLoadContactGroups for ' . count($uniqueContactIds) . ' contacts');
+        }
 
         try {
-            // Step 1: Get all membership records for all contacts in a single query
-            $memberships = $this->fetchMembershipsForContacts($contactIds);
+            // Step 1: Get all membership records for all contacts in a single optimized query
+            $memberships = $this->fetchMembershipsForContacts($uniqueContactIds);
             
             if (empty($memberships)) {
-                $this->logger->info('No memberships found for contacts: ' . implode(', ', $contactIds));
-                return array_fill(0, count($contactIds), []);
+                $this->logger->info('No memberships found for contacts: ' . implode(', ', $uniqueContactIds));
+                // Map results back to original contact IDs order
+                return array_map(function() { return []; }, array_flip(array_flip($contactIds)));
             }
 
             // Step 2: Extract the unique group IDs from all memberships
@@ -101,7 +150,7 @@ class ContactGroupDataLoader extends DataLoader
             
             if (empty($groupIds)) {
                 $this->logger->info('No group IDs extracted from memberships');
-                return array_fill(0, count($contactIds), []);
+                return array_map(function() { return []; }, array_flip(array_flip($contactIds)));
             }
 
             // Step 3: Fetch all required group entities in a single query
@@ -109,17 +158,30 @@ class ContactGroupDataLoader extends DataLoader
             
             if (empty($groups)) {
                 $this->logger->info('No groups found for IDs: ' . implode(', ', $groupIds));
-                return array_fill(0, count($contactIds), []);
+                return array_map(function() { return []; }, array_flip(array_flip($contactIds)));
             }
 
             // Step 4: Create a map of group ID to formatted group for quick lookup
             $groupMap = $this->createGroupMap($groups);
 
             // Step 5: Organize results by contact ID
-            $results = $this->organizeResultsByContactId($contactIds, $memberships, $groupMap);
+            $uniqueResults = $this->organizeResultsByContactId($uniqueContactIds, $memberships, $groupMap);
+            
+            // Store in static cache for future requests
+            foreach ($uniqueContactIds as $index => $contactId) {
+                $batchResults[$contactId] = $uniqueResults[$index] ?? [];
+            }
+            
+            // Map unique results back to original contact IDs order
+            $finalResults = [];
+            foreach ($contactIds as $index => $contactId) {
+                $position = array_search($contactId, $uniqueContactIds);
+                $finalResults[$index] = $position !== false ? $uniqueResults[$position] : [];
+            }
 
-            $this->logger->info('Successfully loaded groups for ' . count($contactIds) . ' contacts');
-            return $results;
+            $this->logger->info('Successfully batch-loaded groups for ' . count($uniqueContactIds) . 
+                               ' unique contacts in a single query');
+            return $finalResults;
 
         } catch (\Exception $e) {
             $this->logger->error('Error in ContactGroupDataLoader::batchLoadContactGroups: ' . $e->getMessage(), [
@@ -128,36 +190,42 @@ class ContactGroupDataLoader extends DataLoader
             ]);
             
             // Return empty arrays in case of error
-            return array_fill(0, count($contactIds), []);
+            return array_map(function() { return []; }, array_flip(array_flip($contactIds)));
         }
     }
 
     /**
-     * Fetch memberships for contacts
+     * Fetch memberships for contacts using the optimized batch method
      * 
      * @param array $contactIds The contact IDs
-     * @return array The memberships
+     * @return array The memberships grouped by contact ID
      */
     private function fetchMembershipsForContacts(array $contactIds): array
     {
-        // Instead of directly accessing the entity manager, use repository methods
-        // that are available on the repository interface
         if (empty($contactIds)) {
             return [];
         }
 
-        // Create criteria for IN query
-        $memberships = [];
-        foreach ($contactIds as $contactId) {
-            $contactMemberships = $this->membershipRepository->findByContactId($contactId);
+        // Use the optimized batch method to fetch all memberships in a single query
+        $membershipsByContactId = $this->membershipRepository->findByContactIds($contactIds);
+        
+        // Count total memberships for logging
+        $totalMemberships = 0;
+        foreach ($membershipsByContactId as $contactMemberships) {
+            $totalMemberships += count($contactMemberships);
+        }
+        
+        $this->logger->info('Batch-fetched ' . $totalMemberships . ' memberships for ' . count($contactIds) . ' contacts in a single query');
+        
+        // Return flat array of all memberships for backward compatibility with the rest of the method
+        $allMemberships = [];
+        foreach ($membershipsByContactId as $contactMemberships) {
             foreach ($contactMemberships as $membership) {
-                $memberships[] = $membership;
+                $allMemberships[] = $membership;
             }
         }
         
-        $this->logger->info('Fetched ' . count($memberships) . ' memberships for ' . count($contactIds) . ' contacts');
-        
-        return $memberships;
+        return $allMemberships;
     }
 
     /**

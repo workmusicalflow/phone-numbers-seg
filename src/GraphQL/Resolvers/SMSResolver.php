@@ -41,6 +41,7 @@ class SMSResolver
     /**
      * Resolver for the 'smsHistory' query.
      * Handles filtering by userId, status, search term (phone number), and segmentId.
+     * Uses DataLoader for optimized batching of similar queries.
      */
     public function resolveSmsHistory(array $args, $context): array
     {
@@ -93,10 +94,26 @@ class SMSResolver
             if ($segmentId !== null) {
                 $criteria['segmentId'] = $segmentId;
             }
+            
+            // Add pagination to criteria so it's part of the cache key
+            $criteria['_limit'] = $limit;
+            $criteria['_offset'] = $offset;
+            
             $this->logger->debug('Constructed criteria for smsHistory query', ['criteria' => $criteria]);
 
-            // Call a new repository method that handles multiple criteria
-            // Assuming findByCriteria exists or will be created in the repository
+            // Use DataLoader if available in the context
+            if (isset($context) && method_exists($context, 'getDataLoader')) {
+                $dataLoader = $context->getDataLoader('smsHistory');
+                if ($dataLoader) {
+                    $this->logger->debug('Using context-scoped SMSHistoryDataLoader for batch loading');
+                    
+                    // Load using DataLoader for efficient batching
+                    return $dataLoader->load($criteria);
+                }
+            }
+            
+            // Fallback to direct repository call if DataLoader is not available
+            $this->logger->debug('No DataLoader found, using direct repository call');
             $history = $this->smsHistoryRepository->findByCriteria($criteria, $limit, $offset);
             $this->logger->info('Fetched ' . count($history) . ' SMS history records based on criteria.');
 

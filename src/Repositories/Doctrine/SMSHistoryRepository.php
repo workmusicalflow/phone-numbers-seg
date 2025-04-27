@@ -474,17 +474,33 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                     $queryBuilder->andWhere('s.userId = :' . $paramName)
                         ->setParameter($paramName, $value);
                     break;
+                case 'userIds': // Added support for multiple user IDs
+                    $queryBuilder->andWhere('s.userId IN (:' . $paramName . ')')
+                        ->setParameter($paramName, $value);
+                    break;
                 case 'status':
                     $queryBuilder->andWhere('s.status = :' . $paramName)
+                        ->setParameter($paramName, $value);
+                    break;
+                case 'statuses': // Added support for multiple statuses
+                    $queryBuilder->andWhere('s.status IN (:' . $paramName . ')')
                         ->setParameter($paramName, $value);
                     break;
                 case 'segmentId':
                     $queryBuilder->andWhere('s.segmentId = :' . $paramName)
                         ->setParameter($paramName, $value);
                     break;
+                case 'segmentIds': // Added support for multiple segment IDs
+                    $queryBuilder->andWhere('s.segmentId IN (:' . $paramName . ')')
+                        ->setParameter($paramName, $value);
+                    break;
                 case 'search': // Assuming search targets the phone number
                     $queryBuilder->andWhere('s.phoneNumber LIKE :' . $paramName)
                         ->setParameter($paramName, '%' . $value . '%');
+                    break;
+                case 'phoneNumbers': // Added support for multiple phone numbers
+                    $queryBuilder->andWhere('s.phoneNumber IN (:' . $paramName . ')')
+                        ->setParameter($paramName, $value);
                     break;
                     // Add more cases here if other criteria are needed in the future
             }
@@ -501,7 +517,43 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
             $queryBuilder->setFirstResult($offset);
         }
 
-        return $queryBuilder->getQuery()->getResult();
+        // Try to add an index hint if the database supports it
+        try {
+            $connection = $this->getEntityManager()->getConnection();
+            $driver = $connection->getDriver();
+            $driverClass = get_class($driver);
+            
+            // Check if we're using MySQL 
+            if (strpos($driverClass, 'MySQL') !== false || strpos($driverClass, 'pdo_mysql') !== false) {
+                // Identify the most selective index based on the criteria
+                if (isset($criteria['userId'])) {
+                    // If filtering by userId, use the userId index
+                    $queryBuilder->from(SMSHistory::class, 's', 'USE INDEX (idx_sms_history_user_id)');
+                } else if (isset($criteria['segmentId'])) {
+                    // If filtering by segmentId, use the segmentId index
+                    $queryBuilder->from(SMSHistory::class, 's', 'USE INDEX (idx_sms_history_segment_id)');
+                } else if (isset($criteria['phoneNumber']) || isset($criteria['search'])) {
+                    // If searching by phone number, use the phoneNumber index
+                    $queryBuilder->from(SMSHistory::class, 's', 'USE INDEX (idx_sms_history_phone_number)');
+                }
+            }
+        } catch (\Exception $e) {
+            // If index hint fails, just continue without it
+            // This ensures compatibility with different database drivers
+        }
+
+        // Cache the query for optimized performance
+        static $queryCache = [];
+        $cacheKey = md5($queryBuilder->getQuery()->getSQL() . json_encode($queryBuilder->getParameters()));
+        
+        if (isset($queryCache[$cacheKey])) {
+            return $queryCache[$cacheKey];
+        }
+        
+        $result = $queryBuilder->getQuery()->getResult();
+        $queryCache[$cacheKey] = $result;
+        
+        return $result;
     }
 
     /**
