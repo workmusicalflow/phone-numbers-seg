@@ -17,7 +17,16 @@
         <!-- Group header -->
         <div class="row items-center q-mb-md">
           <div class="col">
-            <div class="text-h5">{{ store.currentGroup.name }}</div>
+            <div class="text-h5">
+              {{ store.currentGroup.name }}
+              <contact-count-badge 
+                :count="store.currentGroup.contactCount" 
+                color="primary" 
+                icon="contacts"
+                :tooltip-text="`${store.currentGroup.contactCount} contact${store.currentGroup.contactCount !== 1 ? 's' : ''} dans ce groupe`"
+                class="q-ml-sm"
+              />
+            </div>
             <div v-if="store.currentGroup.description" class="text-subtitle2">
               {{ store.currentGroup.description }}
             </div>
@@ -47,7 +56,15 @@
         <!-- Contacts in group section -->
         <q-card flat bordered>
           <q-card-section class="row items-center">
-            <div class="text-h6">Contacts dans ce groupe</div>
+            <div class="text-h6">
+              Contacts dans ce groupe
+              <contact-count-badge 
+                :count="store.totalContactsInGroup" 
+                color="secondary" 
+                icon="people"
+                class="q-ml-sm"
+              />
+            </div>
             <q-space />
             <q-btn
               color="primary"
@@ -132,6 +149,7 @@ import { useQuasar } from 'quasar';
 import { useContactGroupStore } from '@/stores/contactGroupStore';
 import ContactGroupFormDialog from './ContactGroupFormDialog.vue';
 import AddContactsToGroupDialog from './AddContactsToGroupDialog.vue';
+import ContactCountBadge from '../common/ContactCountBadge.vue';
 import type { Contact } from '@/types/contact';
 
 const props = defineProps<{

@@ -38,7 +38,13 @@
           <q-item-label caption v-if="group.description">{{ group.description }}</q-item-label>
         </q-item-section>
         <q-item-section side>
-           <q-badge :label="group.contactCount" color="grey-6" />
+          <contact-count-badge 
+            :count="group.contactCount" 
+            color="primary" 
+            icon="contacts"
+            :tooltip-text="`${group.contactCount} contact${group.contactCount !== 1 ? 's' : ''} dans ce groupe`"
+            :compact="$q.screen.lt.md"
+          />
         </q-item-section>
         <q-item-section side>
           <div class="row items-center">
@@ -95,6 +101,7 @@ import { ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useContactGroupStore } from '@/stores/contactGroupStore';
 import ContactGroupFormDialog from './ContactGroupFormDialog.vue';
+import ContactCountBadge from '../common/ContactCountBadge.vue';
 import type { ContactGroup } from '@/types/contactGroup';
 
 const $q = useQuasar();
