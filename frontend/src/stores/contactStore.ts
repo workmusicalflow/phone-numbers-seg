@@ -289,6 +289,12 @@ export const useContactStore = defineStore('contact', () => {
         fetchPolicy: 'network-only', // Ensure fresh data
       });
 
+      // Check if response data and contacts property exists
+      if (!response.data || !response.data.contacts) {
+        console.error('Invalid GraphQL response format:', response);
+        throw new Error('La réponse du serveur ne contient pas les données attendues');
+      }
+      
       // Transformer les contacts pour correspondre à l'interface Contact
       contacts.value = response.data.contacts.map((contact: any): Contact => {
         // Map groups directly if they are fetched
@@ -330,8 +336,25 @@ export const useContactStore = defineStore('contact', () => {
 
     } catch (err: any) {
       const action = searchTerm.value || currentGroupId.value ? 'du filtrage' : 'des contacts';
+      
+      // Enhanced error logging with more details
       console.error(`Erreur lors de la récupération ${action}:`, err);
-      error.value = err.message || `Erreur lors de la récupération ${action}`;
+      
+      // Check for GraphQL errors
+      if (err.graphQLErrors && err.graphQLErrors.length > 0) {
+        console.error('GraphQL Errors:', err.graphQLErrors);
+        error.value = `Erreur GraphQL: ${err.graphQLErrors.map((e: any) => e.message).join(', ')}`;
+      } 
+      // Check for network errors
+      else if (err.networkError) {
+        console.error('Network Error:', err.networkError);
+        error.value = 'Erreur de réseau. Veuillez vérifier votre connexion.';
+      } 
+      // Default error handling
+      else {
+        error.value = err.message || `Erreur lors de la récupération ${action}`;
+      }
+      
       contacts.value = []; // Clear contacts on error
       totalCount.value = 0; // Reset count on error
     } finally {
@@ -344,6 +367,8 @@ export const useContactStore = defineStore('contact', () => {
     error.value = null;
     
     try {
+      console.log('Creating contact with data:', contactData);
+      
       const response = await apolloClient.mutate({
         mutation: CREATE_CONTACT,
         variables: {
@@ -354,6 +379,22 @@ export const useContactStore = defineStore('contact', () => {
           groupIds: contactData.groups // Pass group IDs
         }
       });
+      
+      console.log('GraphQL response:', response);
+      
+      // Check for GraphQL errors
+      if (response.errors && response.errors.length > 0) {
+        const errorMessages = response.errors.map((e: any) => e.message).join(', ');
+        console.error('GraphQL errors:', response.errors);
+        error.value = `Erreur lors de la création du contact: ${errorMessages}`;
+        throw new Error(error.value);
+      }
+
+      if (!response.data || !response.data.createContact) {
+        console.error('Invalid response format:', response);
+        error.value = 'Réponse invalide du serveur';
+        throw new Error(error.value);
+      }
 
       const newContact = response.data.createContact;
       // Use groups returned by the mutation
@@ -396,7 +437,20 @@ export const useContactStore = defineStore('contact', () => {
       return formattedContact; // Return the newly created contact data
     } catch (err: any) {
       console.error('Erreur lors de la création du contact:', err);
-      error.value = err.message || 'Erreur lors de la création du contact';
+      // Check for network errors
+      if (err.networkError) {
+        console.error('Network error details:', err.networkError);
+        error.value = `Erreur réseau: ${err.networkError.message || 'Impossible de se connecter au serveur'}`;
+      } 
+      // Check for GraphQL errors (already handled above, but just in case)
+      else if (err.graphQLErrors && err.graphQLErrors.length > 0) {
+        console.error('GraphQL errors:', err.graphQLErrors);
+        error.value = `Erreur GraphQL: ${err.graphQLErrors.map((e: any) => e.message).join(', ')}`;
+      } 
+      // Generic error fallback
+      else {
+        error.value = err.message || 'Erreur lors de la création du contact';
+      }
       throw err;
     } finally {
       loading.value = false;

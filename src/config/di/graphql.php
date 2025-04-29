@@ -69,6 +69,14 @@ return [
             $container->get(Psr\Log\LoggerInterface::class)
         );
     }),
+    
+    \App\GraphQL\Resolvers\ContactSMSResolver::class => factory(function (Container $container) {
+        return new \App\GraphQL\Resolvers\ContactSMSResolver(
+            $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class),
+            $container->get(\App\Services\Interfaces\PhoneNumberNormalizerInterface::class)
+        );
+    }),
 
     // GraphQL Context Factory
     \App\GraphQL\Context\GraphQLContextFactory::class => factory(function (Container $container) {

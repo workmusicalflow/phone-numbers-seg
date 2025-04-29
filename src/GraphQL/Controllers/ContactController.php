@@ -29,9 +29,20 @@ class ContactController
      * @Logged
      * @Right("ROLE_USER")
      */
-    public function contacts(?int $limit = 100, ?int $offset = 0, User $user): array
+    public function contacts(?int $limit = 100, ?int $offset = 0, ?string $search = null, ?int $groupId = null, #[InjectUser] User $user): array
     {
         try {
+            // If groupId is provided, return contacts in group
+            if ($groupId !== null) {
+                return $this->contactRepository->findByUserIdAndGroupId($user->getId(), $groupId, $limit, $offset);
+            }
+            
+            // If search is provided, filter by search term
+            if ($search !== null && $search !== '') {
+                return $this->contactRepository->searchByUserId($search, $user->getId(), $limit, $offset);
+            }
+            
+            // Default: return all user contacts
             return $this->contactRepository->findByUserId($user->getId(), $limit, $offset);
         } catch (Exception $e) {
             $this->logger->error('Error fetching contacts: ' . $e->getMessage());
@@ -45,7 +56,7 @@ class ContactController
      * @Right("ROLE_USER")
      * @return Contact|null
      */
-    public function contact(int $id, User $user): ?Contact // Return type hint is Entity
+    public function contact(int $id, #[InjectUser] User $user): ?Contact // Return type hint is Entity
     {
         try {
             $contact = $this->contactRepository->findById($id); // findById is available via DoctrineRepositoryInterface
@@ -67,7 +78,7 @@ class ContactController
      * @Logged
      * @Right("ROLE_USER")
      */
-    public function searchContacts(string $query, ?int $limit = 100, ?int $offset = 0, User $user): array
+    public function searchContacts(string $query, ?int $limit = 100, ?int $offset = 0, #[InjectUser] User $user): array
     {
         try {
             return $this->contactRepository->searchByUserId($query, $user->getId(), $limit, $offset);
@@ -81,15 +92,16 @@ class ContactController
      * @Mutation
      * @Logged
      * @Right("ROLE_USER")
-     * @return Contact|null
+     * @return Contact
      */
     public function createContact(
         string $name,
         string $phoneNumber,
         ?string $email = null,
         ?string $notes = null,
-        User $user
-    ): ?Contact { // Return type hint is Entity
+        ?array $groupIds = null,
+        #[InjectUser] User $user
+    ): Contact {
         try {
             // Use the Entity constructor or setters
             $contact = new Contact();
@@ -101,14 +113,24 @@ class ContactController
             // createdAt and updatedAt are handled by Doctrine Lifecycle Callbacks if configured, or set manually
 
             $this->contactRepository->save($contact); // Use save instead of create
+            
+            // Handle group assignments if provided
+            if ($groupIds && !empty($groupIds)) {
+                $this->contactRepository->assignContactToGroups($contact->getId(), $groupIds);
+            }
+            
             // Assuming save modifies the entity with the ID
             return $contact;
         } catch (Exception $e) {
-            $this->logger->error('Error creating contact: ' . $e->getMessage());
-            return null;
+            $this->logger->error('Error creating contact: ' . $e->getMessage(), [
+                'name' => $name,
+                'phoneNumber' => $phoneNumber,
+                'userId' => $user->getId(),
+                'exception' => $e
+            ]);
+            throw $e; // Re-throw to let GraphQL handle the error properly
         }
     }
-    // Removed stray lines: $name, $phoneNumber,
 
     /**
      * @Mutation
@@ -122,7 +144,8 @@ class ContactController
         string $phoneNumber,
         ?string $email = null,
         ?string $notes = null,
-        User $user
+        ?array $groupIds = null,
+        #[InjectUser] User $user
     ): ?Contact { // Return type hint is Entity
         try {
             // Récupérer le contact existant
@@ -142,6 +165,12 @@ class ContactController
             // updatedAt should be handled by Doctrine Lifecycle Callbacks if configured
 
             $this->contactRepository->save($existingContact); // Use save instead of update
+            
+            // Handle group assignments if provided
+            if ($groupIds !== null) {
+                $this->contactRepository->updateContactGroups($id, $groupIds);
+            }
+            
             return $existingContact;
         } catch (Exception $e) {
             $this->logger->error('Error updating contact: ' . $e->getMessage(), ['contactId' => $id]);
@@ -154,7 +183,7 @@ class ContactController
      * @Logged
      * @Right("ROLE_USER")
      */
-    public function deleteContact(int $id, User $user): bool
+    public function deleteContact(int $id, #[InjectUser] User $user): bool
     {
         try {
             // Récupérer le contact existant
@@ -200,6 +229,32 @@ class ContactController
         } catch (Exception $e) {
             $this->logger->error('Error fetching user contacts: ' . $e->getMessage());
             return [];
+        }
+    }
+    
+    /**
+     * @Query
+     * @Logged
+     * @Right("ROLE_USER")
+     */
+    public function contactsCount(?string $search = null, ?int $groupId = null, #[InjectUser] User $user): int
+    {
+        try {
+            // If groupId is provided, count contacts in group
+            if ($groupId !== null) {
+                return $this->contactRepository->countByUserIdAndGroupId($user->getId(), $groupId);
+            }
+            
+            // If search is provided, count filtered results
+            if ($search !== null && $search !== '') {
+                return $this->contactRepository->countSearchByUserId($search, $user->getId());
+            }
+            
+            // Default: count all user contacts
+            return $this->contactRepository->countByUserId($user->getId());
+        } catch (Exception $e) {
+            $this->logger->error('Error counting contacts: ' . $e->getMessage());
+            return 0;
         }
     }
 }

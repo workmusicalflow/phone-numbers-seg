@@ -4,15 +4,12 @@ namespace App\Entities;
 
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity
- * @ORM\Table(name="sms_queue", indexes={
- *     @ORM\Index(name="idx_sms_queue_status", columns={"status"}),
- *     @ORM\Index(name="idx_sms_queue_next_attempt", columns={"next_attempt_at"}),
- *     @ORM\Index(name="idx_sms_queue_user_id", columns={"user_id"}),
- *     @ORM\Index(name="idx_sms_queue_segment_id", columns={"segment_id"})
- * })
- */
+#[ORM\Entity]
+#[ORM\Table(name: 'sms_queue')]
+#[ORM\Index(name: 'idx_sms_queue_status', columns: ['status'])]
+#[ORM\Index(name: 'idx_sms_queue_next_attempt', columns: ['next_attempt_at'])]
+#[ORM\Index(name: 'idx_sms_queue_user_id', columns: ['user_id'])]
+#[ORM\Index(name: 'idx_sms_queue_segment_id', columns: ['segment_id'])]
 class SMSQueue
 {
     /**
@@ -31,86 +28,54 @@ class SMSQueue
     public const PRIORITY_NORMAL = 5;
     public const PRIORITY_LOW = 0;
 
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
     private $id;
 
-    /**
-     * @ORM\Column(type="string", length=255)
-     */
+    #[ORM\Column(type: 'string', length: 255)]
     private $phoneNumber;
 
-    /**
-     * @ORM\Column(type="text")
-     */
+    #[ORM\Column(type: 'text')]
     private $message;
 
-    /**
-     * @ORM\Column(name="user_id", type="integer", nullable=true)
-     */
+    #[ORM\Column(name: 'user_id', type: 'integer', nullable: true)]
     private $userId;
 
-    /**
-     * @ORM\Column(name="segment_id", type="integer", nullable=true)
-     */
+    #[ORM\Column(name: 'segment_id', type: 'integer', nullable: true)]
     private $segmentId;
 
-    /**
-     * @ORM\Column(type="string", length=20)
-     */
+    #[ORM\Column(type: 'string', length: 20)]
     private $status = self::STATUS_PENDING;
 
-    /**
-     * @ORM\Column(type="datetime")
-     */
+    #[ORM\Column(type: 'datetime')]
     private $createdAt;
 
-    /**
-     * @ORM\Column(name="last_attempt_at", type="datetime", nullable=true)
-     */
+    #[ORM\Column(name: 'last_attempt_at', type: 'datetime', nullable: true)]
     private $lastAttemptAt;
 
-    /**
-     * @ORM\Column(name="next_attempt_at", type="datetime", nullable=true)
-     */
+    #[ORM\Column(name: 'next_attempt_at', type: 'datetime', nullable: true)]
     private $nextAttemptAt;
 
-    /**
-     * @ORM\Column(type="integer")
-     */
+    #[ORM\Column(type: 'integer')]
     private $attempts = 0;
 
-    /**
-     * @ORM\Column(type="integer")
-     */
+    #[ORM\Column(type: 'integer')]
     private $priority = self::PRIORITY_NORMAL;
 
-    /**
-     * @ORM\Column(name="error_message", type="text", nullable=true)
-     */
+    #[ORM\Column(name: 'error_message', type: 'text', nullable: true)]
     private $errorMessage;
 
-    /**
-     * @ORM\Column(name="message_id", type="string", length=255, nullable=true)
-     */
+    #[ORM\Column(name: 'message_id', type: 'string', length: 255, nullable: true)]
     private $messageId;
 
-    /**
-     * @ORM\Column(name="sender_name", type="string", length=255, nullable=true)
-     */
+    #[ORM\Column(name: 'sender_name', type: 'string', length: 255, nullable: true)]
     private $senderName;
 
-    /**
-     * @ORM\Column(name="sender_address", type="string", length=255, nullable=true)
-     */
+    #[ORM\Column(name: 'sender_address', type: 'string', length: 255, nullable: true)]
     private $senderAddress;
 
-    /**
-     * @ORM\Column(name="batch_id", type="string", length=255, nullable=true)
-     */
+    #[ORM\Column(name: 'batch_id', type: 'string', length: 255, nullable: true)]
     private $batchId;
 
     /**

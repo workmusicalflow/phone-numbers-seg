@@ -548,7 +548,7 @@ class ContactResolver
                 $dataLoader = $context->getDataLoader('contactGroups');
                 if ($dataLoader) {
                     $this->logger->debug('Using context-scoped ContactGroupDataLoader for contact ID: ' . $contactId);
-                    
+
                     // Store this request in a RequestScoped property for batched execution
                     // The actual loading will be triggered at the end of the request cycle
                     // when all Contact.groups fields have been collected
@@ -558,7 +558,7 @@ class ContactResolver
 
             // Fallback to instance DataLoader if context-scoped one is not available
             $this->logger->debug('Using instance ContactGroupDataLoader for contact ID: ' . $contactId);
-            
+
             // --- Authentication/User Context Handling (Using AuthService) ---
             $currentUser = $this->authService->getCurrentUser();
             if (!$currentUser) {
@@ -576,7 +576,6 @@ class ContactResolver
 
             // Use the DataLoader to load the groups
             return $this->contactGroupDataLoader->load($contactId);
-            
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::resolveContactGroups: ' . $e->getMessage(), ['exception' => $e]);
             return []; // Return empty array on error for field resolver
@@ -688,7 +687,7 @@ class ContactResolver
             $limit = isset($args['limit']) ? (int)$args['limit'] : 100;
             $offset = isset($args['offset']) ? (int)$args['offset'] : 0;
             $smsHistory = $this->smsHistoryRepository->findByPhoneNumber($phoneNumber, $limit, $offset);
-            
+
             // Format the SMS history entries
             $result = [];
             foreach ($smsHistory as $sms) {
@@ -711,10 +710,12 @@ class ContactResolver
      */
     public function resolveSmsTotalCount(array $contact): int
     {
-        $phoneNumber = $contact['phoneNumber'] ?? '';
-        $this->logger->debug('Resolving Contact.smsTotalCount field for phone number: ' . $phoneNumber);
+        $phoneNumber = $contact['phoneNumber'] ?? null; // Use null coalescing to distinguish missing key
+        $contactId = $contact['id'] ?? 'unknown';
+        $this->logger->debug('Resolving Contact.smsTotalCount field for contact ID: ' . $contactId . ', Phone number: ' . ($phoneNumber ?? 'NULL'));
 
-        if (empty($phoneNumber)) {
+        if (empty($phoneNumber)) { // Handles null or empty string
+            $this->logger->info('Empty phone number for contact ID: ' . $contactId . ', returning 0');
             return 0;
         }
 
@@ -728,12 +729,23 @@ class ContactResolver
             // --- End Authentication Handling ---
 
             // Count all SMS sent to this phone number
-            $count = $this->smsHistoryRepository->countByPhoneNumber($phoneNumber);
-            $this->logger->debug('Counted ' . $count . ' total SMS for phone number ' . $phoneNumber);
+            $countResult = $this->smsHistoryRepository->countByPhoneNumber($phoneNumber);
+            
+            // Ensure the result is an integer
+            if ($countResult === null) {
+                $this->logger->warning('countByPhoneNumber returned NULL for ' . $phoneNumber);
+                return 0;
+            }
+            
+            $count = (int)$countResult;
+            $this->logger->info('Counted ' . $count . ' total SMS for phone number ' . $phoneNumber);
             return $count;
-        } catch (Exception $e) {
-            $this->logger->error('Error in ContactResolver::resolveSmsTotalCount: ' . $e->getMessage(), ['exception' => $e]);
-            return 0; // Return 0 on error for field resolver
+        } catch (\Throwable $t) { // Catch Throwable instead of just Exception
+            $this->logger->error('Error in ContactResolver::resolveSmsTotalCount for contact ID ' . $contactId . ': ' . $t->getMessage(), [
+                'exception_class' => get_class($t),
+                'trace' => $t->getTraceAsString()
+            ]);
+            return 0; // Return 0 on any error/throwable
         }
     }
 
@@ -831,17 +843,17 @@ class ContactResolver
 
             // Calculate the score based on SENT / Total ratio
             $total = $this->smsHistoryRepository->countByPhoneNumber($phoneNumber);
-            
+
             if ($total === 0) {
                 return 0.0; // Avoid division by zero if no SMS were sent
             }
-            
+
             $sent = $this->smsHistoryRepository->countByPhoneNumberAndStatus($phoneNumber, 'SENT');
-            
+
             // Calculate score as SENT / Total, rounded to two decimal places
             $score = round($sent / $total, 2);
             $this->logger->debug('Calculated SMS score ' . $score . ' for phone number ' . $phoneNumber . ' (SENT: ' . $sent . ', Total: ' . $total . ')');
-            
+
             return $score;
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::resolveSmsScore: ' . $e->getMessage(), ['exception' => $e]);

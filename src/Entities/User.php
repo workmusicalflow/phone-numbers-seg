@@ -32,7 +32,7 @@ class User
     #[Column(type: "string", length: 255, nullable: true)]
     private ?string $email = null;
 
-    #[Column(type: "integer")]
+    #[Column(name: "sms_credit", type: "integer")]
     private int $smsCredit = 10;
 
     #[Column(name: "sms_limit", type: "integer", nullable: true)]

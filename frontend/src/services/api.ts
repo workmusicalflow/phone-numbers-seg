@@ -48,6 +48,14 @@ const apolloClient = new ApolloClient({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
+  },
+  defaultOptions: {
+    mutate: {
+      errorPolicy: 'all' // Return both errors and data in response
+    },
+    query: {
+      errorPolicy: 'all' // Return both errors and data in response
+    }
   }
 });
 

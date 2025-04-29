@@ -55,6 +55,15 @@ class SMSHistory
     #[Column(name: "created_at", type: "datetime")]
     private \DateTime $createdAt;
 
+    #[Column(name: "sent_at", type: "datetime", nullable: true)]
+    private ?\DateTime $sentAt = null;
+
+    #[Column(name: "delivered_at", type: "datetime", nullable: true)]
+    private ?\DateTime $deliveredAt = null;
+
+    #[Column(name: "failed_at", type: "datetime", nullable: true)]
+    private ?\DateTime $failedAt = null;
+
     /**
      * Constructor
      */
@@ -328,6 +337,72 @@ class SMSHistory
     }
 
     /**
+     * Get the sent at date
+     * 
+     * @return \DateTime|null The sent at date
+     */
+    public function getSentAt(): ?\DateTime
+    {
+        return $this->sentAt;
+    }
+
+    /**
+     * Set the sent at date
+     * 
+     * @param \DateTime|null $sentAt The sent at date
+     * @return self
+     */
+    public function setSentAt(?\DateTime $sentAt): self
+    {
+        $this->sentAt = $sentAt;
+        return $this;
+    }
+
+    /**
+     * Get the delivered at date
+     * 
+     * @return \DateTime|null The delivered at date
+     */
+    public function getDeliveredAt(): ?\DateTime
+    {
+        return $this->deliveredAt;
+    }
+
+    /**
+     * Set the delivered at date
+     * 
+     * @param \DateTime|null $deliveredAt The delivered at date
+     * @return self
+     */
+    public function setDeliveredAt(?\DateTime $deliveredAt): self
+    {
+        $this->deliveredAt = $deliveredAt;
+        return $this;
+    }
+
+    /**
+     * Get the failed at date
+     * 
+     * @return \DateTime|null The failed at date
+     */
+    public function getFailedAt(): ?\DateTime
+    {
+        return $this->failedAt;
+    }
+
+    /**
+     * Set the failed at date
+     * 
+     * @param \DateTime|null $failedAt The failed at date
+     * @return self
+     */
+    public function setFailedAt(?\DateTime $failedAt): self
+    {
+        $this->failedAt = $failedAt;
+        return $this;
+    }
+
+    /**
      * Convert the entity to an array
      * 
      * @return array The entity as an array
@@ -346,7 +421,10 @@ class SMSHistory
             'senderName' => $this->senderName,
             'segmentId' => $this->segmentId,
             'userId' => $this->userId,
-            'createdAt' => $this->createdAt->format('Y-m-d H:i:s')
+            'createdAt' => $this->createdAt->format('Y-m-d H:i:s'),
+            'sentAt' => $this->sentAt ? $this->sentAt->format('Y-m-d H:i:s') : null,
+            'deliveredAt' => $this->deliveredAt ? $this->deliveredAt->format('Y-m-d H:i:s') : null,
+            'failedAt' => $this->failedAt ? $this->failedAt->format('Y-m-d H:i:s') : null
         ];
     }
 }

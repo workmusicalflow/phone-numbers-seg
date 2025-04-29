@@ -90,6 +90,9 @@ class GraphQLFormatterService implements GraphQLFormatterInterface
             'senderAddress' => $item->getSenderAddress(),
             'senderName' => $item->getSenderName(),
             'createdAt' => $item->getCreatedAt()->format('Y-m-d H:i:s'), // Format as string
+            'sentAt' => $item->getSentAt() ? $item->getSentAt()->format('Y-m-d H:i:s') : null,
+            'deliveredAt' => $item->getDeliveredAt() ? $item->getDeliveredAt()->format('Y-m-d H:i:s') : null,
+            'failedAt' => $item->getFailedAt() ? $item->getFailedAt()->format('Y-m-d H:i:s') : null,
             'userId' => $item->getUserId() // Include userId
         ];
 

@@ -253,6 +253,8 @@ async function saveContact(formData: ContactFormData) {
       notes: formData.notes || null
     };
 
+    console.log('Saving contact:', contactData);
+
     if (selectedContact.value) {
       // Mode édition
       await contactStore.updateContact(formData.id, contactData);
@@ -275,13 +277,26 @@ async function saveContact(formData: ContactFormData) {
     contactDialog.value = false;
     // Rafraîchir le nombre de contacts
     refreshContactsCount();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors de la sauvegarde du contact:', error);
+    
+    // Get the error message from the store if available
+    const errorMessage = contactStore.error || error.message || 'Erreur lors de la sauvegarde du contact';
+    
     $q.notify({
       color: 'negative',
-      message: 'Erreur lors de la sauvegarde du contact',
+      message: errorMessage,
       icon: 'error',
-      position: 'top'
+      position: 'top',
+      timeout: 5000, // Show message for longer
+      multiLine: true, // Allow for longer error messages
+      actions: [
+        { 
+          icon: 'close', 
+          color: 'white',
+          handler: () => { /* close */ } 
+        }
+      ]
     });
   } finally {
     saving.value = false;

@@ -103,6 +103,7 @@ use App\GraphQL\Resolvers\ContactResolver;
 use App\GraphQL\Resolvers\SMSResolver;
 use App\GraphQL\Resolvers\AuthResolver;
 use App\GraphQL\Resolvers\ContactGroupResolver;
+use App\GraphQL\Resolvers\ContactSMSResolver;
 use Psr\Log\LoggerInterface;
 use GraphQL\Error\DebugFlag;
 
@@ -170,6 +171,7 @@ try {
     $smsResolver = $container->get(SMSResolver::class);
     $authResolver = $container->get(AuthResolver::class);
     $contactGroupResolver = $container->get(ContactGroupResolver::class);
+    $contactSmsResolver = $container->get(ContactSMSResolver::class);
     $logger->info('Resolver instances obtained from DI container.');
 
     // --- Field Resolver Mapping ---
@@ -179,6 +181,7 @@ try {
         $smsResolver,
         $authResolver,
         $contactGroupResolver,
+        $contactSmsResolver,
         $logger,
         $container,
         $graphQLContext // Add the GraphQL context
@@ -304,83 +307,107 @@ try {
             }
 
             // Handle nested field resolvers
-            if ($parentTypeName === 'Contact' && $fieldName === 'groups') {
-                $logger->debug("Resolving Contact.groups field");
+            if ($parentTypeName === 'Contact') {
+                $logger->debug("Resolving Contact field: {$fieldName}");
                 
-                // Capture all contact IDs for batch processing
-                static $isFirstContact = true;
-                static $allContactIds = [];
-                static $contactGroupsCache = [];
-                static $batchProcessed = false;
-                
-                $contactId = (int)($source['id'] ?? 0);
-                if ($contactId <= 0) {
-                    return [];
-                }
-                
-                // If we've already processed contacts in batch and have this result cached
-                if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
-                    $logger->debug("Returning cached groups for contact ID: $contactId from batch");
-                    return $contactGroupsCache[$contactId];
-                }
-                
-                // For the first contact, get ALL contacts and process them
-                if ($isFirstContact) {
-                    $isFirstContact = false;
+                // Groups field handling
+                if ($fieldName === 'groups') {
+                    $logger->debug("Resolving Contact.groups field");
                     
-                    // Get all contact IDs from the source data
-                    if (isset($info) && isset($info->operation) && isset($info->operation->selectionSet)) {
-                        $selections = $info->operation->selectionSet->selections;
-                        foreach ($selections as $selection) {
-                            if ($selection->name->value === 'contacts' && isset($selection->selectionSet)) {
-                                // Find the 'contacts' field and extract all contact IDs
-                                $rootValue = $info->path->key;
-                                if ($rootValue && is_array($rootValue) && isset($rootValue['contacts'])) {
-                                    $contacts = $rootValue['contacts'];
-                                    foreach ($contacts as $contact) {
-                                        if (isset($contact['id'])) {
-                                            $allContactIds[] = (int)$contact['id'];
+                    // Capture all contact IDs for batch processing
+                    static $isFirstContact = true;
+                    static $allContactIds = [];
+                    static $contactGroupsCache = [];
+                    static $batchProcessed = false;
+                    
+                    $contactId = (int)($source['id'] ?? 0);
+                    if ($contactId <= 0) {
+                        return [];
+                    }
+                    
+                    // If we've already processed contacts in batch and have this result cached
+                    if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
+                        $logger->debug("Returning cached groups for contact ID: $contactId from batch");
+                        return $contactGroupsCache[$contactId];
+                    }
+                    
+                    // For the first contact, get ALL contacts and process them
+                    if ($isFirstContact) {
+                        $isFirstContact = false;
+                        
+                        // Get all contact IDs from the source data
+                        if (isset($info) && isset($info->operation) && isset($info->operation->selectionSet)) {
+                            $selections = $info->operation->selectionSet->selections;
+                            foreach ($selections as $selection) {
+                                if ($selection->name->value === 'contacts' && isset($selection->selectionSet)) {
+                                    // Find the 'contacts' field and extract all contact IDs
+                                    // Safely access path information with null coalescing operator
+                                    $rootValue = $info->path ?? [];
+                                    
+                                    // Debug info
+                                    $logger->debug('GraphQL path info: ' . json_encode($rootValue));
+                                    
+                                    // Check if we have a contacts field in the root value
+                                    if (isset($rootValue[0]) && $rootValue[0] === 'contacts' && isset($info->rootValue['contacts'])) {
+                                        $contacts = $info->rootValue['contacts'];
+                                        foreach ($contacts as $contact) {
+                                            if (isset($contact['id'])) {
+                                                $allContactIds[] = (int)$contact['id'];
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    
-                    // If we couldn't get all contacts, at least add this one
-                    if (empty($allContactIds)) {
-                        $allContactIds[] = $contactId;
-                    }
-                    
-                    $uniqueContactIds = array_values(array_unique($allContactIds));
-                    $logger->info("SUPER BATCH OPTIMIZATION: Pre-loading ALL " . count($uniqueContactIds) . " contacts' groups in one batch");
-                    
-                    // Get the context-scoped DataLoader
-                    if (isset($context) && method_exists($context, 'getDataLoader')) {
-                        $dataLoader = $context->getDataLoader('contactGroups');
-                        if ($dataLoader) {
-                            // Load all contact groups at once
-                            $results = $dataLoader->loadMany($uniqueContactIds);
-                            $batchProcessed = true;
-                            
-                            // Map results to contact IDs
-                            foreach ($uniqueContactIds as $index => $cId) {
-                                $contactGroupsCache[$cId] = $results[$index] ?? [];
+                        
+                        // If we couldn't get all contacts, at least add this one
+                        if (empty($allContactIds)) {
+                            $allContactIds[] = $contactId;
+                        }
+                        
+                        $uniqueContactIds = array_values(array_unique($allContactIds));
+                        $logger->info("SUPER BATCH OPTIMIZATION: Pre-loading ALL " . count($uniqueContactIds) . " contacts' groups in one batch");
+                        
+                        // Get the context-scoped DataLoader
+                        if (isset($context) && method_exists($context, 'getDataLoader')) {
+                            $dataLoader = $context->getDataLoader('contactGroups');
+                            if ($dataLoader) {
+                                // Load all contact groups at once
+                                $results = $dataLoader->loadMany($uniqueContactIds);
+                                $batchProcessed = true;
+                                
+                                // Map results to contact IDs
+                                foreach ($uniqueContactIds as $index => $cId) {
+                                    $contactGroupsCache[$cId] = $results[$index] ?? [];
+                                }
                             }
                         }
                     }
+                    
+                    // Always collect this contact ID for potential future batching
+                    $allContactIds[] = $contactId;
+                    
+                    // If we have already processed in batch, return from cache
+                    if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
+                        return $contactGroupsCache[$contactId];
+                    }
+                    
+                    // If not batched yet, process normally
+                    return $contactResolver->resolveContactGroups($source, $args, $context);
                 }
                 
-                // Always collect this contact ID for potential future batching
-                $allContactIds[] = $contactId;
-                
-                // If we have already processed in batch, return from cache
-                if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
-                    return $contactGroupsCache[$contactId];
+                // SMS fields - use our dedicated resolver
+                if ($fieldName === 'smsHistory') {
+                    return $contactSmsResolver->resolveSmsHistory($source, $args);
+                } else if ($fieldName === 'smsTotalCount') {
+                    return $contactSmsResolver->resolveSmsTotalCount($source);
+                } else if ($fieldName === 'smsSentCount') {
+                    return $contactSmsResolver->resolveSmsSentCount($source);
+                } else if ($fieldName === 'smsFailedCount') {
+                    return $contactSmsResolver->resolveSmsFailedCount($source);
+                } else if ($fieldName === 'smsScore') {
+                    return $contactSmsResolver->resolveSmsScore($source);
                 }
-                
-                // If not batched yet, process normally
-                return $contactResolver->resolveContactGroups($source, $args, $context);
             }
 
             // Fallback to default resolver

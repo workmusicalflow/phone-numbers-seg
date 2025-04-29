@@ -228,4 +228,10 @@ return [
     \App\Services\Formatters\BatchResultFormatter::class => factory(function () {
         return new \App\Services\Formatters\BatchResultFormatter();
     }),
+    
+    // Phone Number Normalization Service
+    \App\Services\PhoneNumberNormalizerService::class => factory(function () {
+        return new \App\Services\PhoneNumberNormalizerService();
+    }),
+    \App\Services\Interfaces\PhoneNumberNormalizerInterface::class => \DI\get(\App\Services\PhoneNumberNormalizerService::class),
 ];

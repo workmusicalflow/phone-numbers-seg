@@ -120,6 +120,9 @@ type SMSHistory {
   senderAddress: String
   senderName: String
   createdAt: String!
+  sentAt: String
+  deliveredAt: String
+  failedAt: String
   segment: SegmentInfo
   userId: ID
 }
@@ -173,6 +176,7 @@ type User {
   createdAt: String!
   updatedAt: String!
   isAdmin: Boolean!
+  apiKey: String
 }
 
 type DashboardStats {

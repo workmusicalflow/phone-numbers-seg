@@ -4,6 +4,7 @@ namespace App\Repositories\Doctrine;
 
 use App\Entities\SMSHistory;
 use App\Repositories\Interfaces\SMSHistoryRepositoryInterface;
+use App\Services\Interfaces\PhoneNumberNormalizerInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 
@@ -15,13 +16,22 @@ use Exception;
 class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositoryInterface
 {
     /**
+     * @var \App\Services\Interfaces\PhoneNumberNormalizerInterface
+     */
+    private $phoneNumberNormalizer;
+    
+    /**
      * Constructor
      * 
      * @param EntityManagerInterface $entityManager The entity manager
+     * @param PhoneNumberNormalizerInterface|null $phoneNumberNormalizer The phone number normalizer service
      */
-    public function __construct(EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        PhoneNumberNormalizerInterface $phoneNumberNormalizer = null
+    ) {
         parent::__construct($entityManager, SMSHistory::class);
+        $this->phoneNumberNormalizer = $phoneNumberNormalizer;
     }
 
     /**
@@ -111,36 +121,57 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
      */
     public function findByPhoneNumber(string $phoneNumber, int $limit = 100, int $offset = 0): array
     {
-        // Check if the number is in international or local format
-        $isInternational = strpos($phoneNumber, '+225') === 0;
-        $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
-
-        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        $queryBuilder->select('s')
-            ->from($this->getClassName(), 's')
-            ->orderBy('s.createdAt', 'DESC')
-            ->setMaxResults($limit)
-            ->setFirstResult($offset);
-
-        if ($isInternational) {
-            // International format: search for both international and local formats
-            $localNumber = $this->convertToLocalFormat($phoneNumber);
-            $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber')
-                ->setParameter('phoneNumber', $phoneNumber)
-                ->setParameter('localNumber', $localNumber);
-        } elseif ($isLocal) {
-            // Local format: search for both local and international formats
-            $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
-            $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber')
-                ->setParameter('phoneNumber', $phoneNumber)
-                ->setParameter('internationalNumber', $internationalNumber);
-        } else {
-            // Exact search
-            $queryBuilder->where('s.phoneNumber = :phoneNumber')
-                ->setParameter('phoneNumber', $phoneNumber);
+        try {
+            $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+            $queryBuilder->select('s')
+                ->from($this->getClassName(), 's')
+                ->orderBy('s.createdAt', 'DESC')
+                ->setMaxResults($limit)
+                ->setFirstResult($offset);
+            
+            // Use the normalizer service if available
+            if ($this->phoneNumberNormalizer) {
+                // Get all possible formats to search for
+                $possibleFormats = $this->phoneNumberNormalizer->getPossibleFormats($phoneNumber);
+                
+                if (count($possibleFormats) > 1) {
+                    $queryBuilder->where('s.phoneNumber IN (:phoneNumbers)')
+                        ->setParameter('phoneNumbers', $possibleFormats);
+                } else {
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber')
+                        ->setParameter('phoneNumber', $phoneNumber);
+                }
+            } else {
+                // Fall back to the old method if normalizer not available
+                // Check if the number is in international or local format
+                $isInternational = strpos($phoneNumber, '+225') === 0;
+                $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
+                
+                if ($isInternational) {
+                    // International format: search for both international and local formats
+                    $localNumber = $this->convertToLocalFormat($phoneNumber);
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber')
+                        ->setParameter('phoneNumber', $phoneNumber)
+                        ->setParameter('localNumber', $localNumber);
+                } elseif ($isLocal) {
+                    // Local format: search for both local and international formats
+                    $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber')
+                        ->setParameter('phoneNumber', $phoneNumber)
+                        ->setParameter('internationalNumber', $internationalNumber);
+                } else {
+                    // Exact search
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber')
+                        ->setParameter('phoneNumber', $phoneNumber);
+                }
+            }
+    
+            return $queryBuilder->getQuery()->getResult();
+        } catch (\Exception $e) {
+            // Log the error
+            error_log('Error in findByPhoneNumber for ' . $phoneNumber . ': ' . $e->getMessage());
+            return []; // Return empty array on error
         }
-
-        return $queryBuilder->getQuery()->getResult();
     }
 
     /**
@@ -584,6 +615,8 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
         }
     }
 
+    // Property and constructor already defined at the top of the class
+
     /**
      * Counts SMS history entries by phone number.
      *
@@ -592,33 +625,57 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
      */
     public function countByPhoneNumber(string $phoneNumber): int
     {
-        // Check if the number is in international or local format
-        $isInternational = strpos($phoneNumber, '+225') === 0;
-        $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
-
-        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        $queryBuilder->select('COUNT(s.id)')
-            ->from($this->getClassName(), 's');
-
-        if ($isInternational) {
-            // International format: search for both international and local formats
-            $localNumber = $this->convertToLocalFormat($phoneNumber);
-            $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber')
-                ->setParameter('phoneNumber', $phoneNumber)
-                ->setParameter('localNumber', $localNumber);
-        } elseif ($isLocal) {
-            // Local format: search for both local and international formats
-            $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
-            $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber')
-                ->setParameter('phoneNumber', $phoneNumber)
-                ->setParameter('internationalNumber', $internationalNumber);
-        } else {
-            // Exact search
-            $queryBuilder->where('s.phoneNumber = :phoneNumber')
-                ->setParameter('phoneNumber', $phoneNumber);
+        try {
+            $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+            $queryBuilder->select('COUNT(s.id)')
+                ->from($this->getClassName(), 's');
+    
+            // Use the normalizer service if available
+            if ($this->phoneNumberNormalizer) {
+                // Get all possible formats to search for
+                $possibleFormats = $this->phoneNumberNormalizer->getPossibleFormats($phoneNumber);
+                
+                if (count($possibleFormats) > 1) {
+                    $queryBuilder->where('s.phoneNumber IN (:phoneNumbers)')
+                        ->setParameter('phoneNumbers', $possibleFormats);
+                } else {
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber')
+                        ->setParameter('phoneNumber', $phoneNumber);
+                }
+            } else {
+                // Fall back to the old method if normalizer not available
+                // Check if the number is in international or local format
+                $isInternational = strpos($phoneNumber, '+225') === 0;
+                $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
+                
+                if ($isInternational) {
+                    // International format: search for both international and local formats
+                    $localNumber = $this->convertToLocalFormat($phoneNumber);
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber')
+                        ->setParameter('phoneNumber', $phoneNumber)
+                        ->setParameter('localNumber', $localNumber);
+                } elseif ($isLocal) {
+                    // Local format: search for both local and international formats
+                    $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber')
+                        ->setParameter('phoneNumber', $phoneNumber)
+                        ->setParameter('internationalNumber', $internationalNumber);
+                } else {
+                    // Exact search
+                    $queryBuilder->where('s.phoneNumber = :phoneNumber')
+                        ->setParameter('phoneNumber', $phoneNumber);
+                }
+            }
+    
+            // Execute query and ensure we return an integer
+            $result = $queryBuilder->getQuery()->getSingleScalarResult();
+            return $result !== null ? (int)$result : 0;
+        } catch (\Exception $e) {
+            // Log the error if a logger was available
+            error_log('Error in countByPhoneNumber for '.$phoneNumber.': '.$e->getMessage());
+            // Always return a valid integer on error
+            return 0;
         }
-
-        return (int) $queryBuilder->getQuery()->getSingleScalarResult();
     }
 
     /**
@@ -630,34 +687,58 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
      */
     public function countByPhoneNumberAndStatus(string $phoneNumber, string $status): int
     {
-        // Check if the number is in international or local format
-        $isInternational = strpos($phoneNumber, '+225') === 0;
-        $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
-
-        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        $queryBuilder->select('COUNT(s.id)')
-            ->from($this->getClassName(), 's')
-            ->andWhere('s.status = :status')
-            ->setParameter('status', $status);
-
-        if ($isInternational) {
-            // International format: search for both international and local formats
-            $localNumber = $this->convertToLocalFormat($phoneNumber);
-            $queryBuilder->andWhere('(s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber)')
-                ->setParameter('phoneNumber', $phoneNumber)
-                ->setParameter('localNumber', $localNumber);
-        } elseif ($isLocal) {
-            // Local format: search for both local and international formats
-            $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
-            $queryBuilder->andWhere('(s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber)')
-                ->setParameter('phoneNumber', $phoneNumber)
-                ->setParameter('internationalNumber', $internationalNumber);
-        } else {
-            // Exact search
-            $queryBuilder->andWhere('s.phoneNumber = :phoneNumber')
-                ->setParameter('phoneNumber', $phoneNumber);
+        try {
+            $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+            $queryBuilder->select('COUNT(s.id)')
+                ->from($this->getClassName(), 's')
+                ->andWhere('s.status = :status')
+                ->setParameter('status', $status);
+    
+            // Use the normalizer service if available
+            if ($this->phoneNumberNormalizer) {
+                // Get all possible formats to search for
+                $possibleFormats = $this->phoneNumberNormalizer->getPossibleFormats($phoneNumber);
+                
+                if (count($possibleFormats) > 1) {
+                    $queryBuilder->andWhere('s.phoneNumber IN (:phoneNumbers)')
+                        ->setParameter('phoneNumbers', $possibleFormats);
+                } else {
+                    $queryBuilder->andWhere('s.phoneNumber = :phoneNumber')
+                        ->setParameter('phoneNumber', $phoneNumber);
+                }
+            } else {
+                // Fall back to the old method if normalizer not available
+                // Check if the number is in international or local format
+                $isInternational = strpos($phoneNumber, '+225') === 0;
+                $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
+                
+                if ($isInternational) {
+                    // International format: search for both international and local formats
+                    $localNumber = $this->convertToLocalFormat($phoneNumber);
+                    $queryBuilder->andWhere('(s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber)')
+                        ->setParameter('phoneNumber', $phoneNumber)
+                        ->setParameter('localNumber', $localNumber);
+                } elseif ($isLocal) {
+                    // Local format: search for both local and international formats
+                    $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
+                    $queryBuilder->andWhere('(s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber)')
+                        ->setParameter('phoneNumber', $phoneNumber)
+                        ->setParameter('internationalNumber', $internationalNumber);
+                } else {
+                    // Exact search
+                    $queryBuilder->andWhere('s.phoneNumber = :phoneNumber')
+                        ->setParameter('phoneNumber', $phoneNumber);
+                }
+            }
+    
+            // Execute query and ensure we return an integer
+            $result = $queryBuilder->getQuery()->getSingleScalarResult();
+            return $result !== null ? (int)$result : 0;
+        } catch (\Exception $e) {
+            // Log the error
+            error_log('Error in countByPhoneNumberAndStatus for '.$phoneNumber.' with status '.$status.': '.$e->getMessage());
+            // Always return a valid integer on error
+            return 0;
         }
-
-        return (int) $queryBuilder->getQuery()->getSingleScalarResult();
     }
 }
