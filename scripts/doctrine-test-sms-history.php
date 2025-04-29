@@ -25,7 +25,7 @@ $smsHistory->setPhoneNumber('+2250777104936');
 $smsHistory->setMessage('This is a test SMS message');
 $smsHistory->setStatus('SENT');
 $smsHistory->setSenderAddress('tel:+2250595016840');
-$smsHistory->setSenderName('Qualitas CI');
+$smsHistory->setSenderName('225HBC');
 $smsHistory->setUserId(1); // Assuming user ID 1 exists
 
 // Save the SMS history record
@@ -142,7 +142,7 @@ $createdSMSHistory = $smsHistoryRepository->create(
     'msg-123456',
     null,
     'tel:+2250595016840',
-    'Qualitas CI',
+    '225HBC',
     null,
     null,
     1

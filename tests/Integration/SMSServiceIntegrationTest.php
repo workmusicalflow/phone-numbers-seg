@@ -118,7 +118,7 @@ class SMSServiceIntegrationTest extends TestCase
         // SenderName, SenderAddress, IsDefault are not properties of OrangeAPIConfig entity
         // The service likely uses defaults or user-specific config elsewhere.
         // We'll assume the service uses the default sender name from .env for the API call mock.
-        $expectedSenderName = getenv('ORANGE_DEFAULT_SENDER_NAME') ?: 'Qualitas CI'; // Get default from env or fallback
+        $expectedSenderName = getenv('ORANGE_DEFAULT_SENDER_NAME') ?: '225HBC'; // Get default from env or fallback
 
         // 2. Persist to Database
         self::$entityManager->persist($user);

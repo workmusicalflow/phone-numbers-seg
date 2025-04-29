@@ -96,7 +96,7 @@ class SMSNotificationService implements SMSNotificationServiceInterface
      */
     private function getDefaultSenderName(): string
     {
-        return $this->config['notifications']['default_sender_name'] ?? 'Qualitas CI';
+        return $this->config['notifications']['default_sender_name'] ?? '225HBC';
     }
 
     /**

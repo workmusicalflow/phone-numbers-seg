@@ -74,6 +74,30 @@ class AuthService implements AuthServiceInterface
         $this->emailService = $emailService;
         $this->logger = $logger; // Store logger instance
     }
+    
+    /**
+     * Obtenir un utilisateur par son ID
+     * 
+     * @param int $userId
+     * @return User|null
+     */
+    public function getUserById(int $userId): ?User
+    {
+        $this->logger->info("Récupération de l'utilisateur par ID: {$userId}");
+        return $this->userRepository->findById($userId);
+    }
+    
+    /**
+     * Mettre à jour un utilisateur
+     * 
+     * @param User $user
+     * @return User
+     */
+    public function updateUser(User $user): User
+    {
+        $this->logger->info("Mise à jour de l'utilisateur ID: {$user->getId()}");
+        return $this->userRepository->save($user);
+    }
 
     /**
      * {@inheritdoc}

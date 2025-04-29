@@ -28,18 +28,18 @@ class TokenCacheService implements TokenCacheInterface
     /**
      * Constructor
      *
+     * @param LoggerInterface $logger
      * @param string|null $cacheDir Directory for cache file
      * @param int $tokenLifetime Default token lifetime in seconds
-     * @param LoggerInterface $logger
      */
     public function __construct(
+        LoggerInterface $logger,
         ?string $cacheDir = null,
-        int $tokenLifetime = 3600,
-        LoggerInterface $logger
+        int $tokenLifetime = 3600
     ) {
+        $this->logger = $logger;
         $this->cacheFile = ($cacheDir ?? sys_get_temp_dir()) . '/orange_api_token.cache';
         $this->tokenLifetime = $tokenLifetime;
-        $this->logger = $logger;
     }
 
     /**

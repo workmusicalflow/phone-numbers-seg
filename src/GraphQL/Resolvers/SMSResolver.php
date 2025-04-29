@@ -291,28 +291,56 @@ class SMSResolver
                 throw new Exception("Permission denied to send bulk SMS as another user.");
             }
 
+            // Appel au service
             $results = $this->smsService->sendBulkSMS($phoneNumbers, $message, $effectiveUserId);
-            $successful = 0;
-            $failed = 0;
-            $formattedResults = [];
-
-            foreach ($results as $number => $result) {
-                $isSuccess = ($result['status'] === 'success');
-                if ($isSuccess) $successful++;
-                else $failed++;
-                $formattedResults[] = [
-                    'phoneNumber' => $number,
-                    'status' => $isSuccess ? 'SENT' : 'FAILED',
-                    'message' => $result['message'] ?? ($isSuccess ? 'Envoyé' : 'Échec')
+            
+            // Vérifier si le résultat est un simple batchId (string) ou un tableau de résultats
+            if (is_string($results)) {
+                // C'est un ID de lot, la mise en file d'attente a réussi
+                $batchId = $results;
+                $this->logger->info("Messages en masse mis en file d'attente avec succès", ['batchId' => $batchId]);
+                
+                return [
+                    'status' => 'QUEUED', 
+                    'message' => 'Messages en masse mis en file d\'attente avec succès',
+                    'summary' => [
+                        'total' => count($phoneNumbers), 
+                        'successful' => count($phoneNumbers), 
+                        'failed' => 0
+                    ],
+                    'results' => array_map(function($phoneNumber) {
+                        return [
+                            'phoneNumber' => $phoneNumber,
+                            'status' => 'QUEUED',
+                            'message' => 'Mis en file d\'attente pour envoi'
+                        ];
+                    }, $phoneNumbers)
+                ];
+            } else {
+                // C'est un tableau de résultats pour chaque numéro
+                $successful = 0;
+                $failed = 0;
+                $formattedResults = [];
+    
+                foreach ($results as $number => $result) {
+                    $isSuccess = ($result['status'] === 'success' || $result['status'] === 'queued');
+                    if ($isSuccess) $successful++;
+                    else $failed++;
+                    
+                    $formattedResults[] = [
+                        'phoneNumber' => $number,
+                        'status' => $isSuccess ? ($result['status'] === 'queued' ? 'QUEUED' : 'SENT') : 'FAILED',
+                        'message' => $result['message'] ?? ($isSuccess ? 'Envoyé' : 'Échec')
+                    ];
+                }
+    
+                return [
+                    'status' => ($failed === 0) ? 'COMPLETED' : (($successful > 0) ? 'PARTIAL' : 'FAILED'),
+                    'message' => 'Envoi en masse terminé.',
+                    'summary' => ['total' => count($phoneNumbers), 'successful' => $successful, 'failed' => $failed],
+                    'results' => $formattedResults
                 ];
             }
-
-            return [
-                'status' => ($failed === 0) ? 'COMPLETED' : (($successful > 0) ? 'PARTIAL' : 'FAILED'),
-                'message' => 'Envoi en masse terminé.',
-                'summary' => ['total' => count($phoneNumbers), 'successful' => $successful, 'failed' => $failed],
-                'results' => $formattedResults
-            ];
         } catch (Exception $e) {
             $this->logger->error('Error in SMSResolver::mutateSendBulkSms: ' . $e->getMessage(), ['exception' => $e]);
             return [

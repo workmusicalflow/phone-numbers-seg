@@ -182,9 +182,19 @@ export function useSmsSender() {
     if (error && typeof error === 'object') {
         if ('graphQLErrors' in error && Array.isArray(error.graphQLErrors) && error.graphQLErrors.length > 0) {
             // Use the first GraphQL error message
-            specificMessage = error.graphQLErrors[0]?.message || specificMessage;
+            const gqlError = error.graphQLErrors[0];
+            specificMessage = gqlError?.message || specificMessage;
+            
+            // Check for specific backend error patterns
+            if (gqlError?.message?.includes('undefined method') && gqlError?.message?.includes('getUserById')) {
+                specificMessage = "Erreur de configuration du service d'authentification. Veuillez contacter l'administrateur.";
+            }
         } else if ('networkError' in error && error.networkError) {
-             specificMessage = (error.networkError as Error).message || 'Erreur réseau';
+            // Handle network errors specifically 
+            specificMessage = (error.networkError as Error).message || 'Erreur réseau';
+            if (specificMessage.includes('Failed to fetch')) {
+                specificMessage = "Impossible de se connecter au serveur. Vérifiez votre connexion internet.";
+            }
         } else if ('message' in error) {
             specificMessage = (error as Error).message || specificMessage;
         }
@@ -192,9 +202,22 @@ export function useSmsSender() {
         specificMessage = String(error) || specificMessage;
     }
 
+    // Special cases handling
+    isCreditError = specificMessage.includes('Crédits SMS insuffisants') || 
+                   specificMessage.includes('Insufficient credits') ||
+                   specificMessage.includes('Insufficient SMS credits');
+                   
+    const isAuthError = specificMessage.includes('User not found') || 
+                       specificMessage.includes('utilisateur non trouvé');
 
-    isCreditError = specificMessage.includes('Crédits SMS insuffisants');
-    const displayMessage = isCreditError ? 'Crédits SMS insuffisants.' : specificMessage;
+    // Determine display message based on error type
+    let displayMessage = specificMessage;
+    
+    if (isCreditError) {
+        displayMessage = 'Crédits SMS insuffisants.';
+    } else if (isAuthError) {
+        displayMessage = "Erreur d'authentification. Veuillez vous reconnecter.";
+    }
 
     smsResult.value = {
       status: 'error',
@@ -204,11 +227,15 @@ export function useSmsSender() {
 
     notify('negative', displayMessage);
 
+    // Additional actions based on error type
     if (isCreditError) {
       const userId = getUserId();
       if (userId !== undefined) {
         userStore.fetchUser(userId).catch(e => console.error("Failed to refresh user after credit error:", e));
       }
+    } else if (isAuthError) {
+      // Consider refreshing auth token or redirecting to login
+      console.warn("Authentication error detected in SMS operation");
     }
   };
 
@@ -368,12 +395,23 @@ export function useSmsSender() {
     smsResult.value = null;
 
     try {
+      // Validate input before sending to server
+      if (!payload.phoneNumbers || payload.phoneNumbers.length === 0) {
+        throw new Error("Aucun numéro de téléphone fourni");
+      }
+      
+      if (!payload.message || payload.message.trim() === '') {
+        throw new Error("Le message ne peut pas être vide");
+      }
+
       const { data } = await apolloClient.mutate<{ sendBulkSms: RawBulkSmsResponse }>({
         mutation: SEND_BULK_SMS,
         variables: { ...payload, userId: getUserIdForGraphQL() },
       });
 
-      if (!data?.sendBulkSms) throw new Error("Aucune donnée retournée par le serveur pour sendBulkSms");
+      if (!data?.sendBulkSms) {
+        throw new Error("Aucune donnée retournée par le serveur pour sendBulkSms");
+      }
 
       const mappedResult = processBulkResult(
         data.sendBulkSms,
@@ -389,7 +427,15 @@ export function useSmsSender() {
 
       return mappedResult; // Return the mapped result
     } catch (error) {
-      handleError(error, "Erreur lors de l'envoi des SMS en masse");
+      // Enhanced error handling
+      console.error("Erreur détaillée lors de l'envoi des SMS en masse:", error);
+      
+      // More specific error handling for network issues
+      if (error instanceof Error && error.message.includes('Network error')) {
+        handleError(error, "Erreur réseau lors de l'envoi des SMS en masse");
+      } else {
+        handleError(error, "Erreur lors de l'envoi des SMS en masse");
+      }
       return null;
     } finally {
       loading.value = false;

@@ -109,7 +109,7 @@ class SMSControllerTest extends TestCase
                 'outboundSMSMessageRequest' => [
                     'address' => ['tel:+2250777104936'],
                     'senderAddress' => 'tel:+2250595016840',
-                    'senderName' => 'Qualitas CI',
+                    'senderName' => '225HBC',
                     'outboundSMSTextMessage' => [
                         'message' => 'Test message'
                     ],
@@ -128,7 +128,7 @@ class SMSControllerTest extends TestCase
 
         // Assert
         $this->assertEquals('success', $result['status']);
-        $this->assertEquals('Qualitas CI', $result['result']['outboundSMSMessageRequest']['senderName']);
+        $this->assertEquals('225HBC', $result['result']['outboundSMSMessageRequest']['senderName']);
     }
 
     public function testSendBulkSMS()
@@ -145,7 +145,7 @@ class SMSControllerTest extends TestCase
                         'outboundSMSMessageRequest' => [
                             'address' => ['tel:+2250777104936'],
                             'senderAddress' => 'tel:+2250595016840',
-                            'senderName' => 'Qualitas CI',
+                            'senderName' => '225HBC',
                             'outboundSMSTextMessage' => [
                                 'message' => 'Bulk test message'
                             ],
@@ -159,7 +159,7 @@ class SMSControllerTest extends TestCase
                         'outboundSMSMessageRequest' => [
                             'address' => ['tel:+2250777104937'],
                             'senderAddress' => 'tel:+2250595016840',
-                            'senderName' => 'Qualitas CI',
+                            'senderName' => '225HBC',
                             'outboundSMSTextMessage' => [
                                 'message' => 'Bulk test message'
                             ],
@@ -208,7 +208,7 @@ class SMSControllerTest extends TestCase
                         'outboundSMSMessageRequest' => [
                             'address' => ['tel:+2250777104936'],
                             'senderAddress' => 'tel:+2250595016840',
-                            'senderName' => 'Qualitas CI',
+                            'senderName' => '225HBC',
                             'outboundSMSTextMessage' => [
                                 'message' => 'Segment test message'
                             ],
@@ -222,7 +222,7 @@ class SMSControllerTest extends TestCase
                         'outboundSMSMessageRequest' => [
                             'address' => ['tel:+2250777104937'],
                             'senderAddress' => 'tel:+2250595016840',
-                            'senderName' => 'Qualitas CI',
+                            'senderName' => '225HBC',
                             'outboundSMSTextMessage' => [
                                 'message' => 'Segment test message'
                             ],

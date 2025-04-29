@@ -53,7 +53,7 @@ try {
         'message_id' => 'test-message-id',
         'error_message' => null,
         'sender_address' => 'tel:+2250595016840',
-        'sender_name' => 'Qualitas CI',
+        'sender_name' => '225HBC',
         'segment_id' => null,
         'user_id' => 1,
         'created_at' => date('Y-m-d H:i:s')

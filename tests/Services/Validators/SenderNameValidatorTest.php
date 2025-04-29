@@ -41,7 +41,7 @@ class SenderNameValidatorTest extends TestCase
     {
         // Arrange
         $userId = 1;
-        $name = "Qualitas CI";
+        $name = "225HBC";
         $status = "pending";
 
         $user = new User(1, "testuser", "password", "test@example.com", 10);
@@ -72,7 +72,7 @@ class SenderNameValidatorTest extends TestCase
     public function testValidateCreateWithMissingUserId()
     {
         // Arrange
-        $name = "Qualitas CI";
+        $name = "225HBC";
         $status = "pending";
 
         // Act & Assert
@@ -107,7 +107,7 @@ class SenderNameValidatorTest extends TestCase
     {
         // Arrange
         $userId = 1;
-        $name = "Qualitas CI";
+        $name = "225HBC";
         $status = "invalid_status";
 
         $user = new User(1, "testuser", "password", "test@example.com", 10);
@@ -129,7 +129,7 @@ class SenderNameValidatorTest extends TestCase
     {
         // Arrange
         $userId = 999;
-        $name = "Qualitas CI";
+        $name = "225HBC";
         $status = "pending";
 
         $this->userRepository->method('findById')
@@ -149,7 +149,7 @@ class SenderNameValidatorTest extends TestCase
     {
         // Arrange
         $userId = 1;
-        $name = "Qualitas CI";
+        $name = "225HBC";
         $status = "pending";
 
         $user = new User(1, "testuser", "password", "test@example.com", 10);
@@ -312,7 +312,7 @@ class SenderNameValidatorTest extends TestCase
     {
         // Arrange
         $userId = 1;
-        $name = "Qualitas CI";
+        $name = "225HBC";
 
         $user = new User(1, "testuser", "password", "test@example.com", 10);
 

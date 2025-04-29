@@ -199,6 +199,10 @@ class DataLoader
             return spl_object_hash($key);
         }
         
+        if (is_array($key)) {
+            return 'array_' . md5(serialize($key));
+        }
+        
         return (string) $key;
     }
 

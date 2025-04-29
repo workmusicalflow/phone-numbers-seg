@@ -17,9 +17,9 @@ return [
         $tokenLifetime = isset($_ENV['ORANGE_API_TOKEN_LIFETIME']) ? (int)$_ENV['ORANGE_API_TOKEN_LIFETIME'] : 3600;
         
         return new \App\Services\TokenCacheService(
+            $container->get(Psr\Log\LoggerInterface::class),
             $cacheDir,
-            $tokenLifetime,
-            $container->get(Psr\Log\LoggerInterface::class)
+            $tokenLifetime
         );
     }),
     

@@ -141,7 +141,7 @@ interface SMSHistoryRepositoryInterface extends DoctrineRepositoryInterface
         ?string $messageId = null,
         ?string $errorMessage = null,
         string $senderAddress = 'tel:+2250595016840',
-        string $senderName = 'Qualitas CI',
+        string $senderName = '225HBC',
         ?int $segmentId = null,
         ?int $phoneNumberId = null,
         ?int $userId = null
@@ -198,7 +198,7 @@ interface SMSHistoryRepositoryInterface extends DoctrineRepositoryInterface
      * @throws \Exception If there's an error during the bulk save operation.
      */
     public function saveBulk(array $histories): void;
-    
+
     /**
      * Counts SMS history entries by phone number.
      *
@@ -206,7 +206,7 @@ interface SMSHistoryRepositoryInterface extends DoctrineRepositoryInterface
      * @return int
      */
     public function countByPhoneNumber(string $phoneNumber): int;
-    
+
     /**
      * Counts SMS history entries by phone number and status.
      *

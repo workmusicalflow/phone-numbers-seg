@@ -125,7 +125,7 @@ class SMSHistoryRepository
         ?string $messageId = null,
         ?string $errorMessage = null,
         string $senderAddress = 'tel:+2250595016840',
-        string $senderName = 'Qualitas CI',
+        string $senderName = '225HBC',
         ?int $segmentId = null,
         ?int $phoneNumberId = null,
         ?int $userId = null

@@ -40,6 +40,22 @@ interface AuthServiceInterface
     public function getCurrentUser(): ?User;
 
     /**
+     * Obtenir un utilisateur par son ID
+     * 
+     * @param int $userId
+     * @return User|null
+     */
+    public function getUserById(int $userId): ?User;
+
+    /**
+     * Mettre à jour un utilisateur
+     * 
+     * @param User $user
+     * @return User
+     */
+    public function updateUser(User $user): User;
+
+    /**
      * Vérifier si un mot de passe est suffisamment complexe
      * 
      * @param string $password

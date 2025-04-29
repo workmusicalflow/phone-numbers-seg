@@ -19,7 +19,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
      * @var \App\Services\Interfaces\PhoneNumberNormalizerInterface
      */
     private $phoneNumberNormalizer;
-    
+
     /**
      * Constructor
      * 
@@ -128,12 +128,12 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                 ->orderBy('s.createdAt', 'DESC')
                 ->setMaxResults($limit)
                 ->setFirstResult($offset);
-            
+
             // Use the normalizer service if available
             if ($this->phoneNumberNormalizer) {
                 // Get all possible formats to search for
                 $possibleFormats = $this->phoneNumberNormalizer->getPossibleFormats($phoneNumber);
-                
+
                 if (count($possibleFormats) > 1) {
                     $queryBuilder->where('s.phoneNumber IN (:phoneNumbers)')
                         ->setParameter('phoneNumbers', $possibleFormats);
@@ -146,7 +146,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                 // Check if the number is in international or local format
                 $isInternational = strpos($phoneNumber, '+225') === 0;
                 $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
-                
+
                 if ($isInternational) {
                     // International format: search for both international and local formats
                     $localNumber = $this->convertToLocalFormat($phoneNumber);
@@ -165,7 +165,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                         ->setParameter('phoneNumber', $phoneNumber);
                 }
             }
-    
+
             return $queryBuilder->getQuery()->getResult();
         } catch (\Exception $e) {
             // Log the error
@@ -340,7 +340,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
         ?string $messageId = null,
         ?string $errorMessage = null,
         string $senderAddress = 'tel:+2250595016840',
-        string $senderName = 'Qualitas CI',
+        string $senderName = '225HBC',
         ?int $segmentId = null,
         ?int $phoneNumberId = null,
         ?int $userId = null
@@ -553,7 +553,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
             $connection = $this->getEntityManager()->getConnection();
             $driver = $connection->getDriver();
             $driverClass = get_class($driver);
-            
+
             // Check if we're using MySQL 
             if (strpos($driverClass, 'MySQL') !== false || strpos($driverClass, 'pdo_mysql') !== false) {
                 // Identify the most selective index based on the criteria
@@ -576,14 +576,14 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
         // Cache the query for optimized performance
         static $queryCache = [];
         $cacheKey = md5($queryBuilder->getQuery()->getSQL() . json_encode($queryBuilder->getParameters()));
-        
+
         if (isset($queryCache[$cacheKey])) {
             return $queryCache[$cacheKey];
         }
-        
+
         $result = $queryBuilder->getQuery()->getResult();
         $queryCache[$cacheKey] = $result;
-        
+
         return $result;
     }
 
@@ -629,12 +629,12 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
             $queryBuilder = $this->getEntityManager()->createQueryBuilder();
             $queryBuilder->select('COUNT(s.id)')
                 ->from($this->getClassName(), 's');
-    
+
             // Use the normalizer service if available
             if ($this->phoneNumberNormalizer) {
                 // Get all possible formats to search for
                 $possibleFormats = $this->phoneNumberNormalizer->getPossibleFormats($phoneNumber);
-                
+
                 if (count($possibleFormats) > 1) {
                     $queryBuilder->where('s.phoneNumber IN (:phoneNumbers)')
                         ->setParameter('phoneNumbers', $possibleFormats);
@@ -647,7 +647,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                 // Check if the number is in international or local format
                 $isInternational = strpos($phoneNumber, '+225') === 0;
                 $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
-                
+
                 if ($isInternational) {
                     // International format: search for both international and local formats
                     $localNumber = $this->convertToLocalFormat($phoneNumber);
@@ -666,13 +666,13 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                         ->setParameter('phoneNumber', $phoneNumber);
                 }
             }
-    
+
             // Execute query and ensure we return an integer
             $result = $queryBuilder->getQuery()->getSingleScalarResult();
             return $result !== null ? (int)$result : 0;
         } catch (\Exception $e) {
             // Log the error if a logger was available
-            error_log('Error in countByPhoneNumber for '.$phoneNumber.': '.$e->getMessage());
+            error_log('Error in countByPhoneNumber for ' . $phoneNumber . ': ' . $e->getMessage());
             // Always return a valid integer on error
             return 0;
         }
@@ -693,12 +693,12 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                 ->from($this->getClassName(), 's')
                 ->andWhere('s.status = :status')
                 ->setParameter('status', $status);
-    
+
             // Use the normalizer service if available
             if ($this->phoneNumberNormalizer) {
                 // Get all possible formats to search for
                 $possibleFormats = $this->phoneNumberNormalizer->getPossibleFormats($phoneNumber);
-                
+
                 if (count($possibleFormats) > 1) {
                     $queryBuilder->andWhere('s.phoneNumber IN (:phoneNumbers)')
                         ->setParameter('phoneNumbers', $possibleFormats);
@@ -711,7 +711,7 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                 // Check if the number is in international or local format
                 $isInternational = strpos($phoneNumber, '+225') === 0;
                 $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
-                
+
                 if ($isInternational) {
                     // International format: search for both international and local formats
                     $localNumber = $this->convertToLocalFormat($phoneNumber);
@@ -730,13 +730,13 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
                         ->setParameter('phoneNumber', $phoneNumber);
                 }
             }
-    
+
             // Execute query and ensure we return an integer
             $result = $queryBuilder->getQuery()->getSingleScalarResult();
             return $result !== null ? (int)$result : 0;
         } catch (\Exception $e) {
             // Log the error
-            error_log('Error in countByPhoneNumberAndStatus for '.$phoneNumber.' with status '.$status.': '.$e->getMessage());
+            error_log('Error in countByPhoneNumberAndStatus for ' . $phoneNumber . ' with status ' . $status . ': ' . $e->getMessage());
             // Always return a valid integer on error
             return 0;
         }

@@ -868,7 +868,7 @@ POST /api.php?endpoint=sms/send
     "status": "SENT",
     "recipient": "+2250777104936",
     "senderAddress": "tel:+2250595016840",
-    "senderName": "Qualitas CI"
+    "senderName": "225HBC"
   }
 }
 ```
