@@ -583,4 +583,81 @@ class SMSHistoryRepository extends BaseRepository implements SMSHistoryRepositor
             throw $e; // Re-throw the exception
         }
     }
+
+    /**
+     * Counts SMS history entries by phone number.
+     *
+     * @param string $phoneNumber The phone number to filter by.
+     * @return int
+     */
+    public function countByPhoneNumber(string $phoneNumber): int
+    {
+        // Check if the number is in international or local format
+        $isInternational = strpos($phoneNumber, '+225') === 0;
+        $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
+
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+        $queryBuilder->select('COUNT(s.id)')
+            ->from($this->getClassName(), 's');
+
+        if ($isInternational) {
+            // International format: search for both international and local formats
+            $localNumber = $this->convertToLocalFormat($phoneNumber);
+            $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber')
+                ->setParameter('phoneNumber', $phoneNumber)
+                ->setParameter('localNumber', $localNumber);
+        } elseif ($isLocal) {
+            // Local format: search for both local and international formats
+            $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
+            $queryBuilder->where('s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber')
+                ->setParameter('phoneNumber', $phoneNumber)
+                ->setParameter('internationalNumber', $internationalNumber);
+        } else {
+            // Exact search
+            $queryBuilder->where('s.phoneNumber = :phoneNumber')
+                ->setParameter('phoneNumber', $phoneNumber);
+        }
+
+        return (int) $queryBuilder->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Counts SMS history entries by phone number and status.
+     *
+     * @param string $phoneNumber The phone number to filter by.
+     * @param string $status The status to filter by (e.g., 'SENT', 'FAILED').
+     * @return int
+     */
+    public function countByPhoneNumberAndStatus(string $phoneNumber, string $status): int
+    {
+        // Check if the number is in international or local format
+        $isInternational = strpos($phoneNumber, '+225') === 0;
+        $isLocal = !$isInternational && (strlen($phoneNumber) === 10 || strlen($phoneNumber) === 8);
+
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+        $queryBuilder->select('COUNT(s.id)')
+            ->from($this->getClassName(), 's')
+            ->andWhere('s.status = :status')
+            ->setParameter('status', $status);
+
+        if ($isInternational) {
+            // International format: search for both international and local formats
+            $localNumber = $this->convertToLocalFormat($phoneNumber);
+            $queryBuilder->andWhere('(s.phoneNumber = :phoneNumber OR s.phoneNumber = :localNumber)')
+                ->setParameter('phoneNumber', $phoneNumber)
+                ->setParameter('localNumber', $localNumber);
+        } elseif ($isLocal) {
+            // Local format: search for both local and international formats
+            $internationalNumber = $this->convertToInternationalFormat($phoneNumber);
+            $queryBuilder->andWhere('(s.phoneNumber = :phoneNumber OR s.phoneNumber = :internationalNumber)')
+                ->setParameter('phoneNumber', $phoneNumber)
+                ->setParameter('internationalNumber', $internationalNumber);
+        } else {
+            // Exact search
+            $queryBuilder->andWhere('s.phoneNumber = :phoneNumber')
+                ->setParameter('phoneNumber', $phoneNumber);
+        }
+
+        return (int) $queryBuilder->getQuery()->getSingleScalarResult();
+    }
 }

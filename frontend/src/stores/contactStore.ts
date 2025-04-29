@@ -11,11 +11,27 @@ interface Contact {
   groups: ContactGroup[];
   createdAt: string;
   updatedAt: string;
+  smsHistory?: SMSHistory[];
+  smsTotalCount?: number;
+  smsSentCount?: number;
+  smsFailedCount?: number;
+  smsScore?: number;
 }
 
 interface ContactGroup {
   id: string;
   name: string;
+}
+
+interface SMSHistory {
+  id: string;
+  message: string;
+  status: string;
+  createdAt: string;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  failedAt?: string | null;
+  errorMessage?: string | null;
 }
 
 interface ContactCreateData {
@@ -76,6 +92,20 @@ export const useContactStore = defineStore('contact', () => {
           id
           name
         }
+        smsHistory {
+          id
+          message
+          status
+          createdAt
+          sentAt
+          deliveredAt
+          failedAt
+          errorMessage
+        }
+        smsTotalCount
+        smsSentCount
+        smsFailedCount
+        smsScore
       }
     }
   `;
@@ -123,6 +153,20 @@ export const useContactStore = defineStore('contact', () => {
           id
           name
         }
+        smsHistory {
+          id
+          message
+          status
+          createdAt
+          sentAt
+          deliveredAt
+          failedAt
+          errorMessage
+        }
+        smsTotalCount
+        smsSentCount
+        smsFailedCount
+        smsScore
       }
     }
   `;
@@ -155,6 +199,20 @@ export const useContactStore = defineStore('contact', () => {
           id
           name
         }
+        smsHistory {
+          id
+          message
+          status
+          createdAt
+          sentAt
+          deliveredAt
+          failedAt
+          errorMessage
+        }
+        smsTotalCount
+        smsSentCount
+        smsFailedCount
+        smsScore
       }
     }
   `;
@@ -179,6 +237,20 @@ export const useContactStore = defineStore('contact', () => {
           id
           name
         }
+        smsHistory {
+          id
+          message
+          status
+          createdAt
+          sentAt
+          deliveredAt
+          failedAt
+          errorMessage
+        }
+        smsTotalCount
+        smsSentCount
+        smsFailedCount
+        smsScore
       }
     }
   `;
@@ -221,6 +293,21 @@ export const useContactStore = defineStore('contact', () => {
       contacts.value = response.data.contacts.map((contact: any): Contact => {
         // Map groups directly if they are fetched
         const groups = contact.groups ? contact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
+        
+        // Map SMS history if available
+        const smsHistory = contact.smsHistory 
+          ? contact.smsHistory.map((sms: any) => ({
+              id: sms.id,
+              message: sms.message,
+              status: sms.status,
+              createdAt: sms.createdAt,
+              sentAt: sms.sentAt,
+              deliveredAt: sms.deliveredAt,
+              failedAt: sms.failedAt,
+              errorMessage: sms.errorMessage
+            }))
+          : [];
+          
         return {
           id: contact.id,
           name: contact.name, // Use name directly
@@ -229,7 +316,12 @@ export const useContactStore = defineStore('contact', () => {
           notes: contact.notes,
           groups: groups, // Assign fetched groups
           createdAt: contact.createdAt,
-          updatedAt: contact.updatedAt
+          updatedAt: contact.updatedAt,
+          smsHistory: smsHistory,
+          smsTotalCount: contact.smsTotalCount || 0,
+          smsSentCount: contact.smsSentCount || 0,
+          smsFailedCount: contact.smsFailedCount || 0,
+          smsScore: contact.smsScore || 0
         };
       });
 
@@ -266,6 +358,21 @@ export const useContactStore = defineStore('contact', () => {
       const newContact = response.data.createContact;
       // Use groups returned by the mutation
       const groups = newContact.groups ? newContact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
+      
+      // Map SMS history if available
+      const smsHistory = newContact.smsHistory 
+        ? newContact.smsHistory.map((sms: any) => ({
+            id: sms.id,
+            message: sms.message,
+            status: sms.status,
+            createdAt: sms.createdAt,
+            sentAt: sms.sentAt,
+            deliveredAt: sms.deliveredAt,
+            failedAt: sms.failedAt,
+            errorMessage: sms.errorMessage
+          }))
+        : [];
+        
       const formattedContact: Contact = {
         id: newContact.id,
         name: newContact.name, // Use name directly
@@ -274,7 +381,12 @@ export const useContactStore = defineStore('contact', () => {
         notes: newContact.notes,
         groups: groups, // Use groups from the mutation response
         createdAt: newContact.createdAt,
-        updatedAt: newContact.updatedAt
+        updatedAt: newContact.updatedAt,
+        smsHistory: smsHistory,
+        smsTotalCount: newContact.smsTotalCount || 0,
+        smsSentCount: newContact.smsSentCount || 0,
+        smsFailedCount: newContact.smsFailedCount || 0,
+        smsScore: newContact.smsScore || 0
       };
       
       // Instead of pushing locally, refetch the current page to ensure consistency
@@ -317,6 +429,21 @@ export const useContactStore = defineStore('contact', () => {
       const updatedContact = response.data.updateContact;
       // Use groups returned by the mutation
       const groups = updatedContact.groups ? updatedContact.groups.map((g: any) => ({ id: g.id, name: g.name })) : [];
+      
+      // Map SMS history if available
+      const smsHistory = updatedContact.smsHistory 
+        ? updatedContact.smsHistory.map((sms: any) => ({
+            id: sms.id,
+            message: sms.message,
+            status: sms.status,
+            createdAt: sms.createdAt,
+            sentAt: sms.sentAt,
+            deliveredAt: sms.deliveredAt,
+            failedAt: sms.failedAt,
+            errorMessage: sms.errorMessage
+          }))
+        : [];
+        
       const formattedContact: Contact = {
         id: updatedContact.id,
         name: updatedContact.name, // Use name directly
@@ -325,7 +452,12 @@ export const useContactStore = defineStore('contact', () => {
         notes: updatedContact.notes,
         groups: groups, // Use groups from the mutation response
         createdAt: updatedContact.createdAt,
-        updatedAt: updatedContact.updatedAt
+        updatedAt: updatedContact.updatedAt,
+        smsHistory: smsHistory,
+        smsTotalCount: updatedContact.smsTotalCount || 0,
+        smsSentCount: updatedContact.smsSentCount || 0,
+        smsFailedCount: updatedContact.smsFailedCount || 0,
+        smsScore: updatedContact.smsScore || 0
       };
       
       const index = contacts.value.findIndex(c => c.id === id);

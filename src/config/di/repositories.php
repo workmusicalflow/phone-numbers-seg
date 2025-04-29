@@ -142,6 +142,12 @@ return [
             // Add other dependencies if AdminContactRepository constructor requires them
         );
     }),
+    App\Repositories\Doctrine\SMSQueueRepositoryAdapter::class => factory(function (Container $container) {
+        return new App\Repositories\Doctrine\SMSQueueRepositoryAdapter(
+            $container->get(\Doctrine\ORM\EntityManager::class),
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
 
     // Repository Interface to Doctrine Implementation Mapping
     App\Repositories\Interfaces\SegmentRepositoryInterface::class => factory(function (Container $container) {
@@ -189,5 +195,9 @@ return [
     // Add mapping for SenderNameRepositoryInterface
     App\Repositories\Interfaces\SenderNameRepositoryInterface::class => factory(function (Container $container) {
         return $container->get(App\Repositories\Doctrine\SenderNameRepository::class);
+    }),
+    // Add mapping for SMSQueueRepositoryInterface
+    App\Repositories\Interfaces\SMSQueueRepositoryInterface::class => factory(function (Container $container) {
+        return $container->get(App\Repositories\Doctrine\SMSQueueRepositoryAdapter::class);
     }),
 ];

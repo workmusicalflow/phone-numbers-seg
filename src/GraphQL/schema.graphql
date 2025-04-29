@@ -203,6 +203,12 @@ type Contact {
   createdAt: String!
   updatedAt: String!
   groups: [ContactGroup!] # Added field for contact groups
+  # New fields for SMS history and score
+  smsHistory: [SMSHistory!] # List of SMS sent to this number
+  smsTotalCount: Int! # Total number of SMS sent to this number
+  smsSentCount: Int! # Number of SENT SMS to this number
+  smsFailedCount: Int! # Number of FAILED SMS to this number
+  smsScore: Float! # Score based on the SENT / Total ratio
 }
 
 # Type for Contact Groups

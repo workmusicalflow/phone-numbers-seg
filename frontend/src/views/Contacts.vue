@@ -51,26 +51,52 @@
      </div>
 
 
-    <!-- Tableau des contacts -->
-    <ContactTable
-      :contacts="contactStore.contacts"
-      :loading="contactStore.loading"
-      :pagination="{ ...pagination, rowsNumber: contactStore.totalCount }" 
-      @request="onRequest"
-      @edit="openContactDialog"
-      @delete="confirmDelete"
-      @send-sms="sendSMS"
-    />
-
-    <!-- Pagination -->
-    <div class="row justify-center q-mt-md">
-      <BasePagination
-        :total-items="contactStore.totalCount"
-        :items-per-page="pagination.rowsPerPage"
-        :initial-page="currentPage"
-        @page-change="onPageChange"
-        @items-per-page-change="onItemsPerPageChange"
+    <!-- Mode affichage détaillé -->
+    <div v-if="selectedContactDetail">
+      <div class="row q-mb-md">
+        <q-btn 
+          icon="arrow_back" 
+          label="Retour à la liste" 
+          flat 
+          color="primary" 
+          @click="selectedContactDetail = null"
+        />
+      </div>
+      
+      <ContactDetailView
+        :contact="selectedContactDetail"
+        :loading="contactStore.loading"
+        @edit="openContactDialog"
+        @delete="confirmDelete"
+        @send-sms="sendSMS"
+        @view-sms-details="viewSMSDetails"
       />
+    </div>
+    
+    <!-- Mode liste de contacts -->
+    <div v-else>
+      <!-- Tableau des contacts -->
+      <ContactTable
+        :contacts="contactStore.contacts"
+        :loading="contactStore.loading"
+        :pagination="{ ...pagination, rowsNumber: contactStore.totalCount }" 
+        @request="onRequest"
+        @edit="openContactDialog"
+        @delete="confirmDelete"
+        @send-sms="sendSMS"
+        @view-details="viewContactDetails"
+      />
+
+      <!-- Pagination -->
+      <div class="row justify-center q-mt-md">
+        <BasePagination
+          :total-items="contactStore.totalCount"
+          :items-per-page="pagination.rowsPerPage"
+          :initial-page="currentPage"
+          @page-change="onPageChange"
+          @items-per-page-change="onItemsPerPageChange"
+        />
+      </div>
     </div>
 
     <!-- Dialog pour créer/modifier un contact -->
@@ -113,7 +139,7 @@ import BasePagination from '../components/BasePagination.vue';
 import ContactTable from '../components/contacts/ContactTable.vue';
 import ContactFormDialog from '../components/contacts/ContactFormDialog.vue';
 import ConfirmationDialog from '../components/common/ConfirmationDialog.vue';
-// import ContactsToolbar from '../components/contacts/ContactsToolbar.vue'; // Removed unused import
+import ContactDetailView from '../components/contacts/ContactDetailView.vue';
 
 // Router et Quasar
 const router = useRouter();
@@ -132,6 +158,7 @@ const currentPage = ref(1);
 const selectedContact = ref<Contact | null>(null);
 const contactToDelete = ref<Contact | null>(null);
 const contactsCount = ref(0);
+const selectedContactDetail = ref<Contact | null>(null);
 
 // Fonction pour rafraîchir le nombre de contacts
 const refreshContactsCount = async () => {
@@ -302,6 +329,16 @@ function sendSMS(contact: Contact) {
       name: contact.name // Use name field
     }
   });
+}
+
+function viewContactDetails(contact: Contact) {
+  selectedContactDetail.value = contact;
+}
+
+function viewSMSDetails(sms: any) {
+  // This function is just for handling the event from the SMS history component
+  // The actual display of SMS details is handled in the ContactSMSHistory component
+  console.log('SMS details viewed:', sms);
 }
 
 // Cycle de vie

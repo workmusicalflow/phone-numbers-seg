@@ -69,6 +69,16 @@
               >
                 <q-tooltip>Envoyer SMS</q-tooltip>
               </q-btn>
+              <q-btn
+                flat
+                round
+                color="info"
+                icon="visibility"
+                @click="onViewDetails(props.row)"
+                size="sm"
+              >
+                <q-tooltip>Voir les détails</q-tooltip>
+              </q-btn>
             </div>
           </q-td>
         </q-tr>
@@ -151,6 +161,7 @@ const emit = defineEmits<{
   (e: 'edit', contact: Contact): void;
   (e: 'delete', contact: Contact): void;
   (e: 'send-sms', contact: Contact): void;
+  (e: 'view-details', contact: Contact): void;
 }>();
 
 // Modèle pour la pagination
@@ -176,6 +187,10 @@ const onDelete = (contact: Contact) => {
 
 const onSendSMS = (contact: Contact) => {
   emit('send-sms', contact);
+};
+
+const onViewDetails = (contact: Contact) => {
+  emit('view-details', contact);
 };
 </script>
 

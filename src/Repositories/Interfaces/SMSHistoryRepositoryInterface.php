@@ -198,4 +198,21 @@ interface SMSHistoryRepositoryInterface extends DoctrineRepositoryInterface
      * @throws \Exception If there's an error during the bulk save operation.
      */
     public function saveBulk(array $histories): void;
+    
+    /**
+     * Counts SMS history entries by phone number.
+     *
+     * @param string $phoneNumber The phone number to filter by.
+     * @return int
+     */
+    public function countByPhoneNumber(string $phoneNumber): int;
+    
+    /**
+     * Counts SMS history entries by phone number and status.
+     *
+     * @param string $phoneNumber The phone number to filter by.
+     * @param string $status The status to filter by (e.g., 'SENT', 'FAILED').
+     * @return int
+     */
+    public function countByPhoneNumberAndStatus(string $phoneNumber, string $status): int;
 }

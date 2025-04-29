@@ -35,7 +35,7 @@ abstract class BaseRepository extends EntityRepository implements DoctrineReposi
      * @param mixed $id The entity ID
      * @return object|null The entity or null if not found
      */
-    public function findById(mixed $id): ?object // Added mixed param type and ?object return type
+    public function findById($id): ?object // Allow subclasses to narrow the return type
     {
         // We return the result of the parent find method, which aligns with ?object
         return parent::find($id);

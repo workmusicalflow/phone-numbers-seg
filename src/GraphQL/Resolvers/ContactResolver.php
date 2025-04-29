@@ -22,6 +22,7 @@ class ContactResolver
     private GraphQLFormatterInterface $formatter;
     private LoggerInterface $logger;
     private \App\GraphQL\DataLoaders\ContactGroupDataLoader $contactGroupDataLoader;
+    private \App\Repositories\Interfaces\SMSHistoryRepositoryInterface $smsHistoryRepository;
 
     public function __construct(
         ContactRepositoryInterface $contactRepository,
@@ -30,7 +31,8 @@ class ContactResolver
         AuthServiceInterface $authService,
         GraphQLFormatterInterface $formatter,
         LoggerInterface $logger,
-        \App\GraphQL\DataLoaders\ContactGroupDataLoader $contactGroupDataLoader
+        \App\GraphQL\DataLoaders\ContactGroupDataLoader $contactGroupDataLoader,
+        \App\Repositories\Interfaces\SMSHistoryRepositoryInterface $smsHistoryRepository
     ) {
         $this->contactRepository = $contactRepository;
         $this->groupRepository = $groupRepository;
@@ -39,6 +41,7 @@ class ContactResolver
         $this->formatter = $formatter;
         $this->logger = $logger;
         $this->contactGroupDataLoader = $contactGroupDataLoader;
+        $this->smsHistoryRepository = $smsHistoryRepository;
     }
 
     /**
@@ -640,6 +643,209 @@ class ContactResolver
         } catch (Exception $e) {
             $this->logger->error('Error in ContactResolver::resolveGroupsForContact: ' . $e->getMessage(), ['exception' => $e]);
             throw $e;
+        }
+    }
+
+    /**
+     * Resolver for the smsHistory field on the Contact type.
+     *
+     * @param array<string, mixed> $contact The parent Contact object.
+     * @param array<string, mixed> $args Arguments passed to the field (none expected here).
+     * @param mixed $context The context.
+     * @return array
+     */
+    public function resolveSmsHistory(array $contact, array $args, $context): array
+    {
+        $phoneNumber = $contact['phoneNumber'] ?? '';
+        $this->logger->debug('Resolving Contact.smsHistory field for phone number: ' . $phoneNumber);
+
+        if (empty($phoneNumber)) {
+            $this->logger->warning('Empty phone number in resolveSmsHistory.');
+            return [];
+        }
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveSmsHistory.');
+                throw new Exception("User not authenticated");
+            }
+            $userId = $currentUser->getId();
+            // --- End Authentication Handling ---
+
+            // Get the contact ID and verify owner
+            $contactId = (int)($contact['id'] ?? 0);
+            if ($contactId > 0) {
+                $contactEntity = $this->contactRepository->findById($contactId);
+                if (!$contactEntity || $contactEntity->getUserId() !== $userId) {
+                    $this->logger->warning('User ' . $userId . ' attempted to access SMS history for contact ' . $contactId . ' that does not belong to them.');
+                    return []; // Return empty array for security
+                }
+            }
+
+            // Fetch SMS history for the phone number
+            $limit = isset($args['limit']) ? (int)$args['limit'] : 100;
+            $offset = isset($args['offset']) ? (int)$args['offset'] : 0;
+            $smsHistory = $this->smsHistoryRepository->findByPhoneNumber($phoneNumber, $limit, $offset);
+            
+            // Format the SMS history entries
+            $result = [];
+            foreach ($smsHistory as $sms) {
+                $result[] = $this->formatter->formatSMSHistory($sms);
+            }
+
+            $this->logger->debug('Found ' . count($result) . ' SMS history entries for phone number ' . $phoneNumber);
+            return $result;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveSmsHistory: ' . $e->getMessage(), ['exception' => $e]);
+            return []; // Return empty array on error for field resolver
+        }
+    }
+
+    /**
+     * Resolver for the smsTotalCount field on the Contact type.
+     *
+     * @param array<string, mixed> $contact The parent Contact object.
+     * @return int
+     */
+    public function resolveSmsTotalCount(array $contact): int
+    {
+        $phoneNumber = $contact['phoneNumber'] ?? '';
+        $this->logger->debug('Resolving Contact.smsTotalCount field for phone number: ' . $phoneNumber);
+
+        if (empty($phoneNumber)) {
+            return 0;
+        }
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveSmsTotalCount.');
+                return 0; // Return 0 on authentication failure for field resolver
+            }
+            // --- End Authentication Handling ---
+
+            // Count all SMS sent to this phone number
+            $count = $this->smsHistoryRepository->countByPhoneNumber($phoneNumber);
+            $this->logger->debug('Counted ' . $count . ' total SMS for phone number ' . $phoneNumber);
+            return $count;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveSmsTotalCount: ' . $e->getMessage(), ['exception' => $e]);
+            return 0; // Return 0 on error for field resolver
+        }
+    }
+
+    /**
+     * Resolver for the smsSentCount field on the Contact type.
+     *
+     * @param array<string, mixed> $contact The parent Contact object.
+     * @return int
+     */
+    public function resolveSmsSentCount(array $contact): int
+    {
+        $phoneNumber = $contact['phoneNumber'] ?? '';
+        $this->logger->debug('Resolving Contact.smsSentCount field for phone number: ' . $phoneNumber);
+
+        if (empty($phoneNumber)) {
+            return 0;
+        }
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveSmsSentCount.');
+                return 0; // Return 0 on authentication failure for field resolver
+            }
+            // --- End Authentication Handling ---
+
+            // Count SMS with 'SENT' status sent to this phone number
+            $count = $this->smsHistoryRepository->countByPhoneNumberAndStatus($phoneNumber, 'SENT');
+            $this->logger->debug('Counted ' . $count . ' SENT SMS for phone number ' . $phoneNumber);
+            return $count;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveSmsSentCount: ' . $e->getMessage(), ['exception' => $e]);
+            return 0; // Return 0 on error for field resolver
+        }
+    }
+
+    /**
+     * Resolver for the smsFailedCount field on the Contact type.
+     *
+     * @param array<string, mixed> $contact The parent Contact object.
+     * @return int
+     */
+    public function resolveSmsFailedCount(array $contact): int
+    {
+        $phoneNumber = $contact['phoneNumber'] ?? '';
+        $this->logger->debug('Resolving Contact.smsFailedCount field for phone number: ' . $phoneNumber);
+
+        if (empty($phoneNumber)) {
+            return 0;
+        }
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveSmsFailedCount.');
+                return 0; // Return 0 on authentication failure for field resolver
+            }
+            // --- End Authentication Handling ---
+
+            // Count SMS with 'FAILED' status sent to this phone number
+            $count = $this->smsHistoryRepository->countByPhoneNumberAndStatus($phoneNumber, 'FAILED');
+            $this->logger->debug('Counted ' . $count . ' FAILED SMS for phone number ' . $phoneNumber);
+            return $count;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveSmsFailedCount: ' . $e->getMessage(), ['exception' => $e]);
+            return 0; // Return 0 on error for field resolver
+        }
+    }
+
+    /**
+     * Resolver for the smsScore field on the Contact type.
+     *
+     * @param array<string, mixed> $contact The parent Contact object.
+     * @return float
+     */
+    public function resolveSmsScore(array $contact): float
+    {
+        $phoneNumber = $contact['phoneNumber'] ?? '';
+        $this->logger->debug('Resolving Contact.smsScore field for phone number: ' . $phoneNumber);
+
+        if (empty($phoneNumber)) {
+            return 0.0;
+        }
+
+        try {
+            // --- Authentication/User Context Handling (Using AuthService) ---
+            $currentUser = $this->authService->getCurrentUser();
+            if (!$currentUser) {
+                $this->logger->error('User not authenticated for resolveSmsScore.');
+                return 0.0; // Return 0.0 on authentication failure for field resolver
+            }
+            // --- End Authentication Handling ---
+
+            // Calculate the score based on SENT / Total ratio
+            $total = $this->smsHistoryRepository->countByPhoneNumber($phoneNumber);
+            
+            if ($total === 0) {
+                return 0.0; // Avoid division by zero if no SMS were sent
+            }
+            
+            $sent = $this->smsHistoryRepository->countByPhoneNumberAndStatus($phoneNumber, 'SENT');
+            
+            // Calculate score as SENT / Total, rounded to two decimal places
+            $score = round($sent / $total, 2);
+            $this->logger->debug('Calculated SMS score ' . $score . ' for phone number ' . $phoneNumber . ' (SENT: ' . $sent . ', Total: ' . $total . ')');
+            
+            return $score;
+        } catch (Exception $e) {
+            $this->logger->error('Error in ContactResolver::resolveSmsScore: ' . $e->getMessage(), ['exception' => $e]);
+            return 0.0; // Return 0.0 on error for field resolver
         }
     }
 }

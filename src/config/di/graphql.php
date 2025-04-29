@@ -35,7 +35,8 @@ return [
             $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
             $container->get(\App\GraphQL\Formatters\GraphQLFormatterInterface::class),
             $container->get(Psr\Log\LoggerInterface::class),
-            $container->get(\App\GraphQL\DataLoaders\ContactGroupDataLoader::class)
+            $container->get(\App\GraphQL\DataLoaders\ContactGroupDataLoader::class),
+            $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class)
         );
     }),
 

@@ -11,7 +11,36 @@ use App\Services\Observers\SMSHistoryObserver;
  */
 return [
     // Core Services
-    \App\Services\Interfaces\OrangeAPIClientInterface::class => factory(function () {
+    // Token Cache Service
+    \App\Services\Interfaces\TokenCacheInterface::class => factory(function (Container $container) {
+        $cacheDir = $_ENV['CACHE_DIR'] ?? sys_get_temp_dir();
+        $tokenLifetime = isset($_ENV['ORANGE_API_TOKEN_LIFETIME']) ? (int)$_ENV['ORANGE_API_TOKEN_LIFETIME'] : 3600;
+        
+        return new \App\Services\TokenCacheService(
+            $cacheDir,
+            $tokenLifetime,
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
+    
+    // SMS Queue Service for asynchronous SMS processing
+    \App\Services\Interfaces\SMSQueueServiceInterface::class => factory(function (Container $container) {
+        $maxAttempts = isset($_ENV['SMS_QUEUE_MAX_ATTEMPTS']) ? (int)$_ENV['SMS_QUEUE_MAX_ATTEMPTS'] : 5;
+        
+        return new \App\Services\SMSQueueService(
+            $container->get(\App\Repositories\Interfaces\SMSQueueRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\ContactRepositoryInterface::class),
+            $container->get(\App\Repositories\Interfaces\SegmentRepositoryInterface::class),
+            $container->get(\App\Services\Interfaces\OrangeAPIClientInterface::class),
+            $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class),
+            $maxAttempts
+        );
+    }),
+    
+    // OrangeAPI Client with Token Cache
+    \App\Services\Interfaces\OrangeAPIClientInterface::class => factory(function (Container $container) {
         // Read Orange API credentials and defaults from environment variables using $_ENV
         $clientId = $_ENV['ORANGE_API_CLIENT_ID'] ?? ''; // Provide default or handle error if missing
         $clientSecret = $_ENV['ORANGE_API_CLIENT_SECRET'] ?? '';
@@ -26,11 +55,16 @@ return [
             // throw an exception, or allow proceeding with empty credentials if applicable.
         }
 
+        // Create the Token Cache service
+        $tokenCache = $container->get(\App\Services\Interfaces\TokenCacheInterface::class);
+        
         return new \App\Services\OrangeAPIClient(
             $clientId,
             $clientSecret,
             $defaultSenderAddress,
-            $defaultSenderName
+            $defaultSenderName,
+            $tokenCache,
+            $container->get(Psr\Log\LoggerInterface::class)
         );
     }),
 
@@ -43,6 +77,7 @@ return [
             $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class),
             $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class),
             $container->get(\App\Repositories\Interfaces\ContactRepositoryInterface::class),
+            $container->get(\App\Services\Interfaces\SMSQueueServiceInterface::class), // Inject SMSQueueService
             $container->get(Psr\Log\LoggerInterface::class) // Inject Logger
         );
     }),

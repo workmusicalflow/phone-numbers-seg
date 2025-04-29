@@ -10,6 +10,7 @@ use App\Repositories\Interfaces\ContactRepositoryInterface; // Import ContactRep
 use App\Entities\SMSHistory;
 use App\Entities\Contact; // Import Contact entity
 use App\Services\Interfaces\OrangeAPIClientInterface;
+use App\Services\Interfaces\SMSQueueServiceInterface;
 use Exception; // Use base Exception
 use RuntimeException; // Use RuntimeException for specific errors
 use Psr\Log\LoggerInterface; // Import LoggerInterface
@@ -27,6 +28,7 @@ class SMSService
     private ?SMSHistoryRepositoryInterface $smsHistoryRepository;
     private ?UserRepositoryInterface $userRepository;
     private ?ContactRepositoryInterface $contactRepository; // Add ContactRepository property
+    private ?SMSQueueServiceInterface $smsQueueService; // Add SMSQueueService
     private LoggerInterface $logger; // Add Logger property
 
     /**
@@ -37,8 +39,9 @@ class SMSService
      * @param CustomSegmentRepositoryInterface|null $customSegmentRepository
      * @param SMSHistoryRepositoryInterface|null $smsHistoryRepository
      * @param UserRepositoryInterface|null $userRepository
-     * @param ContactRepositoryInterface|null $contactRepository // Add ContactRepository parameter
-     * @param LoggerInterface $logger // Add Logger parameter
+     * @param ContactRepositoryInterface|null $contactRepository
+     * @param SMSQueueServiceInterface|null $smsQueueService
+     * @param LoggerInterface $logger
      */
     public function __construct(
         OrangeAPIClientInterface $orangeApiClient,
@@ -46,16 +49,18 @@ class SMSService
         ?CustomSegmentRepositoryInterface $customSegmentRepository = null,
         ?SMSHistoryRepositoryInterface $smsHistoryRepository = null,
         ?UserRepositoryInterface $userRepository = null,
-        ?ContactRepositoryInterface $contactRepository = null, // Inject ContactRepository
-        LoggerInterface $logger // Inject Logger
+        ?ContactRepositoryInterface $contactRepository = null,
+        ?SMSQueueServiceInterface $smsQueueService = null,
+        LoggerInterface $logger
     ) {
         $this->orangeApiClient = $orangeApiClient;
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->customSegmentRepository = $customSegmentRepository;
         $this->smsHistoryRepository = $smsHistoryRepository;
         $this->userRepository = $userRepository;
-        $this->contactRepository = $contactRepository; // Store ContactRepository
-        $this->logger = $logger; // Store Logger
+        $this->contactRepository = $contactRepository;
+        $this->smsQueueService = $smsQueueService;
+        $this->logger = $logger;
     }
 
     // getAccessToken method removed as it's handled by OrangeAPIClient
@@ -98,7 +103,6 @@ class SMSService
                 ]);
                 throw new RuntimeException("Limite d'envoi SMS atteinte ou nulle (Limite: {$limit}).");
             }
-            // TODO: Implement tracking against positive limits (e.g., daily/monthly) if required.
 
             // Check if the user has at least 1 credit to send this SMS
             if ($user->getSmsCredit() < 1) {
@@ -108,11 +112,9 @@ class SMSService
                     'receiver' => $receiverNumber
                 ]);
                 // Log this specific failure reason using standard logger
-                // error_log("Échec de l'envoi SMS pour l'utilisateur #{$userId} : Crédits SMS insuffisants (Solde: {$user->getSmsCredit()}). Numéro: {$receiverNumber}"); // Replaced by logger
                 throw new RuntimeException("Crédits SMS insuffisants pour envoyer ce message. Solde actuel: {$user->getSmsCredit()}.");
             }
             $this->logger->debug("Vérification des crédits réussie pour l'utilisateur #{$userId}", ['credits' => $user->getSmsCredit()]);
-            // TODO: Implement other SMS limit checks if needed (e.g., daily/monthly limits)
         } else {
             $this->logger->debug("Aucun userId fourni, pas de vérification de crédits.");
         }
@@ -246,18 +248,23 @@ class SMSService
      * @param string $message SMS message
      * @param int|null $userId ID of the user sending the SMS
      * @param int|null $segmentId Optional Segment ID to associate with the history
+     * @param bool $useQueue Whether to use the queue (true) or send directly (false)
      * @return array Results for each number ['phoneNumber' => ['status' => 'success|error', 'message' => '...', 'response' => mixed]]
      */
-    public function sendBulkSMS(array $receiverNumbers, string $message, ?int $userId = null, ?int $segmentId = null): array
+    public function sendBulkSMS(array $receiverNumbers, string $message, ?int $userId = null, ?int $segmentId = null, bool $useQueue = true): array
     {
-        $this->logger->info("Début de l'envoi en masse", [
-            'count' => count($receiverNumbers),
-            'userId' => $userId,
-            'segmentId' => $segmentId
-        ]);
-        $user = null; // Define user variable outside the if block
+        $receiverNumbers = array_unique($receiverNumbers);
+        $count = count($receiverNumbers);
 
-        // User and credit check (simplified - assumes enough credits if check passes once)
+        $this->logger->info("Début de l'envoi en masse", [
+            'count' => $count,
+            'userId' => $userId,
+            'segmentId' => $segmentId,
+            'useQueue' => $useQueue
+        ]);
+
+        // User and credit check
+        $user = null;
         if ($userId !== null && $this->userRepository !== null) {
             $this->logger->debug("Vérification des crédits pour l'envoi en masse (Utilisateur #{$userId})");
             $user = $this->userRepository->findById($userId);
@@ -265,7 +272,7 @@ class SMSService
                 $this->logger->error("Utilisateur #{$userId} non trouvé pour l'envoi en masse.");
                 throw new RuntimeException("Utilisateur non trouvé");
             }
-            $requiredCredits = count($receiverNumbers);
+            $requiredCredits = $count;
             if ($user->getSmsCredit() < $requiredCredits) {
                 $this->logger->warning("Crédits SMS insuffisants pour l'envoi en masse", [
                     'userId' => $userId,
@@ -275,19 +282,60 @@ class SMSService
                 throw new RuntimeException("Crédits SMS insuffisants pour l'envoi en masse ({$user->getSmsCredit()} disponibles, {$requiredCredits} requis).");
             }
             $this->logger->debug("Vérification des crédits pour l'envoi en masse réussie", ['userId' => $userId, 'credits' => $user->getSmsCredit()]);
-            // TODO: Implement SMS limit check if needed
         } else {
             $this->logger->debug("Aucun userId fourni, pas de vérification de crédits pour l'envoi en masse.");
         }
 
+        // If we should use the queue and SMSQueueService is available
+        if ($useQueue && isset($this->smsQueueService)) {
+            $this->logger->info("Utilisation du service de file d'attente pour l'envoi en masse", [
+                'count' => $count
+            ]);
+
+            try {
+                // Enqueue all messages
+                $batchId = $this->smsQueueService->enqueueBulk(
+                    $receiverNumbers,
+                    $message,
+                    $userId,
+                    $segmentId
+                );
+
+                $this->logger->info("SMS en masse mis en file d'attente avec succès", [
+                    'batchId' => $batchId,
+                    'count' => $count
+                ]);
+
+                // Return success status for all numbers
+                $results = [];
+                foreach ($receiverNumbers as $number) {
+                    $results[$number] = [
+                        'status' => 'queued',
+                        'message' => 'Mis en file d\'attente pour envoi',
+                        'batchId' => $batchId
+                    ];
+                }
+
+                return $results;
+            } catch (Exception $e) {
+                $this->logger->error("Échec de la mise en file d'attente pour l'envoi en masse", [
+                    'error' => $e->getMessage()
+                ]);
+                // Fall back to direct sending if queue fails
+                $this->logger->warning("Passage à l'envoi direct suite à l'échec de la mise en file d'attente");
+            }
+        }
+
+        // Direct sending if queue is not available or failed
         $results = [];
         $historyEntities = []; // Array to collect history entities
         $successCount = 0;
         $failureCount = 0;
+
         foreach ($receiverNumbers as $number) {
             $originalNumber = $number; // Keep original for key
             try {
-                // Call sendSMS, which now returns ['response' => ..., 'history' => SMSHistory|null]
+                // Call sendSMS directly
                 $sendResult = $this->sendSMS($number, $message, $userId, $segmentId);
                 $results[$originalNumber] = [
                     'status' => 'success',
@@ -299,8 +347,7 @@ class SMSService
                 }
                 $successCount++;
             } catch (Exception $e) {
-                // sendSMS might throw an exception, but we still need to log the attempt if possible
-                // Create a failed history entity manually here if sendSMS didn't return one
+                // Handle exception and create failed history entry
                 $failedHistory = null;
                 if ($this->smsHistoryRepository !== null) {
                     $failedHistory = new SMSHistory();
@@ -324,7 +371,7 @@ class SMSService
             }
         }
 
-        // Save all collected history entities in bulk
+        // Save all collected history entities in bulk for direct sending
         if (!empty($historyEntities) && $this->smsHistoryRepository !== null) {
             try {
                 $this->logger->info("Enregistrement en masse de l'historique SMS", ['count' => count($historyEntities)]);
@@ -332,17 +379,17 @@ class SMSService
                 $this->logger->info("Historique SMS enregistré en masse avec succès.");
             } catch (Exception $e) {
                 $this->logger->error("Échec de l'enregistrement en masse de l'historique SMS", ['error' => $e->getMessage()]);
-                // Handle bulk save error - maybe log individual failures?
             }
         }
 
         $this->logger->info("Envoi en masse terminé", [
-            'totalAttempted' => count($receiverNumbers),
+            'totalAttempted' => $count,
             'successful' => $successCount,
             'failed' => $failureCount,
             'userId' => $userId,
             'segmentId' => $segmentId
         ]);
+
         return $results;
     }
 
@@ -352,12 +399,17 @@ class SMSService
      * @param int $segmentId Segment ID
      * @param string $message SMS message
      * @param int|null $userId ID of the user sending the SMS
+     * @param bool $useQueue Whether to use the queue (true) or send directly (false)
      * @return array Results for each number
      * @throws RuntimeException If the repositories are not provided or segment not found
      */
-    public function sendSMSToSegment(int $segmentId, string $message, ?int $userId = null): array
+    public function sendSMSToSegment(int $segmentId, string $message, ?int $userId = null, bool $useQueue = true): array
     {
-        $this->logger->info("Début de l'envoi au segment", ['segmentId' => $segmentId, 'userId' => $userId]);
+        $this->logger->info("Début de l'envoi au segment", [
+            'segmentId' => $segmentId,
+            'userId' => $userId,
+            'useQueue' => $useQueue
+        ]);
 
         if ($this->phoneNumberRepository === null || $this->customSegmentRepository === null) {
             $this->logger->error("Repositories manquants pour l'envoi au segment.");
@@ -380,8 +432,64 @@ class SMSService
             return []; // No numbers in segment
         }
 
+        // If we should use the queue and SMSQueueService is available
+        if ($useQueue && isset($this->smsQueueService)) {
+            $this->logger->info("Utilisation du service de file d'attente pour l'envoi au segment", [
+                'segmentId' => $segmentId,
+                'count' => count($numbers)
+            ]);
+
+            try {
+                // Check credits before enqueuing
+                if ($userId !== null && $this->userRepository !== null) {
+                    $user = $this->userRepository->findById($userId);
+                    if ($user === null) {
+                        throw new RuntimeException("Utilisateur non trouvé");
+                    }
+
+                    $requiredCredits = count($numbers);
+                    if ($user->getSmsCredit() < $requiredCredits) {
+                        throw new RuntimeException("Crédits SMS insuffisants ({$user->getSmsCredit()} disponibles, {$requiredCredits} requis)");
+                    }
+                }
+
+                // Use optimized enqueueSegment method
+                $batchId = $this->smsQueueService->enqueueSegment(
+                    $segmentId,
+                    $message,
+                    $userId
+                );
+
+                $this->logger->info("SMS du segment mis en file d'attente avec succès", [
+                    'batchId' => $batchId,
+                    'segmentId' => $segmentId,
+                    'count' => count($numbers)
+                ]);
+
+                // Return success status for all numbers
+                $results = [];
+                foreach ($numbers as $number) {
+                    $results[$number] = [
+                        'status' => 'queued',
+                        'message' => 'Mis en file d\'attente pour envoi',
+                        'batchId' => $batchId
+                    ];
+                }
+
+                return $results;
+            } catch (Exception $e) {
+                $this->logger->error("Échec de la mise en file d'attente pour l'envoi au segment", [
+                    'segmentId' => $segmentId,
+                    'error' => $e->getMessage()
+                ]);
+                // Fall back to direct sending if queue fails
+                $this->logger->warning("Passage à l'envoi direct suite à l'échec de la mise en file d'attente");
+            }
+        }
+
+        // Direct sending if queue is not available or failed
         // User and credit check (before calling sendBulkSMS)
-        $user = null; // Define user variable
+        $user = null;
         if ($userId !== null && $this->userRepository !== null) {
             $this->logger->debug("Vérification des crédits pour l'envoi au segment (Utilisateur #{$userId})");
             $user = $this->userRepository->findById($userId);
@@ -400,17 +508,13 @@ class SMSService
                 throw new RuntimeException("Crédits SMS insuffisants pour l'envoi au segment ({$user->getSmsCredit()} disponibles, {$requiredCredits} requis).");
             }
             $this->logger->debug("Vérification des crédits pour l'envoi au segment réussie", ['userId' => $userId, 'credits' => $user->getSmsCredit()]);
-            // TODO: Implement SMS limit check if needed
         } else {
             $this->logger->debug("Aucun userId fourni, pas de vérification de crédits pour l'envoi au segment.");
         }
 
-        // Send the SMS to all numbers using sendBulkSMS, passing the segmentId
+        // Send the SMS directly using sendBulkSMS
         $this->logger->info("Appel de sendBulkSMS pour le segment", ['segmentId' => $segmentId, 'count' => count($numbers), 'userId' => $userId]);
-        $results = $this->sendBulkSMS($numbers, $message, $userId, $segmentId);
-
-        // The N+1 update logic below is no longer needed as segmentId is set during creation in sendSMS
-        // if ($this->smsHistoryRepository !== null) { ... } // Removed commented block
+        $results = $this->sendBulkSMS($numbers, $message, $userId, $segmentId, false); // force direct sending
 
         $this->logger->info("Envoi au segment terminé", ['segmentId' => $segmentId, 'userId' => $userId]);
         return $results;
@@ -456,12 +560,16 @@ class SMSService
      *
      * @param int $userId The ID of the user whose contacts should receive the SMS.
      * @param string $message The SMS message content.
+     * @param bool $useQueue Whether to use the queue (true) or send directly (false)
      * @return array Results structured like BulkSMSResult: ['status', 'message', 'summary', 'results']
      * @throws RuntimeException If required repositories are missing, user not found, or insufficient credits.
      */
-    public function sendToAllContacts(int $userId, string $message): array
+    public function sendToAllContacts(int $userId, string $message, bool $useQueue = true): array
     {
-        $this->logger->info("Début de l'envoi à tous les contacts", ['userId' => $userId]);
+        $this->logger->info("Début de l'envoi à tous les contacts", [
+            'userId' => $userId,
+            'useQueue' => $useQueue
+        ]);
 
         if ($this->contactRepository === null || $this->userRepository === null) {
             $this->logger->error("Repositories manquants pour l'envoi à tous les contacts.");
@@ -479,16 +587,13 @@ class SMSService
 
         // 2. Get all contacts for the user
         $this->logger->debug("Récupération des contacts pour l'utilisateur #{$userId}");
-        // Note: findByUserId might need adjustment if it doesn't fetch all contacts by default
-        // Assuming it fetches all if limit/offset are not provided or handled internally.
-        // Let's fetch all contacts without pagination for this feature.
-        $contacts = $this->contactRepository->findByUserId($userId, -1); // Use -1 or a large number to signify 'all' if needed
+        $contacts = $this->contactRepository->findByUserId($userId, -1); // Use -1 or a large number to signify 'all'
         $this->logger->debug("Nombre de contacts bruts trouvés", ['userId' => $userId, 'count' => count($contacts)]);
 
         if (empty($contacts)) {
             $this->logger->info("Aucun contact trouvé pour l'utilisateur #{$userId}, envoi annulé.");
             return [
-                'status' => 'COMPLETED', // Or 'NO_CONTACTS'?
+                'status' => 'COMPLETED',
                 'message' => 'Aucun contact trouvé pour cet utilisateur.',
                 'summary' => ['total' => 0, 'successful' => 0, 'failed' => 0],
                 'results' => []
@@ -501,7 +606,6 @@ class SMSService
         foreach ($contacts as $contact) {
             $number = $contact->getPhoneNumber();
             if (!empty($number)) {
-                // Basic validation could be added here if needed
                 $phoneNumbers[$number] = true; // Use keys for uniqueness
             } else {
                 $this->logger->debug("Contact ignoré (numéro vide)", ['contactId' => $contact->getId()]);
@@ -514,13 +618,12 @@ class SMSService
         if ($totalContacts === 0) {
             $this->logger->info("Aucun numéro de téléphone valide trouvé parmi les contacts pour l'utilisateur #{$userId}, envoi annulé.");
             return [
-                'status' => 'COMPLETED', // Or 'NO_VALID_NUMBERS'?
+                'status' => 'COMPLETED',
                 'message' => 'Aucun numéro de téléphone valide trouvé parmi les contacts.',
                 'summary' => ['total' => 0, 'successful' => 0, 'failed' => 0],
                 'results' => []
             ];
         }
-
 
         // 4. Check credits
         $this->logger->debug("Vérification des crédits pour l'envoi à tous les contacts (Utilisateur #{$userId})");
@@ -534,14 +637,56 @@ class SMSService
             throw new RuntimeException("Crédits SMS insuffisants ({$user->getSmsCredit()} disponibles, {$requiredCredits} requis).");
         }
         $this->logger->debug("Vérification des crédits pour l'envoi à tous les contacts réussie", ['userId' => $userId, 'credits' => $user->getSmsCredit()]);
-        // TODO: Implement SMS limit check if needed
 
-        // 5. Call sendBulkSMS
-        // The sendBulkSMS method already handles individual sending, logging, and credit deduction per SMS.
+        // If we should use the queue and SMSQueueService is available
+        if ($useQueue && isset($this->smsQueueService)) {
+            $this->logger->info("Utilisation du service de file d'attente pour l'envoi à tous les contacts", [
+                'userId' => $userId,
+                'count' => $totalContacts
+            ]);
+
+            try {
+                // Use optimized enqueueAllContacts method
+                $batchId = $this->smsQueueService->enqueueAllContacts(
+                    $userId,
+                    $message
+                );
+
+                $this->logger->info("SMS à tous les contacts mis en file d'attente avec succès", [
+                    'batchId' => $batchId,
+                    'userId' => $userId,
+                    'count' => $totalContacts
+                ]);
+
+                // Return success status
+                return [
+                    'status' => 'QUEUED',
+                    'message' => 'Envoi à tous les contacts mis en file d\'attente.',
+                    'summary' => ['total' => $totalContacts, 'queued' => $totalContacts, 'failed' => 0],
+                    'batchId' => $batchId,
+                    'results' => array_map(function ($number) use ($batchId) {
+                        return [
+                            'phoneNumber' => $number,
+                            'status' => 'QUEUED',
+                            'message' => 'Mis en file d\'attente pour envoi'
+                        ];
+                    }, $uniqueNumbers)
+                ];
+            } catch (Exception $e) {
+                $this->logger->error("Échec de la mise en file d'attente pour l'envoi à tous les contacts", [
+                    'userId' => $userId,
+                    'error' => $e->getMessage()
+                ]);
+                // Fall back to direct sending if queue fails
+                $this->logger->warning("Passage à l'envoi direct suite à l'échec de la mise en file d'attente");
+            }
+        }
+
+        // Direct sending if queue is not available or failed
         $this->logger->info("Appel de sendBulkSMS pour tous les contacts", ['count' => $totalContacts, 'userId' => $userId]);
-        $bulkResults = $this->sendBulkSMS($uniqueNumbers, $message, $userId);
+        $bulkResults = $this->sendBulkSMS($uniqueNumbers, $message, $userId, null, false); // force direct sending
 
-        // 6. Format the final result based on sendBulkSMS output
+        // Format the final result
         $successful = 0;
         $failed = 0;
         $formattedResults = [];
@@ -556,18 +701,20 @@ class SMSService
             ];
         }
 
-        return [
+        $finalResult = [
             'status' => ($failed === 0) ? 'COMPLETED' : (($successful > 0) ? 'PARTIAL' : 'FAILED'),
             'message' => 'Envoi à tous les contacts terminé.',
             'summary' => ['total' => $totalContacts, 'successful' => $successful, 'failed' => $failed],
             'results' => $formattedResults
         ];
+
         $this->logger->info("Envoi à tous les contacts terminé", [
             'userId' => $userId,
             'totalAttempted' => $totalContacts,
             'successful' => $successful,
             'failed' => $failed
         ]);
-        return $finalResult; // Return the constructed result array
+
+        return $finalResult;
     }
 }
