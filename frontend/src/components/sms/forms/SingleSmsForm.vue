@@ -106,6 +106,8 @@ interface SmsTemplate {
 const props = defineProps<{
   loading: boolean;
   hasInsufficientCredits: boolean;
+  initialPhoneNumber?: string; // Added prop for initial phone number
+  initialContactName?: string; // Added prop for contact name (for future personalization features)
 }>();
 
 // Define Emits
@@ -119,7 +121,7 @@ const smsTemplateStore = useSMSTemplateStore();
 
 // Form Data
 const singleSmsData = ref({
-  phoneNumber: "",
+  phoneNumber: props.initialPhoneNumber || "",
   message: "",
 });
 const formRef = ref<QForm | null>(null);
@@ -190,6 +192,13 @@ const reset = async () => {
         console.warn('formRef not available during reset in SingleSmsForm');
     }
 };
+
+// Watch for changes to initialPhoneNumber prop
+watch(() => props.initialPhoneNumber, (newValue) => {
+  if (newValue) {
+    singleSmsData.value.phoneNumber = newValue;
+  }
+});
 
 // Expose the reset function if parent needs to call it
 defineExpose({ reset });

@@ -56,6 +56,8 @@
             ref="singleSmsFormRef"
             :loading="loading"
             :has-insufficient-credits="hasInsufficientCredits"
+            :initial-phone-number="recipientPhoneNumber"
+            :initial-contact-name="recipientName"
             @submit-single="handleSingleSubmit"
           />
         </q-tab-panel>
@@ -219,7 +221,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 // useQuasar is no longer needed here
 // import { useQuasar } from "quasar";
 // Template store is now used only within SingleSmsForm
@@ -243,6 +246,14 @@ import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 const userStore = useUserStore();
 const contactStore = useContactStore(); // Use contactStore
 const contactsCount = ref(0); // Add contactsCount variable
+
+// Router and route for URL parameters
+const router = useRouter();
+const route = useRoute();
+
+// Extract URL parameters for pre-populating the form
+const recipientPhoneNumber = ref<string>('');
+const recipientName = ref<string>('');
 
 // --- Use the Composable ---
 const {
@@ -360,12 +371,34 @@ const getCreditColor = (credit: number | undefined) => {
   return 'positive';
 };
 
+// Process URL parameters
+function processRouteParams() {
+  if (route.query.recipient) {
+    recipientPhoneNumber.value = route.query.recipient as string;
+  }
+  
+  if (route.query.name) {
+    recipientName.value = route.query.name as string;
+    
+    // If we have a name parameter, automatically switch to the single SMS tab
+    // This ensures the form is visible when coming from contacts
+    activeTab.value = 'single';
+  }
+}
+
+// Watch for route changes to update form with URL parameters
+watch(() => route.query, () => {
+  processRouteParams();
+}, { deep: true });
+
 // Initialisation (Use composable functions)
 onMounted(async () => {
   fetchSmsHistory();
   fetchSegments();
   // Récupérer le nombre de contacts
   contactsCount.value = await contactStore.fetchContactsCount();
+  // Process URL parameters on mount
+  processRouteParams();
   // smsTemplateStore.fetchTemplates(); // Template fetching might be needed in the child component now, or handled globally
   // User fetching should be handled globally or by userStore itself
 });
