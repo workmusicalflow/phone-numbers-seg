@@ -51,6 +51,9 @@ class SMSHistory
 
     #[Column(name: "user_id", type: "integer", nullable: true)]
     private ?int $userId = null;
+    
+    #[Column(name: "batch_id", type: "string", length: 255, nullable: true)]
+    private ?string $batchId = null;
 
     #[Column(name: "created_at", type: "datetime")]
     private \DateTime $createdAt;
@@ -403,6 +406,28 @@ class SMSHistory
     }
 
     /**
+     * Get the batch ID
+     * 
+     * @return string|null The batch ID
+     */
+    public function getBatchId(): ?string
+    {
+        return $this->batchId;
+    }
+
+    /**
+     * Set the batch ID
+     * 
+     * @param string|null $batchId The batch ID
+     * @return self
+     */
+    public function setBatchId(?string $batchId): self
+    {
+        $this->batchId = $batchId;
+        return $this;
+    }
+    
+    /**
      * Convert the entity to an array
      * 
      * @return array The entity as an array
@@ -421,6 +446,7 @@ class SMSHistory
             'senderName' => $this->senderName,
             'segmentId' => $this->segmentId,
             'userId' => $this->userId,
+            'batchId' => $this->batchId,
             'createdAt' => $this->createdAt->format('Y-m-d H:i:s'),
             'sentAt' => $this->sentAt ? $this->sentAt->format('Y-m-d H:i:s') : null,
             'deliveredAt' => $this->deliveredAt ? $this->deliveredAt->format('Y-m-d H:i:s') : null,

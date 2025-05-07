@@ -14,9 +14,12 @@ interface SMSSenderServiceInterface
      * @param string $message Message à envoyer
      * @param string|null $senderName Nom d'expéditeur à utiliser
      * @param int|null $userId ID de l'utilisateur qui envoie le SMS
+     * @param string|null $batchId ID du lot pour les envois en masse
+     * @param int|null $segmentId ID du segment associé
+     * @param int|null $queueId ID de l'élément dans la file d'attente
      * @return array Résultat de l'envoi
      */
-    public function sendSMS(string $phoneNumber, string $message, ?string $senderName = null, ?int $userId = null): array;
+    public function sendSMS(string $phoneNumber, string $message, ?string $senderName = null, ?int $userId = null, ?string $batchId = null, ?int $segmentId = null, ?int $queueId = null): array;
 
     /**
      * Envoie un SMS à plusieurs numéros de téléphone

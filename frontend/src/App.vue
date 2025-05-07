@@ -119,6 +119,13 @@
           <q-item-section>Modèles SMS</q-item-section>
         </q-item>
 
+        <q-item clickable v-ripple to="/whatsapp">
+          <q-item-section avatar>
+            <q-icon name="whatsapp" />
+          </q-item-section>
+          <q-item-section>WhatsApp</q-item-section>
+        </q-item>
+
         <q-item clickable v-ripple to="/import">
           <q-item-section avatar>
             <q-icon name="upload" />

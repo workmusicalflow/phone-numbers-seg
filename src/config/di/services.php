@@ -35,6 +35,7 @@ return [
             $container->get(\App\Services\Interfaces\OrangeAPIClientInterface::class),
             $container->get(\App\Services\Interfaces\AuthServiceInterface::class),
             $container->get(Psr\Log\LoggerInterface::class),
+            $container->get(\App\Services\Interfaces\SMSSenderServiceInterface::class), // Add SMSSenderService
             $maxAttempts
         );
     }),

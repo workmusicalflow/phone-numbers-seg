@@ -73,6 +73,12 @@ const router = createRouter({
       component: () => import('../views/SMSTemplates.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/whatsapp',
+      name: 'whatsapp',
+      component: () => import('../views/WhatsApp.vue'),
+      meta: { requiresAuth: true }
+    },
     // Temporarily commented out due to missing component
     // {
     //   path: '/scheduled-sms',

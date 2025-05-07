@@ -21,6 +21,7 @@ $configFiles = [
     $configDir . 'factories.php',
     $configDir . 'interfaces.php',
     $configDir . 'dataloaders.php', // Added DataLoaders configuration
+    $configDir . 'whatsapp.php',    // Configuration WhatsApp Business API
     $configDir . 'other.php', // Core setup, controllers, middleware, observers
 ];
 

@@ -1,0 +1,24 @@
+{
+    "messaging_product": "whatsapp",
+    "to": "2250777104936",
+    "type": "template",
+    "template": {
+      "name": "qshe_invitation1",
+      "language": {
+        "code": "fr"
+      },
+      "components": [
+        {
+          "type": "header",
+          "parameters": [
+            {
+              "type": "image",
+              "image": {
+                "link": "https://events-qualitas-ci.com/public/images/banner/QSHEf2025-1024.jpg"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }

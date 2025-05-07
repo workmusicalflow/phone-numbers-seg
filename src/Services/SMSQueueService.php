@@ -10,6 +10,7 @@ use App\Repositories\Interfaces\SegmentRepositoryInterface;
 use App\Services\Interfaces\SMSQueueServiceInterface;
 use App\Services\Interfaces\OrangeAPIClientInterface;
 use App\Services\Interfaces\AuthServiceInterface;
+use App\Services\Interfaces\SMSSenderServiceInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -51,6 +52,11 @@ class SMSQueueService implements SMSQueueServiceInterface
      * @var LoggerInterface
      */
     private $logger;
+    
+    /**
+     * @var SMSSenderServiceInterface
+     */
+    private $smsSenderService;
 
     /**
      * @var int
@@ -77,6 +83,7 @@ class SMSQueueService implements SMSQueueServiceInterface
         OrangeAPIClientInterface $orangeAPIClient,
         AuthServiceInterface $authService,
         LoggerInterface $logger,
+        SMSSenderServiceInterface $smsSenderService,
         int $maxAttempts = 5
     ) {
         $this->smsQueueRepository = $smsQueueRepository;
@@ -86,6 +93,7 @@ class SMSQueueService implements SMSQueueServiceInterface
         $this->orangeAPIClient = $orangeAPIClient;
         $this->authService = $authService;
         $this->logger = $logger;
+        $this->smsSenderService = $smsSenderService;
         $this->maxAttempts = $maxAttempts;
     }
 
@@ -380,15 +388,20 @@ class SMSQueueService implements SMSQueueServiceInterface
                 $phoneNumber = $item->getPhoneNumber();
                 $normalizedNumber = $this->normalizePhoneNumber($phoneNumber);
 
-                // Send SMS
-                $result = $this->orangeAPIClient->sendSMS($normalizedNumber, $item->getMessage());
-
-                // Extract message ID if available
-                $messageId = null;
-                if (isset($result['outboundSMSMessageRequest']['resourceURL'])) {
-                    $resourceUrl = $result['outboundSMSMessageRequest']['resourceURL'];
-                    $messageId = substr($resourceUrl, strrpos($resourceUrl, '/') + 1);
-                }
+                // Send SMS using SMSSenderService instead of directly using OrangeAPIClient
+                // This will trigger the observer pattern to record the SMS in history
+                $result = $this->smsSenderService->sendSMS(
+                    $normalizedNumber, 
+                    $item->getMessage(),
+                    $item->getSenderName(),
+                    $item->getUserId(),
+                    $item->getBatchId(),
+                    $item->getSegmentId(),
+                    $item->getId() // Queue ID for tracking
+                );
+                
+                // Extract message ID from result
+                $messageId = $result['messageId'] ?? null;
 
                 // Update queue entry
                 $item->markAsSent($messageId);

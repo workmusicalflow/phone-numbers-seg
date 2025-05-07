@@ -37,3 +37,5 @@ Thumbs.db
 
 # Cache
 /cache/
+
+**/.claude/settings.local.json

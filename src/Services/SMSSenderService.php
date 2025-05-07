@@ -44,9 +44,13 @@ class SMSSenderService implements SMSSenderServiceInterface
      * @param string $phoneNumber Numéro de téléphone du destinataire
      * @param string $message Message à envoyer
      * @param string|null $senderName Nom d'expéditeur à utiliser
-     * @return bool Succès de l'envoi
+     * @param int|null $userId ID de l'utilisateur qui envoie le SMS
+     * @param string|null $batchId ID du lot pour les envois en masse
+     * @param int|null $segmentId ID du segment associé
+     * @param int|null $queueId ID de l'élément dans la file d'attente
+     * @return array Résultat de l'envoi
      */
-    public function sendSMS(string $phoneNumber, string $message, ?string $senderName = null): bool
+    public function sendSMS(string $phoneNumber, string $message, ?string $senderName = null, ?int $userId = null, ?string $batchId = null, ?int $segmentId = null, ?int $queueId = null): array
     {
         try {
             // Envoyer le SMS via l'API Orange
@@ -58,26 +62,41 @@ class SMSSenderService implements SMSSenderServiceInterface
                 'message' => $message,
                 'senderName' => $senderName ?? 'System',
                 'senderAddress' => $result['senderAddress'] ?? 'system',
-                'messageId' => $result['messageId'] ?? null
+                'messageId' => $result['messageId'] ?? null,
+                'userId' => $userId,
+                'segmentId' => $segmentId,
+                'batchId' => $batchId,
+                'queueId' => $queueId
             ];
 
             // Notifier les observateurs que le SMS a été envoyé
             $this->eventManager->notify('sms.sent', $eventData);
 
-            return true;
+            return [
+                'success' => true,
+                'messageId' => $result['messageId'] ?? null,
+                'senderAddress' => $result['senderAddress'] ?? 'system'
+            ];
         } catch (\Exception $e) {
             // Préparer les données pour l'événement d'erreur
             $eventData = [
                 'phoneNumber' => $phoneNumber,
                 'message' => $message,
                 'senderName' => $senderName ?? 'System',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'userId' => $userId,
+                'segmentId' => $segmentId,
+                'batchId' => $batchId,
+                'queueId' => $queueId
             ];
 
             // Notifier les observateurs que l'envoi du SMS a échoué
             $this->eventManager->notify('sms.failed', $eventData);
 
-            return false;
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
 
@@ -87,12 +106,18 @@ class SMSSenderService implements SMSSenderServiceInterface
      * @param array $recipients Liste des destinataires (numéros de téléphone)
      * @param string $message Message à envoyer
      * @param string|null $senderName Nom de l'expéditeur
+     * @param int|null $userId ID de l'utilisateur qui envoie le SMS
+     * @param string|null $batchId ID du lot pour les envois en masse
+     * @param int|null $segmentId ID du segment associé
      * @return array Résultats de l'envoi
      */
-    public function sendBulk(
+    public function sendBulkSMS(
         array $recipients,
         string $message,
-        ?string $senderName = null
+        ?string $senderName = null,
+        ?int $userId = null,
+        ?string $batchId = null,
+        ?int $segmentId = null
     ): array {
         $results = [
             'success' => [],
@@ -103,22 +128,43 @@ class SMSSenderService implements SMSSenderServiceInterface
         ];
 
         foreach ($recipients as $phoneNumber) {
-            $success = $this->sendSMS($phoneNumber, $message, $senderName);
+            $result = $this->sendSMS($phoneNumber, $message, $senderName, $userId, $batchId, $segmentId);
 
-            if ($success) {
+            if ($result['success']) {
                 $results['success'][] = [
-                    'phoneNumber' => $phoneNumber
+                    'phoneNumber' => $phoneNumber,
+                    'messageId' => $result['messageId'] ?? null
                 ];
                 $results['successful']++;
             } else {
                 $results['failed'][] = [
                     'phoneNumber' => $phoneNumber,
-                    'error' => 'Failed to send SMS'
+                    'error' => $result['error'] ?? 'Failed to send SMS'
                 ];
                 $results['failed_count']++;
             }
         }
 
         return $results;
+    }
+    
+    /**
+     * Envoie un SMS à tous les numéros de téléphone d'un segment
+     *
+     * @param int $segmentId ID du segment
+     * @param string $message Message à envoyer
+     * @param string|null $senderName Nom d'expéditeur à utiliser
+     * @param int|null $userId ID de l'utilisateur qui envoie le SMS
+     * @return array Résultat de l'envoi
+     */
+    public function sendSMSToSegment(int $segmentId, string $message, ?string $senderName = null, ?int $userId = null): array
+    {
+        // Cette méthode n'est pas directement utilisée car SMSQueueService.enqueueSegment() est préférée pour les segments
+        // Mais nous l'implémentons pour respecter l'interface
+        
+        return [
+            'success' => false,
+            'error' => 'Not directly supported - use SMSQueueService.enqueueSegment() instead'
+        ];
     }
 }

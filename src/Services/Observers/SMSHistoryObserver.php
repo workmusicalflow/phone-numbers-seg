@@ -15,7 +15,7 @@ use App\Models\SMSHistory;
 class SMSHistoryObserver implements ObserverInterface
 {
     /**
-     * @var SMSHistoryRepository
+     * @var \App\Repositories\Interfaces\SMSHistoryRepositoryInterface
      */
     private $smsHistoryRepository;
 
@@ -24,7 +24,7 @@ class SMSHistoryObserver implements ObserverInterface
      * 
      * @param SMSHistoryRepository $smsHistoryRepository
      */
-    public function __construct(SMSHistoryRepository $smsHistoryRepository)
+    public function __construct(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface $smsHistoryRepository)
     {
         $this->smsHistoryRepository = $smsHistoryRepository;
     }
@@ -52,20 +52,24 @@ class SMSHistoryObserver implements ObserverInterface
         $senderName = isset($data['senderName']) ? $data['senderName'] : 'System';
         $phoneNumberId = isset($data['phoneNumberId']) ? $data['phoneNumberId'] : null;
         $segmentId = isset($data['segmentId']) ? $data['segmentId'] : null;
+        $userId = isset($data['userId']) ? $data['userId'] : null;
+        $batchId = isset($data['batchId']) ? $data['batchId'] : null;
+        $queueId = isset($data['queueId']) ? $data['queueId'] : null;
 
         // Créer un nouvel enregistrement d'historique
-        $smsHistory = new SMSHistory(
-            null, // id (sera généré par la base de données)
-            $data['phoneNumber'],
-            $data['message'],
-            $status,
-            $senderAddress,
-            $senderName,
-            $phoneNumberId,
-            $messageId,
-            $errorMessage,
-            $segmentId
-        );
+        $smsHistory = new \App\Entities\SMSHistory();
+        $smsHistory->setPhoneNumber($data['phoneNumber']);
+        $smsHistory->setMessage($data['message']);
+        $smsHistory->setStatus($status);
+        $smsHistory->setSenderAddress($senderAddress);
+        $smsHistory->setSenderName($senderName);
+        $smsHistory->setPhoneNumberId($phoneNumberId);
+        $smsHistory->setMessageId($messageId);
+        $smsHistory->setErrorMessage($errorMessage);
+        $smsHistory->setSegmentId($segmentId);
+        $smsHistory->setUserId($userId);
+        $smsHistory->setBatchId($batchId);
+        $smsHistory->setCreatedAt(new \DateTime());
 
         // Enregistrer l'historique
         $this->smsHistoryRepository->save($smsHistory);
