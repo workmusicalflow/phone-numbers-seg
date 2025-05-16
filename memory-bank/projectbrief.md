@@ -2,7 +2,7 @@
 
 ## Aperçu du Projet
 
-Oracle est une application web complète pour la segmentation, l'analyse et la gestion des numéros de téléphone. Elle permet aux utilisateurs d'extraire des informations structurées à partir de numéros de téléphone, de les organiser en segments, d'envoyer des SMS et de suivre l'historique des communications.
+Oracle est une application web complète pour la segmentation, l'analyse et la gestion des numéros de téléphone. Elle permet aux utilisateurs d'extraire des informations structurées à partir de numéros de téléphone, de les organiser en segments, d'envoyer des SMS, de messages whatsapp et de suivre l'historique des communications.
 
 ## Objectifs Principaux
 

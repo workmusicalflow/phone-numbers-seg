@@ -1,287 +1,336 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api } from '@/services/api';
-import { graphql } from '@/services/graphql';
+import { apolloClient, gql } from '@/services/api';
 
-export interface WhatsAppMessage {
+// Types pour l'historique des messages WhatsApp
+export interface WhatsAppMessageHistory {
   id: string;
-  messageId: string;
-  sender: string;
-  recipient: string | null;
-  timestamp: number;
+  wabaMessageId: string;
+  phoneNumber: string;
+  direction: 'INCOMING' | 'OUTGOING';
   type: string;
   content: string | null;
-  mediaUrl: string | null;
-  mediaType: string | null;
-  status: string | null;
-  createdAt: number;
-  formattedTimestamp: string;
-  formattedCreatedAt: string;
+  status: string;
+  timestamp: string;
+  errorCode: number | null;
+  errorMessage: string | null;
+  conversationId: string | null;
+  pricingCategory: string | null;
+  mediaId: string | null;
+  templateName: string | null;
+  templateLanguage: string | null;
+  contextData: any;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface WhatsAppMessageResponse {
-  success: boolean;
-  messageId: string | null;
-  error: string | null;
+// Input pour l'envoi de messages
+export interface WhatsAppMessageInput {
+  phoneNumber: string;
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'template';
+  content?: string;
+  mediaUrl?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  templateParams?: Record<string, any>;
+  contextData?: any;
 }
 
-export interface SendTemplateInput {
-  recipient: string;
+// Input pour l'envoi de templates
+export interface WhatsAppTemplateSendInput {
+  phoneNumber: string;
   templateName: string;
-  languageCode: string;
-  headerImageUrl?: string;
-  body1Param?: string;
-  body2Param?: string;
-  body3Param?: string;
+  templateLanguage: string;
+  headerParams?: string[];
+  bodyParams?: string[];
+  buttonParams?: string[];
 }
 
-export const useWhatsAppStore = defineStore('whatsappStore', () => {
-  // State
-  const messages = ref<WhatsAppMessage[]>([]);
+export const useWhatsAppStore = defineStore('whatsapp', () => {
+  // État
+  const messages = ref<WhatsAppMessageHistory[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const totalCount = ref(0);
   const currentPage = ref(1);
-  const pageSize = ref(10);
-  const filterSender = ref('');
-  const filterType = ref('');
-
+  const pageSize = ref(20);
+  
+  // Filtres
+  const filterPhoneNumber = ref('');
+  const filterStatus = ref('');
+  
   // Getters
   const sortedMessages = computed(() => {
-    return [...messages.value].sort((a, b) => b.timestamp - a.timestamp);
+    return [...messages.value].sort((a, b) => {
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
   });
-
+  
   const filteredMessages = computed(() => {
     let filtered = sortedMessages.value;
     
-    if (filterSender.value) {
+    if (filterPhoneNumber.value) {
       filtered = filtered.filter(msg => 
-        msg.sender.includes(filterSender.value) || 
-        (msg.recipient && msg.recipient.includes(filterSender.value))
+        msg.phoneNumber.includes(filterPhoneNumber.value)
       );
     }
     
-    if (filterType.value) {
-      filtered = filtered.filter(msg => msg.type === filterType.value);
+    if (filterStatus.value) {
+      filtered = filtered.filter(msg => 
+        msg.status === filterStatus.value
+      );
     }
     
     return filtered;
   });
-
+  
+  const paginatedMessages = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value;
+    const end = start + pageSize.value;
+    return filteredMessages.value.slice(start, end);
+  });
+  
+  const totalPages = computed(() => {
+    return Math.ceil(filteredMessages.value.length / pageSize.value);
+  });
+  
   // Actions
-  async function fetchMessages(limit = pageSize.value, offset = (currentPage.value - 1) * pageSize.value) {
+  async function fetchMessages() {
     isLoading.value = true;
     error.value = null;
     
     try {
-      let query = '';
-      let variables = {};
+      const result = await apolloClient.query({
+        query: gql`
+          query GetWhatsAppMessages($limit: Int, $offset: Int) {
+            getWhatsAppMessages(limit: $limit, offset: $offset) {
+              messages {
+                id
+                wabaMessageId
+                phoneNumber
+                direction
+                type
+                content
+                status
+                errorCode
+                errorMessage
+                timestamp
+                conversationId
+                pricingCategory
+                mediaId
+                templateName
+                templateLanguage
+                contextData
+                createdAt
+                updatedAt
+              }
+              totalCount
+              hasMore
+            }
+          }
+        `,
+        variables: {
+          limit: 100,
+          offset: 0
+        },
+        fetchPolicy: 'network-only'
+      });
       
-      // Construire la requête en fonction des filtres
-      if (filterSender.value) {
-        query = `
-          query GetMessagesBySender($sender: String!, $limit: Int!, $offset: Int!) {
-            getWhatsAppMessagesBySender(sender: $sender, limit: $limit, offset: $offset) {
-              id
-              messageId
-              sender
-              recipient
-              timestamp
-              type
-              content
-              mediaUrl
-              mediaType
-              status
-              createdAt
-              formattedTimestamp
-              formattedCreatedAt
-            }
-          }
-        `;
-        variables = { sender: filterSender.value, limit, offset };
-      } else if (filterType.value) {
-        query = `
-          query GetMessagesByType($type: String!, $limit: Int!, $offset: Int!) {
-            getWhatsAppMessagesByType(type: $type, limit: $limit, offset: $offset) {
-              id
-              messageId
-              sender
-              recipient
-              timestamp
-              type
-              content
-              mediaUrl
-              mediaType
-              status
-              createdAt
-              formattedTimestamp
-              formattedCreatedAt
-            }
-          }
-        `;
-        variables = { type: filterType.value, limit, offset };
+      if (result && result.data && result.data.getWhatsAppMessages) {
+        messages.value = result.data.getWhatsAppMessages.messages || [];
+        totalCount.value = result.data.getWhatsAppMessages.totalCount || 0;
       } else {
-        // Par défaut, récupérer tous les messages
-        // Astuce: utiliser les paramètres d'une des requêtes précédentes
-        // car GraphQL n'a pas de requête pour tous les messages directement
-        query = `
-          query GetMessagesByType($type: String!, $limit: Int!, $offset: Int!) {
-            getWhatsAppMessagesByType(type: $type, limit: $limit, offset: $offset) {
+        console.warn('Aucune donnée WhatsApp reçue');
+        messages.value = [];
+        totalCount.value = 0;
+      }
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de la récupération des messages:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function sendMessage(message: any) {
+    isLoading.value = true;
+    error.value = null;
+    
+    try {
+      const result = await apolloClient.mutate({
+        mutation: gql`
+          mutation SendWhatsAppMessage($message: WhatsAppMessageInput!) {
+            sendWhatsAppMessage(message: $message) {
               id
-              messageId
-              sender
-              recipient
-              timestamp
+              wabaMessageId
+              phoneNumber
+              direction
               type
               content
-              mediaUrl
-              mediaType
               status
+              timestamp
+              errorCode
+              errorMessage
               createdAt
-              formattedTimestamp
-              formattedCreatedAt
+              updatedAt
             }
           }
-        `;
-        // Un type vide ou "%" ne fonctionnera pas, utiliser "text" par défaut
-        variables = { type: "text", limit, offset };
+        `,
+        variables: { message }
+      });
+      
+      if (result && result.data && result.data.sendWhatsAppMessage) {
+        // Ensure the new message is a plain, extensible object
+        const newMessage = { ...result.data.sendWhatsAppMessage };
+        // Créer un nouveau tableau avec le nouveau message en premier
+        messages.value = [newMessage, ...messages.value];
+        return newMessage;
       }
       
-      const response = await graphql(query, variables);
-      
-      // Déterminer quelle propriété contient les résultats
-      const resultKey = Object.keys(response).find(key => 
-        key.startsWith('getWhatsAppMessages')
-      );
-      
-      if (resultKey && Array.isArray(response[resultKey])) {
-        messages.value = response[resultKey];
-        // Idéalement, on aurait une requête pour compter le total
-        // En l'absence, on utilise la longueur de la liste
-        totalCount.value = response[resultKey].length;
-      }
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Une erreur est survenue';
-      console.error('Erreur lors de la récupération des messages WhatsApp:', err);
+      throw new Error('Réponse invalide du serveur');
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de l\'envoi du message:', err);
+      throw err;
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function sendTextMessage(recipient: string, message: string): Promise<WhatsAppMessageResponse> {
+  async function sendTemplate(template: WhatsAppTemplateSendInput) {
     isLoading.value = true;
     error.value = null;
     
     try {
-      const query = `
-        mutation SendWhatsAppTextMessage($recipient: String!, $message: String!) {
-          sendWhatsAppTextMessage(recipient: $recipient, message: $message) {
-            success
-            messageId
-            error
+      const result = await apolloClient.mutate({
+        mutation: gql`
+          mutation SendWhatsAppTemplate($message: WhatsAppMessageInput!) {
+            sendWhatsAppMessage(message: $message) {
+              id
+              wabaMessageId
+              phoneNumber
+              direction
+              type
+              status
+              createdAt
+            }
+          }
+        `,
+        variables: { 
+          message: {
+            recipient: template.phoneNumber,
+            type: 'template',
+            templateName: template.templateName,
+            languageCode: template.templateLanguage,
+            components: template.bodyParams ? [{
+              type: 'body',
+              parameters: template.bodyParams.map(param => ({ type: 'text', text: param }))
+            }] : undefined
           }
         }
-      `;
+      });
       
-      const response = await graphql(query, { recipient, message });
-      
-      if (response.sendWhatsAppTextMessage) {
-        // Si l'envoi est réussi, actualiser la liste des messages
-        if (response.sendWhatsAppTextMessage.success) {
-          await fetchMessages();
-        }
-        
-        return response.sendWhatsAppTextMessage;
+      if (result && result.data && result.data.sendWhatsAppMessage) {
+        // Ensure the new message is a plain, extensible object
+        const newMessage = { ...result.data.sendWhatsAppMessage };
+        // Créer un nouveau tableau avec le nouveau message en premier
+        messages.value = [newMessage, ...messages.value];
+        return newMessage;
       }
       
       throw new Error('Réponse invalide du serveur');
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Une erreur est survenue';
-      console.error('Erreur lors de l\'envoi du message WhatsApp:', err);
-      return {
-        success: false,
-        messageId: null,
-        error: error.value
-      };
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de l\'envoi du template:', err);
+      throw err;
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function sendTemplateMessage(input: SendTemplateInput): Promise<WhatsAppMessageResponse> {
-    isLoading.value = true;
-    error.value = null;
-    
+  async function loadUserTemplates() {
     try {
-      const query = `
-        mutation SendWhatsAppTemplateMessage($input: WhatsAppTemplateSendInput!) {
-          sendWhatsAppTemplateMessage(input: $input) {
-            success
-            messageId
-            error
+      const { data } = await apolloClient.query({
+        query: gql`
+          query GetUserTemplates {
+            getWhatsAppUserTemplates {
+              id
+              template_id
+              name
+              language
+              status
+            }
           }
-        }
-      `;
+        `,
+        fetchPolicy: 'network-only'
+      });
       
-      const response = await graphql(query, { input });
-      
-      if (response.sendWhatsAppTemplateMessage) {
-        // Si l'envoi est réussi, actualiser la liste des messages
-        if (response.sendWhatsAppTemplateMessage.success) {
-          await fetchMessages();
-        }
-        
-        return response.sendWhatsAppTemplateMessage;
-      }
-      
-      throw new Error('Réponse invalide du serveur');
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Une erreur est survenue';
-      console.error('Erreur lors de l\'envoi du template WhatsApp:', err);
-      return {
-        success: false,
-        messageId: null,
-        error: error.value
-      };
-    } finally {
-      isLoading.value = false;
+      return data.getWhatsAppUserTemplates || [];
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des templates:', err);
+      return [];
     }
   }
 
+  // Actions de pagination et filtrage
   function setCurrentPage(page: number) {
     currentPage.value = page;
-    fetchMessages();
   }
 
   function setPageSize(size: number) {
     pageSize.value = size;
     currentPage.value = 1;
-    fetchMessages();
   }
 
-  function setFilter(sender: string = '', type: string = '') {
-    filterSender.value = sender;
-    filterType.value = type;
+  function setFilters(phoneNumber: string = '', status: string = '') {
+    filterPhoneNumber.value = phoneNumber;
+    filterStatus.value = status;
     currentPage.value = 1;
-    fetchMessages();
+  }
+
+  function clearFilters() {
+    filterPhoneNumber.value = '';
+    filterStatus.value = '';
+    currentPage.value = 1;
+  }
+
+  // Action pour rafraîchir les messages
+  async function refreshMessages() {
+    await fetchMessages();
+  }
+  
+  // Alias pour compatibilité
+  async function fetchMessageHistory() {
+    await fetchMessages();
   }
 
   return {
+    // State
     messages,
-    sortedMessages,
-    filteredMessages,
     isLoading,
     error,
     totalCount,
     currentPage,
     pageSize,
-    filterSender,
-    filterType,
+    filterPhoneNumber,
+    filterStatus,
+    
+    // Getters
+    sortedMessages,
+    filteredMessages,
+    paginatedMessages,
+    totalPages,
+    
+    // Actions
     fetchMessages,
-    sendTextMessage,
-    sendTemplateMessage,
+    fetchMessageHistory,
+    sendMessage,
+    sendTemplate,
+    loadUserTemplates,
     setCurrentPage,
     setPageSize,
-    setFilter
+    setFilters,
+    clearFilters,
+    refreshMessages
   };
 });

@@ -1,0 +1,469 @@
+<?php
+
+namespace App\Entities\WhatsApp;
+
+use App\Entities\User;
+use App\Entities\Contact;
+use Doctrine\ORM\Mapping\Entity;
+use Doctrine\ORM\Mapping\Table;
+use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\Column;
+use Doctrine\ORM\Mapping\GeneratedValue;
+use Doctrine\ORM\Mapping\ManyToOne;
+use Doctrine\ORM\Mapping\JoinColumn;
+use Doctrine\ORM\Mapping\Index;
+
+/**
+ * Historique des messages WhatsApp avec gestion complète des statuts et métadonnées
+ */
+#[Entity]
+#[Table(name: "whatsapp_message_history")]
+#[Index(columns: ["waba_message_id"], name: "idx_waba_message_id")]
+#[Index(columns: ["conversation_id"], name: "idx_conversation_id")]
+#[Index(columns: ["direction", "timestamp"], name: "idx_direction_timestamp")]
+class WhatsAppMessageHistory
+{
+    public const DIRECTION_INBOUND = 'INBOUND';
+    public const DIRECTION_OUTBOUND = 'OUTBOUND';
+    
+    public const TYPE_TEXT = 'TEXT';
+    public const TYPE_IMAGE = 'IMAGE';
+    public const TYPE_VIDEO = 'VIDEO';
+    public const TYPE_AUDIO = 'AUDIO';
+    public const TYPE_DOCUMENT = 'DOCUMENT';
+    public const TYPE_TEMPLATE = 'TEMPLATE';
+    public const TYPE_INTERACTIVE = 'INTERACTIVE';
+    public const TYPE_LOCATION = 'LOCATION';
+    public const TYPE_CONTACTS = 'CONTACTS';
+    public const TYPE_REACTION = 'REACTION';
+    public const TYPE_STICKER = 'STICKER';
+    
+    public const STATUS_SENT = 'SENT';
+    public const STATUS_DELIVERED = 'DELIVERED';
+    public const STATUS_READ = 'READ';
+    public const STATUS_FAILED = 'FAILED';
+    public const STATUS_RECEIVED = 'RECEIVED';
+    
+    #[Id]
+    #[Column(type: "integer")]
+    #[GeneratedValue]
+    private int $id;
+    
+    /**
+     * WhatsApp Message ID (WAMID)
+     */
+    #[Column(name: "waba_message_id", type: "string", unique: true)]
+    private string $wabaMessageId;
+    
+    /**
+     * Utilisateur Oracle propriétaire du compte WhatsApp
+     */
+    #[ManyToOne(targetEntity: User::class)]
+    #[JoinColumn(name: "oracle_user_id", referencedColumnName: "id", nullable: false)]
+    private User $oracleUser;
+    
+    /**
+     * Contact associé (optionnel)
+     */
+    #[ManyToOne(targetEntity: Contact::class)]
+    #[JoinColumn(name: "contact_id", referencedColumnName: "id", nullable: true)]
+    private ?Contact $contact = null;
+    
+    /**
+     * Numéro de téléphone (format WhatsApp ID ou international)
+     */
+    #[Column(name: "phone_number", type: "string")]
+    private string $phoneNumber;
+    
+    /**
+     * Direction du message
+     */
+    #[Column(name: "direction", type: "string", enumType: false)]
+    private string $direction;
+    
+    /**
+     * Type de message
+     */
+    #[Column(name: "type", type: "string", enumType: false)]
+    private string $type;
+    
+    /**
+     * Contenu du message (JSON pour stocker différents formats)
+     */
+    #[Column(type: "text", nullable: true)]
+    private ?string $content = null;
+    
+    /**
+     * Statut du message
+     */
+    #[Column(name: "status", type: "string", enumType: false)]
+    private string $status;
+    
+    /**
+     * Timestamp du message
+     */
+    #[Column(name: "timestamp", type: "datetime")]
+    private \DateTime $timestamp;
+    
+    /**
+     * Code d'erreur (si échec)
+     */
+    #[Column(name: "error_code", type: "integer", nullable: true)]
+    private ?int $errorCode = null;
+    
+    /**
+     * Message d'erreur
+     */
+    #[Column(name: "error_message", type: "text", nullable: true)]
+    private ?string $errorMessage = null;
+    
+    /**
+     * ID de conversation WhatsApp
+     */
+    #[Column(name: "conversation_id", type: "string", nullable: true)]
+    private ?string $conversationId = null;
+    
+    /**
+     * Catégorie de tarification
+     */
+    #[Column(name: "pricing_category", type: "string", nullable: true)]
+    private ?string $pricingCategory = null;
+    
+    /**
+     * ID du média (pour messages média)
+     */
+    #[Column(name: "media_id", type: "string", nullable: true)]
+    private ?string $mediaId = null;
+    
+    /**
+     * Nom du template utilisé
+     */
+    #[Column(name: "template_name", type: "string", nullable: true)]
+    private ?string $templateName = null;
+    
+    /**
+     * Langue du template
+     */
+    #[Column(name: "template_language", type: "string", nullable: true)]
+    private ?string $templateLanguage = null;
+    
+    /**
+     * Données contextuelles (JSON)
+     */
+    #[Column(name: "context_data", type: "text", nullable: true)]
+    private ?string $contextData = null;
+    
+    /**
+     * Dates de création et mise à jour
+     */
+    #[Column(name: "created_at", type: "datetime")]
+    private \DateTime $createdAt;
+    
+    #[Column(name: "updated_at", type: "datetime", nullable: true)]
+    private ?\DateTime $updatedAt = null;
+    
+    public function __construct()
+    {
+        $this->createdAt = new \DateTime();
+    }
+    
+    // Getters et Setters
+    public function getId(): int
+    {
+        return $this->id;
+    }
+    
+    public function getWabaMessageId(): string
+    {
+        return $this->wabaMessageId;
+    }
+    
+    public function setWabaMessageId(string $wabaMessageId): self
+    {
+        $this->wabaMessageId = $wabaMessageId;
+        return $this;
+    }
+    
+    public function getOracleUser(): User
+    {
+        return $this->oracleUser;
+    }
+    
+    public function setOracleUser(User $oracleUser): self
+    {
+        $this->oracleUser = $oracleUser;
+        return $this;
+    }
+    
+    public function getContact(): ?Contact
+    {
+        return $this->contact;
+    }
+    
+    public function setContact(?Contact $contact): self
+    {
+        $this->contact = $contact;
+        return $this;
+    }
+    
+    public function getPhoneNumber(): string
+    {
+        return $this->phoneNumber;
+    }
+    
+    public function setPhoneNumber(string $phoneNumber): self
+    {
+        $this->phoneNumber = $phoneNumber;
+        return $this;
+    }
+    
+    public function getDirection(): string
+    {
+        return $this->direction;
+    }
+    
+    public function setDirection(string $direction): self
+    {
+        if (!in_array($direction, [self::DIRECTION_INBOUND, self::DIRECTION_OUTBOUND])) {
+            throw new \InvalidArgumentException("Direction invalide : $direction");
+        }
+        $this->direction = $direction;
+        return $this;
+    }
+    
+    public function getType(): string
+    {
+        return $this->type;
+    }
+    
+    public function setType(string $type): self
+    {
+        $validTypes = [
+            self::TYPE_TEXT, self::TYPE_IMAGE, self::TYPE_VIDEO,
+            self::TYPE_AUDIO, self::TYPE_DOCUMENT, self::TYPE_TEMPLATE,
+            self::TYPE_INTERACTIVE, self::TYPE_LOCATION, self::TYPE_CONTACTS,
+            self::TYPE_REACTION, self::TYPE_STICKER
+        ];
+        
+        if (!in_array($type, $validTypes)) {
+            throw new \InvalidArgumentException("Type de message invalide : $type");
+        }
+        
+        $this->type = $type;
+        return $this;
+    }
+    
+    public function getContent(): ?string
+    {
+        return $this->content;
+    }
+    
+    public function setContent(?string $content): self
+    {
+        $this->content = $content;
+        return $this;
+    }
+    
+    /**
+     * Obtenir le contenu décodé
+     */
+    public function getDecodedContent(): ?array
+    {
+        if ($this->content === null) {
+            return null;
+        }
+        return json_decode($this->content, true) ?: null;
+    }
+    
+    /**
+     * Définir le contenu à partir d'un tableau
+     */
+    public function setContentFromArray(array $content): self
+    {
+        $this->content = json_encode($content);
+        return $this;
+    }
+    
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+    
+    public function setStatus(string $status): self
+    {
+        $validStatuses = [
+            self::STATUS_SENT, self::STATUS_DELIVERED,
+            self::STATUS_READ, self::STATUS_FAILED,
+            self::STATUS_RECEIVED
+        ];
+        
+        if (!in_array($status, $validStatuses)) {
+            throw new \InvalidArgumentException("Statut invalide : $status");
+        }
+        
+        $this->status = $status;
+        $this->updatedAt = new \DateTime();
+        return $this;
+    }
+    
+    public function getTimestamp(): \DateTime
+    {
+        return $this->timestamp;
+    }
+    
+    public function setTimestamp(\DateTime $timestamp): self
+    {
+        $this->timestamp = $timestamp;
+        return $this;
+    }
+    
+    public function setTimestampFromUnix(int $timestamp): self
+    {
+        $this->timestamp = (new \DateTime())->setTimestamp($timestamp);
+        return $this;
+    }
+    
+    public function getErrorCode(): ?int
+    {
+        return $this->errorCode;
+    }
+    
+    public function setErrorCode(?int $errorCode): self
+    {
+        $this->errorCode = $errorCode;
+        return $this;
+    }
+    
+    public function getErrorMessage(): ?string
+    {
+        return $this->errorMessage;
+    }
+    
+    public function setErrorMessage(?string $errorMessage): self
+    {
+        $this->errorMessage = $errorMessage;
+        return $this;
+    }
+    
+    public function getConversationId(): ?string
+    {
+        return $this->conversationId;
+    }
+    
+    public function setConversationId(?string $conversationId): self
+    {
+        $this->conversationId = $conversationId;
+        return $this;
+    }
+    
+    public function getPricingCategory(): ?string
+    {
+        return $this->pricingCategory;
+    }
+    
+    public function setPricingCategory(?string $pricingCategory): self
+    {
+        $this->pricingCategory = $pricingCategory;
+        return $this;
+    }
+    
+    public function getMediaId(): ?string
+    {
+        return $this->mediaId;
+    }
+    
+    public function setMediaId(?string $mediaId): self
+    {
+        $this->mediaId = $mediaId;
+        return $this;
+    }
+    
+    public function getTemplateName(): ?string
+    {
+        return $this->templateName;
+    }
+    
+    public function setTemplateName(?string $templateName): self
+    {
+        $this->templateName = $templateName;
+        return $this;
+    }
+    
+    public function getTemplateLanguage(): ?string
+    {
+        return $this->templateLanguage;
+    }
+    
+    public function setTemplateLanguage(?string $templateLanguage): self
+    {
+        $this->templateLanguage = $templateLanguage;
+        return $this;
+    }
+    
+    public function getContextData(): ?string
+    {
+        return $this->contextData;
+    }
+    
+    public function setContextData(?string $contextData): self
+    {
+        $this->contextData = $contextData;
+        return $this;
+    }
+    
+    public function getDecodedContextData(): ?array
+    {
+        if ($this->contextData === null) {
+            return null;
+        }
+        return json_decode($this->contextData, true) ?: null;
+    }
+    
+    public function setContextDataFromArray(array $contextData): self
+    {
+        $this->contextData = json_encode($contextData);
+        return $this;
+    }
+    
+    public function getCreatedAt(): \DateTime
+    {
+        return $this->createdAt;
+    }
+    
+    public function getUpdatedAt(): ?\DateTime
+    {
+        return $this->updatedAt;
+    }
+    
+    /**
+     * Vérifier si le message est entrant
+     */
+    public function isInbound(): bool
+    {
+        return $this->direction === self::DIRECTION_INBOUND;
+    }
+    
+    /**
+     * Vérifier si le message est sortant
+     */
+    public function isOutbound(): bool
+    {
+        return $this->direction === self::DIRECTION_OUTBOUND;
+    }
+    
+    /**
+     * Vérifier si le message est un échec
+     */
+    public function isFailed(): bool
+    {
+        return $this->status === self::STATUS_FAILED;
+    }
+    
+    /**
+     * Vérifier si le message a été lu
+     */
+    public function isRead(): bool
+    {
+        return $this->status === self::STATUS_READ;
+    }
+}

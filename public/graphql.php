@@ -104,6 +104,7 @@ use App\GraphQL\Resolvers\SMSResolver;
 use App\GraphQL\Resolvers\AuthResolver;
 use App\GraphQL\Resolvers\ContactGroupResolver;
 use App\GraphQL\Resolvers\ContactSMSResolver;
+use App\GraphQL\Resolvers\WhatsApp\WhatsAppResolver;
 use Psr\Log\LoggerInterface;
 use GraphQL\Error\DebugFlag;
 
@@ -172,6 +173,7 @@ try {
     $authResolver = $container->get(AuthResolver::class);
     $contactGroupResolver = $container->get(ContactGroupResolver::class);
     $contactSmsResolver = $container->get(ContactSMSResolver::class);
+    $whatsAppResolver = $container->get(WhatsAppResolver::class);
     $logger->info('Resolver instances obtained from DI container.');
 
     // --- Field Resolver Mapping ---
@@ -182,6 +184,7 @@ try {
         $authResolver,
         $contactGroupResolver,
         $contactSmsResolver,
+        $whatsAppResolver,
         $logger,
         $container,
         $graphQLContext // Add the GraphQL context
@@ -249,6 +252,18 @@ try {
                             'totalSmsCredits' => 0,
                             'lastUpdated' => date('Y-m-d H:i:s')
                         ];
+                    case 'getWhatsAppMessages':
+                        return $whatsAppResolver->getWhatsAppMessages(
+                            $args['limit'] ?? null,
+                            $args['offset'] ?? null,
+                            $args['phoneNumber'] ?? null,
+                            $args['status'] ?? null,
+                            $args['type'] ?? null,
+                            $args['direction'] ?? null,
+                            $context
+                        );
+                    case 'getWhatsAppUserTemplates':
+                        return $whatsAppResolver->getWhatsAppUserTemplates($context);
                 }
             }
             // Handle top-level Mutation fields
@@ -303,9 +318,30 @@ try {
                         return $smsResolver->mutateSendSmsToAllContacts($args, $context);
                     case 'retrySms':
                         return $smsResolver->mutateRetrySms($args, $context);
+                    case 'sendWhatsAppMessage':
+                        return $whatsAppResolver->sendWhatsAppMessage($args['message'], $context);
+                    case 'sendWhatsAppTemplate':
+                        return $whatsAppResolver->sendWhatsAppTemplate($args['template'], $context);
                 }
             }
 
+            // Handle WhatsAppMessageHistory fields
+            if ($parentTypeName === 'WhatsAppMessageHistory') {
+                $logger->debug("Resolving WhatsAppMessageHistory field: {$fieldName}");
+                
+                // Pour les types personnalisés, on utilise notre Type GraphQL
+                $whatsappType = $container->get(\App\GraphQL\Types\WhatsApp\WhatsAppMessageHistoryType::class);
+                
+                // Appeler la méthode correspondante sur le type
+                $methodName = 'get' . ucfirst($fieldName);
+                if (method_exists($whatsappType, $methodName)) {
+                    return $whatsappType->$methodName($source);
+                }
+                
+                // Fallback to default resolver si la méthode n'existe pas
+                return Executor::defaultFieldResolver($source, $args, $context, $info);
+            }
+            
             // Handle nested field resolvers
             if ($parentTypeName === 'Contact') {
                 $logger->debug("Resolving Contact field: {$fieldName}");

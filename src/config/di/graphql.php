@@ -86,6 +86,11 @@ return [
         );
     }),
 
+    // GraphQL Types
+    \App\GraphQL\Types\WhatsApp\WhatsAppMessageHistoryType::class => factory(function (Container $container) {
+        return new \App\GraphQL\Types\WhatsApp\WhatsAppMessageHistoryType();
+    }),
+    
     // GraphQL Controllers (If used directly, otherwise resolvers handle logic)
     // Example: (Adjust based on actual usage)
     // \App\GraphQL\Controllers\AdminContactController::class => factory(function (Container $container) {

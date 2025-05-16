@@ -4,7 +4,7 @@
       <div class="row q-col-gutter-md">
         <div class="col-12 col-md-4">
           <q-input
-            v-model="senderFilter"
+            v-model="phoneFilter"
             label="Rechercher par numéro"
             outlined
             dense
@@ -18,9 +18,9 @@
         </div>
         <div class="col-12 col-md-4">
           <q-select
-            v-model="typeFilter"
-            :options="messageTypeOptions"
-            label="Type de message"
+            v-model="statusFilter"
+            :options="statusOptions"
+            label="Statut"
             outlined
             dense
             clearable
@@ -49,22 +49,24 @@
           </q-inner-loading>
         </template>
 
-        <template v-slot:body-cell-sender="props">
+        <template v-slot:body-cell-direction="props">
           <q-td :props="props">
-            <div class="sender-cell">
-              {{ formatPhoneNumber(props.row.sender) }}
-              <q-tooltip>{{ props.row.sender }}</q-tooltip>
-            </div>
+            <q-icon 
+              :name="props.row.direction === 'INCOMING' ? 'arrow_downward' : 'arrow_upward'"
+              :color="props.row.direction === 'INCOMING' ? 'primary' : 'positive'"
+              size="sm"
+            >
+              <q-tooltip>{{ props.row.direction === 'INCOMING' ? 'Entrant' : 'Sortant' }}</q-tooltip>
+            </q-icon>
           </q-td>
         </template>
 
-        <template v-slot:body-cell-recipient="props">
+        <template v-slot:body-cell-phoneNumber="props">
           <q-td :props="props">
-            <div v-if="props.row.recipient" class="recipient-cell">
-              {{ formatPhoneNumber(props.row.recipient) }}
-              <q-tooltip>{{ props.row.recipient }}</q-tooltip>
+            <div class="phone-cell">
+              {{ formatPhoneNumber(props.row.phoneNumber) }}
+              <q-tooltip>{{ props.row.phoneNumber }}</q-tooltip>
             </div>
-            <div v-else class="text-grey-7">-</div>
           </q-td>
         </template>
 
@@ -86,61 +88,65 @@
             <div v-if="props.row.type === 'text' && props.row.content" class="content-cell">
               {{ props.row.content }}
             </div>
-            <div v-else-if="props.row.type === 'image' && props.row.mediaUrl" class="media-cell">
-              <q-img
-                :src="props.row.mediaUrl"
-                style="max-width: 100px; max-height: 100px;"
-                fit="contain"
-              >
-                <template v-slot:error>
-                  <div class="absolute-full flex flex-center text-grey-7">
-                    <q-icon name="image" size="md" />
-                  </div>
-                </template>
-              </q-img>
+            <div v-else-if="props.row.type === 'template'" class="template-cell">
+              <q-chip dense color="info" text-color="white">
+                {{ props.row.templateName || 'Template' }}
+              </q-chip>
+              <span v-if="props.row.templateLanguage" class="text-grey-7 q-ml-xs">
+                ({{ props.row.templateLanguage }})
+              </span>
+            </div>
+            <div v-else-if="props.row.type === 'image' && props.row.mediaId" class="media-cell">
+              <q-icon name="image" size="md" color="green" />
               <div v-if="props.row.content" class="caption q-mt-xs">
                 {{ props.row.content }}
               </div>
             </div>
-            <div v-else-if="props.row.type === 'document' && props.row.mediaUrl" class="media-cell">
+            <div v-else-if="props.row.type === 'document' && props.row.mediaId" class="media-cell">
               <q-icon name="description" size="md" color="primary" />
               <div class="caption q-mt-xs">
                 {{ props.row.content || 'Document' }}
               </div>
             </div>
-            <div v-else-if="props.row.type === 'audio' && props.row.mediaUrl" class="media-cell">
-              <q-icon name="audio_file" size="md" color="primary" />
+            <div v-else-if="props.row.type === 'audio' && props.row.mediaId" class="media-cell">
+              <q-icon name="audio_file" size="md" color="deep-purple" />
               <div class="caption q-mt-xs">Audio</div>
             </div>
-            <div v-else-if="props.row.type === 'video' && props.row.mediaUrl" class="media-cell">
-              <q-icon name="video_file" size="md" color="primary" />
+            <div v-else-if="props.row.type === 'video' && props.row.mediaId" class="media-cell">
+              <q-icon name="video_file" size="md" color="red" />
               <div class="caption q-mt-xs">
                 {{ props.row.content || 'Vidéo' }}
               </div>
-            </div>
-            <div v-else-if="props.row.status" class="status-cell">
-              <q-chip
-                :color="getStatusColor(props.row.status)"
-                text-color="white"
-                dense
-              >
-                {{ props.row.status }}
-              </q-chip>
             </div>
             <div v-else class="text-grey-7">-</div>
           </q-td>
         </template>
 
+        <template v-slot:body-cell-status="props">
+          <q-td :props="props">
+            <q-chip
+              :color="getStatusColor(props.row.status)"
+              text-color="white"
+              dense
+            >
+              {{ getStatusLabel(props.row.status) }}
+            </q-chip>
+            <div v-if="props.row.errorMessage" class="text-negative text-caption q-mt-xs">
+              {{ props.row.errorMessage }}
+            </div>
+          </q-td>
+        </template>
+
         <template v-slot:body-cell-timestamp="props">
           <q-td :props="props">
-            {{ props.row.formattedTimestamp }}
+            {{ formatDate(props.row.timestamp) }}
           </q-td>
         </template>
 
         <template v-slot:body-cell-actions="props">
           <q-td :props="props">
             <q-btn
-              v-if="props.row.sender && props.row.type !== 'status'"
+              v-if="props.row.direction === 'INCOMING'"
               icon="reply"
               color="primary"
               flat
@@ -151,7 +157,7 @@
               <q-tooltip>Répondre</q-tooltip>
             </q-btn>
             <q-btn
-              v-if="props.row.mediaUrl"
+              v-if="props.row.mediaId"
               icon="download"
               color="secondary"
               flat
@@ -170,7 +176,7 @@
     <q-dialog v-model="replyDialogOpen" persistent>
       <q-card style="min-width: 350px">
         <q-card-section>
-          <div class="text-h6">Répondre à {{ formatPhoneNumber(selectedMessage?.sender || '') }}</div>
+          <div class="text-h6">Répondre à {{ formatPhoneNumber(selectedMessage?.phoneNumber || '') }}</div>
         </q-card-section>
 
         <q-card-section>
@@ -201,58 +207,57 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useQuasar } from 'quasar';
-import { useWhatsAppStore, type WhatsAppMessage } from '@/stores/whatsappStore';
+import { useWhatsAppStore, type WhatsAppMessageHistory } from '@/stores/whatsappStore';
 
 const $q = useQuasar();
 const whatsAppStore = useWhatsAppStore();
 
 // État des filtres
-const senderFilter = ref('');
-const typeFilter = ref('');
+const phoneFilter = ref('');
+const statusFilter = ref('');
 
 // État de la pagination
 const pagination = ref({
-  rowsPerPage: 10,
-  page: 1,
+  rowsPerPage: whatsAppStore.pageSize,
+  page: whatsAppStore.currentPage,
   rowsNumber: 0
 });
 
 // État du dialogue de réponse
 const replyDialogOpen = ref(false);
-const selectedMessage = ref<WhatsAppMessage | null>(null);
+const selectedMessage = ref<WhatsAppMessageHistory | null>(null);
 const replyMessage = ref('');
 const sendingReply = ref(false);
 
 // Valeurs calculées
 const isLoading = computed(() => whatsAppStore.isLoading);
-const messages = computed(() => whatsAppStore.filteredMessages);
+const messages = computed(() => whatsAppStore.paginatedMessages);
 
-// Options pour le select de type de message
-const messageTypeOptions = [
-  { label: 'Texte', value: 'text' },
-  { label: 'Image', value: 'image' },
-  { label: 'Document', value: 'document' },
-  { label: 'Audio', value: 'audio' },
-  { label: 'Vidéo', value: 'video' },
-  { label: 'Statut', value: 'status' }
+// Options pour le select de statut
+const statusOptions = [
+  { label: 'Envoyé', value: 'sent' },
+  { label: 'Livré', value: 'delivered' },
+  { label: 'Lu', value: 'read' },
+  { label: 'Échoué', value: 'failed' },
+  { label: 'Reçu', value: 'received' }
 ];
 
 // Définition des colonnes du tableau
 const columns = [
   {
-    name: 'sender',
+    name: 'direction',
     required: true,
-    label: 'Expéditeur',
-    align: 'left',
-    field: 'sender',
+    label: 'Direction',
+    align: 'center',
+    field: 'direction',
     sortable: true
   },
   {
-    name: 'recipient',
-    required: false,
-    label: 'Destinataire',
+    name: 'phoneNumber',
+    required: true,
+    label: 'Numéro de téléphone',
     align: 'left',
-    field: 'recipient',
+    field: 'phoneNumber',
     sortable: true
   },
   {
@@ -272,11 +277,19 @@ const columns = [
     sortable: false
   },
   {
+    name: 'status',
+    required: true,
+    label: 'Statut',
+    align: 'left',
+    field: 'status',
+    sortable: true
+  },
+  {
     name: 'timestamp',
     required: true,
     label: 'Date',
     align: 'left',
-    field: 'formattedTimestamp',
+    field: 'timestamp',
     sortable: true
   },
   {
@@ -308,6 +321,25 @@ function formatPhoneNumber(phoneNumber: string): string {
   return phoneNumber;
 }
 
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } else if (diffDays === 1) {
+    return 'Hier ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } else if (diffDays < 7) {
+    return date.toLocaleDateString('fr-FR', { weekday: 'long' }) + ' ' + 
+           date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } else {
+    return date.toLocaleDateString('fr-FR') + ' ' + 
+           date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
 function getMessageTypeColor(type: string): string {
   switch (type) {
     case 'text': return 'primary';
@@ -315,8 +347,8 @@ function getMessageTypeColor(type: string): string {
     case 'document': return 'blue';
     case 'audio': return 'deep-purple';
     case 'video': return 'red';
-    case 'status': return 'grey';
-    default: return 'black';
+    case 'template': return 'info';
+    default: return 'grey';
   }
 }
 
@@ -326,18 +358,30 @@ function getStatusColor(status: string): string {
     case 'delivered': return 'green';
     case 'read': return 'deep-purple';
     case 'failed': return 'negative';
+    case 'received': return 'primary';
     default: return 'grey';
   }
 }
 
-// Fonctions d'interaction avec l'API
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'sent': return 'Envoyé';
+    case 'delivered': return 'Livré';
+    case 'read': return 'Lu';
+    case 'failed': return 'Échoué';
+    case 'received': return 'Reçu';
+    default: return status;
+  }
+}
+
+// Fonctions d'interaction avec le store
 async function refreshMessages() {
-  await whatsAppStore.fetchMessages();
+  await whatsAppStore.fetchMessageHistory();
   pagination.value.rowsNumber = whatsAppStore.totalCount;
 }
 
 function applyFilters() {
-  whatsAppStore.setFilter(senderFilter.value, typeFilter.value);
+  whatsAppStore.setFilters(phoneFilter.value, statusFilter.value);
   pagination.value.page = 1;
 }
 
@@ -351,7 +395,7 @@ function onRequest(props: any) {
   whatsAppStore.setCurrentPage(page);
 }
 
-function promptReply(message: WhatsAppMessage) {
+function promptReply(message: WhatsAppMessageHistory) {
   selectedMessage.value = message;
   replyMessage.value = '';
   replyDialogOpen.value = true;
@@ -365,21 +409,23 @@ async function sendReply() {
   sendingReply.value = true;
   
   try {
-    const response = await whatsAppStore.sendTextMessage(
-      selectedMessage.value.sender,
-      replyMessage.value
-    );
+    const response = await whatsAppStore.sendMessage({
+      recipient: selectedMessage.value.phoneNumber,
+      type: 'text',
+      content: replyMessage.value
+    });
     
-    if (response.success) {
+    if (response) {
       $q.notify({
         type: 'positive',
         message: 'Message envoyé avec succès'
       });
       replyDialogOpen.value = false;
+      await refreshMessages();
     } else {
       $q.notify({
         type: 'negative',
-        message: `Erreur lors de l'envoi: ${response.error || 'Erreur inconnue'}`
+        message: whatsAppStore.error || 'Erreur lors de l\'envoi du message'
       });
     }
   } catch (error) {
@@ -392,8 +438,8 @@ async function sendReply() {
   }
 }
 
-function downloadMedia(message: WhatsAppMessage) {
-  if (!message.mediaUrl) {
+function downloadMedia(message: WhatsAppMessageHistory) {
+  if (!message.mediaId) {
     return;
   }
   
@@ -432,8 +478,7 @@ onMounted(() => {
     justify-content: center;
   }
   
-  .sender-cell,
-  .recipient-cell {
+  .phone-cell {
     font-family: monospace;
     white-space: nowrap;
   }
@@ -442,6 +487,11 @@ onMounted(() => {
     max-width: 300px;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+  
+  .template-cell {
+    display: flex;
+    align-items: center;
   }
   
   .media-cell {

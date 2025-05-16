@@ -1,0 +1,42 @@
+{
+    "timestamp": "2025-05-16_12-12-50",
+    "type": "status",
+    "method": "POST",
+    "data": {
+        "action": "status_update",
+        "status": {
+            "id": "wamid.HBgLMjI1NzcxMDQ5MzYVAgARGBIxRjgzNUFFNzY2MDc4QkRGOTYA",
+            "status": "sent",
+            "timestamp": "1747397561",
+            "recipient_id": "22577104936",
+            "conversation": {
+                "id": "723ec31f1c994b748db8adc8e7618c38",
+                "expiration_timestamp": "1747483980",
+                "origin": {
+                    "type": "utility"
+                }
+            },
+            "pricing": {
+                "billable": true,
+                "pricing_model": "CBP",
+                "category": "utility"
+            }
+        }
+    },
+    "headers": {
+        "x-forwarded-for": "173.252.107.114",
+        "x-forwarded-port": "443",
+        "host": "olive-meals-win.loca.lt",
+        "x-forwarded-proto": "https, https",
+        "content-length": "576",
+        "x-hub-signature-256": "sha256=a05603ec8bf13ece6997bdd0e8847b72e9726b1e8240dfefa3e1b81a2d571d2b",
+        "x-hub-signature": "sha1=c3c8379ede2c1f2e95a2ebacc3978015d93441dc",
+        "content-type": "application\/json",
+        "user-agent": "facebookexternalua",
+        "accept-encoding": "deflate, gzip",
+        "accept": "*\/*",
+        "x-forwarded-host": "olive-meals-win.loca.lt",
+        "connection": "keep-alive"
+    },
+    "query": []
+}

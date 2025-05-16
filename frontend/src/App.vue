@@ -121,7 +121,7 @@
 
         <q-item clickable v-ripple to="/whatsapp">
           <q-item-section avatar>
-            <q-icon name="whatsapp" />
+            <q-icon name="fab fa-whatsapp" />
           </q-item-section>
           <q-item-section>WhatsApp</q-item-section>
         </q-item>
@@ -208,4 +208,7 @@ onMounted(async () => {
 
 <style>
 /* Global styles */
+.q-icon[name="fab fa-whatsapp"] {
+  color: #25D366; /* WhatsApp brand color */
+}
 </style>

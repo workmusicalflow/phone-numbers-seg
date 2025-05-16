@@ -1,0 +1,183 @@
+<?php
+
+namespace App\Entities\WhatsApp;
+
+use Doctrine\ORM\Mapping as ORM;
+
+/**
+ * Entité pour les templates WhatsApp
+ * 
+ * @ORM\Entity
+ * @ORM\Table(name="whatsapp_templates")
+ * @ORM\HasLifecycleCallbacks
+ */
+class WhatsAppTemplate
+{
+    public const STATUS_PENDING = 'PENDING';
+    public const STATUS_APPROVED = 'APPROVED';
+    public const STATUS_REJECTED = 'REJECTED';
+    
+    public const CATEGORY_MARKETING = 'MARKETING';
+    public const CATEGORY_TRANSACTIONAL = 'TRANSACTIONAL';
+    public const CATEGORY_OTP = 'OTP';
+    
+    /**
+     * @ORM\Id
+     * @ORM\GeneratedValue
+     * @ORM\Column(type="integer")
+     */
+    private int $id;
+    
+    /**
+     * @ORM\Column(type="string", length=255)
+     */
+    private string $name;
+    
+    /**
+     * @ORM\Column(type="string", length=10)
+     */
+    private string $language;
+    
+    /**
+     * @ORM\Column(type="string", length=50, nullable=true)
+     */
+    private ?string $category = null;
+    
+    /**
+     * @ORM\Column(type="string", length=20)
+     */
+    private string $status = self::STATUS_PENDING;
+    
+    /**
+     * @ORM\Column(type="json", nullable=true)
+     */
+    private ?array $components = null;
+    
+    /**
+     * @ORM\Column(type="boolean")
+     */
+    private bool $isActive = true;
+    
+    /**
+     * @ORM\Column(type="string", nullable=true)
+     */
+    private ?string $metaTemplateId = null;
+    
+    /**
+     * @ORM\Column(type="datetime")
+     */
+    private \DateTime $createdAt;
+    
+    /**
+     * @ORM\Column(type="datetime")
+     */
+    private \DateTime $updatedAt;
+    
+    public function __construct()
+    {
+        $this->createdAt = new \DateTime();
+        $this->updatedAt = new \DateTime();
+    }
+    
+    /**
+     * @ORM\PreUpdate
+     */
+    public function onUpdate(): void
+    {
+        $this->updatedAt = new \DateTime();
+    }
+    
+    // Getters et setters
+    
+    public function getId(): int
+    {
+        return $this->id;
+    }
+    
+    public function getName(): string
+    {
+        return $this->name;
+    }
+    
+    public function setName(string $name): self
+    {
+        $this->name = $name;
+        return $this;
+    }
+    
+    public function getLanguage(): string
+    {
+        return $this->language;
+    }
+    
+    public function setLanguage(string $language): self
+    {
+        $this->language = $language;
+        return $this;
+    }
+    
+    public function getCategory(): ?string
+    {
+        return $this->category;
+    }
+    
+    public function setCategory(?string $category): self
+    {
+        $this->category = $category;
+        return $this;
+    }
+    
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+    
+    public function setStatus(string $status): self
+    {
+        $this->status = $status;
+        return $this;
+    }
+    
+    public function getComponents(): ?array
+    {
+        return $this->components;
+    }
+    
+    public function setComponents(?array $components): self
+    {
+        $this->components = $components;
+        return $this;
+    }
+    
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+    
+    public function setIsActive(bool $isActive): self
+    {
+        $this->isActive = $isActive;
+        return $this;
+    }
+    
+    public function getMetaTemplateId(): ?string
+    {
+        return $this->metaTemplateId;
+    }
+    
+    public function setMetaTemplateId(?string $metaTemplateId): self
+    {
+        $this->metaTemplateId = $metaTemplateId;
+        return $this;
+    }
+    
+    public function getCreatedAt(): \DateTime
+    {
+        return $this->createdAt;
+    }
+    
+    public function getUpdatedAt(): \DateTime
+    {
+        return $this->updatedAt;
+    }
+}

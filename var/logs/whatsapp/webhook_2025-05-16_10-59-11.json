@@ -1,0 +1,26 @@
+{
+    "timestamp": "2025-05-16_10-59-11",
+    "type": "verify",
+    "method": "GET",
+    "data": {
+        "action": "verify",
+        "mode": "subscribe",
+        "token": "oracle_whatsapp_verify_token_2025",
+        "challenge": "test123"
+    },
+    "headers": {
+        "x-forwarded-for": "102.209.217.178",
+        "x-forwarded-port": "443",
+        "host": "olive-meals-win.loca.lt",
+        "x-forwarded-proto": "https, https",
+        "accept": "*\/*",
+        "user-agent": "curl\/8.4.0",
+        "x-forwarded-host": "olive-meals-win.loca.lt",
+        "connection": "keep-alive"
+    },
+    "query": {
+        "hub_mode": "subscribe",
+        "hub_verify_token": "oracle_whatsapp_verify_token_2025",
+        "hub_challenge": "test123"
+    }
+}

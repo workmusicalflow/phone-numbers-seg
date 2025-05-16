@@ -12,263 +12,256 @@ use Psr\Log\LoggerInterface;
  */
 class WhatsAppApiClient implements WhatsAppApiClientInterface
 {
-    /**
-     * @var Client
-     */
     private Client $httpClient;
-
-    /**
-     * @var string
-     */
-    private string $accessToken;
-
-    /**
-     * @var string
-     */
-    private string $phoneNumberId;
-
-    /**
-     * @var string
-     */
-    private string $apiVersion;
-
-    /**
-     * @var LoggerInterface
-     */
     private LoggerInterface $logger;
-
-    /**
-     * @var string
-     */
-    private string $baseUrl = 'https://graph.facebook.com/';
-
+    private array $config;
+    
     /**
      * Constructeur
      *
-     * @param string $accessToken
-     * @param string $phoneNumberId
-     * @param string $apiVersion
      * @param LoggerInterface $logger
+     * @param array $config Configuration WhatsApp
      */
-    public function __construct(
-        string $accessToken,
-        string $phoneNumberId,
-        string $apiVersion,
-        LoggerInterface $logger
-    ) {
-        $this->accessToken = $accessToken;
-        $this->phoneNumberId = $phoneNumberId;
-        $this->apiVersion = $apiVersion;
+    public function __construct(LoggerInterface $logger, array $config)
+    {
         $this->logger = $logger;
+        $this->config = $config;
+        
         $this->httpClient = new Client([
-            'base_uri' => $this->baseUrl,
+            'base_uri' => $config['base_url'] ?? 'https://graph.facebook.com/',
+            'timeout' => 30,
             'headers' => [
-                'Authorization' => 'Bearer ' . $this->accessToken,
+                'Authorization' => 'Bearer ' . $config['access_token'],
                 'Content-Type' => 'application/json'
             ]
         ]);
     }
-
+    
     /**
-     * Envoie un message texte WhatsApp
-     *
-     * @param string $to Numéro de téléphone du destinataire
-     * @param string $message Contenu du message
-     * @return array Réponse de l'API
+     * {@inheritdoc}
      */
-    public function sendTextMessage(string $to, string $message): array
+    public function sendMessage(array $payload): array
     {
-        $payload = [
-            'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => $to,
-            'type' => 'text',
-            'text' => [
-                'preview_url' => false,
-                'body' => $message
-            ]
-        ];
-
-        return $this->sendRequest($payload);
-    }
-
-    /**
-     * Envoie un message template WhatsApp
-     *
-     * @param string $to Numéro de téléphone du destinataire
-     * @param string $templateName Nom du template
-     * @param string $languageCode Code de langue pour le template
-     * @param array $parameters Paramètres du template
-     * @return array Réponse de l'API
-     */
-    public function sendTemplateMessage(string $to, string $templateName, string $languageCode, array $parameters = []): array
-    {
-        $payload = [
-            'messaging_product' => 'whatsapp',
-            'to' => $to,
-            'type' => 'template',
-            'template' => [
-                'name' => $templateName,
-                'language' => [
-                    'code' => $languageCode
-                ]
-            ]
-        ];
-
-        // Ajouter les composants si fournis
-        if (!empty($parameters)) {
-            $payload['template']['components'] = $parameters;
-        }
-
-        return $this->sendRequest($payload);
-    }
-
-    /**
-     * Envoie un message image WhatsApp
-     *
-     * @param string $to Numéro de téléphone du destinataire
-     * @param string $imageUrl URL de l'image
-     * @param string|null $caption Légende optionnelle
-     * @return array Réponse de l'API
-     */
-    public function sendImageMessage(string $to, string $imageUrl, ?string $caption = null): array
-    {
-        $payload = [
-            'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => $to,
-            'type' => 'image',
-            'image' => [
-                'link' => $imageUrl
-            ]
-        ];
-
-        // Ajouter une légende si fournie
-        if ($caption) {
-            $payload['image']['caption'] = $caption;
-        }
-
-        return $this->sendRequest($payload);
-    }
-
-    /**
-     * Télécharge un média depuis l'API WhatsApp
-     *
-     * @param string $mediaId ID du média à télécharger
-     * @return string|null Contenu du média ou null en cas d'échec
-     */
-    public function downloadMedia(string $mediaId): ?string
-    {
+        $endpoint = $this->config['api_version'] . '/' . $this->config['phone_number_id'] . '/messages';
+        
         try {
-            // Première requête pour obtenir l'URL du média
-            $mediaInfoResponse = $this->httpClient->get(
-                "{$this->apiVersion}/{$mediaId}",
-                ['http_errors' => false]
-            );
-
-            $mediaInfo = json_decode($mediaInfoResponse->getBody()->getContents(), true);
+            $response = $this->httpClient->post($endpoint, [
+                'json' => $payload
+            ]);
             
-            if (!isset($mediaInfo['url'])) {
-                $this->logger->error('URL du média non trouvée', [
-                    'media_id' => $mediaId,
-                    'response' => $mediaInfo
-                ]);
-                return null;
-            }
-
-            // Deuxième requête pour télécharger le contenu du média
-            $mediaResponse = $this->httpClient->get(
-                $mediaInfo['url'],
-                [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $this->accessToken
-                    ],
-                    'http_errors' => false
-                ]
-            );
-
-            return $mediaResponse->getBody()->getContents();
-
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            $this->logger->info('Message WhatsApp envoyé', [
+                'endpoint' => $endpoint,
+                'recipient' => $payload['to'] ?? null,
+                'type' => $payload['type'] ?? null,
+                'message_id' => $result['messages'][0]['id'] ?? null
+            ]);
+            
+            return $result;
+            
         } catch (GuzzleException $e) {
-            $this->logger->error('Erreur lors du téléchargement du média', [
+            $this->logger->error('Erreur API WhatsApp', [
+                'endpoint' => $endpoint,
+                'payload' => $payload,
+                'error' => $e->getMessage(),
+                'response' => $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : null
+            ]);
+            
+            throw new \Exception('Erreur API WhatsApp : ' . $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function uploadMedia(string $filePath, string $mimeType): string
+    {
+        $endpoint = $this->config['api_version'] . '/' . $this->config['phone_number_id'] . '/media';
+        
+        try {
+            $response = $this->httpClient->post($endpoint, [
+                'multipart' => [
+                    [
+                        'name' => 'messaging_product',
+                        'contents' => 'whatsapp'
+                    ],
+                    [
+                        'name' => 'file',
+                        'contents' => fopen($filePath, 'r'),
+                        'filename' => basename($filePath),
+                        'headers' => [
+                            'Content-Type' => $mimeType
+                        ]
+                    ]
+                ]
+            ]);
+            
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            $this->logger->info('Média WhatsApp uploadé', [
+                'file' => $filePath,
+                'mime_type' => $mimeType,
+                'media_id' => $result['id'] ?? null
+            ]);
+            
+            if (!isset($result['id'])) {
+                throw new \Exception('ID du média non retourné par l\'API');
+            }
+            
+            return $result['id'];
+            
+        } catch (GuzzleException $e) {
+            $this->logger->error('Erreur upload média WhatsApp', [
+                'file' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+            
+            throw new \Exception('Erreur upload média : ' . $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function downloadMedia(string $mediaId): array
+    {
+        // Obtenir d'abord l'URL du média
+        $url = $this->getMediaUrl($mediaId);
+        
+        try {
+            $response = $this->httpClient->get($url);
+            
+            return [
+                'content' => $response->getBody()->getContents(),
+                'content_type' => $response->getHeader('Content-Type')[0] ?? 'application/octet-stream'
+            ];
+            
+        } catch (GuzzleException $e) {
+            $this->logger->error('Erreur téléchargement média WhatsApp', [
                 'media_id' => $mediaId,
                 'error' => $e->getMessage()
             ]);
-            return null;
-        }
-    }
-
-    /**
-     * Marque un message comme lu
-     *
-     * @param string $messageId ID du message à marquer comme lu
-     * @return bool Succès de l'opération
-     */
-    public function markMessageAsRead(string $messageId): bool
-    {
-        $payload = [
-            'messaging_product' => 'whatsapp',
-            'status' => 'read',
-            'message_id' => $messageId
-        ];
-
-        try {
-            $response = $this->sendRequest($payload);
-            return isset($response['success']) && $response['success'];
-        } catch (\Exception $e) {
-            $this->logger->error('Erreur lors du marquage du message comme lu', [
-                'message_id' => $messageId,
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
-
-    /**
-     * Envoie une requête à l'API WhatsApp
-     *
-     * @param array $payload Données à envoyer
-     * @return array Réponse de l'API
-     * @throws \Exception
-     */
-    private function sendRequest(array $payload): array
-    {
-        try {
-            $endpoint = "{$this->apiVersion}/{$this->phoneNumberId}/messages";
             
-            $this->logger->info('Envoi d\'une requête à l\'API WhatsApp', [
-                'endpoint' => $endpoint,
-                'payload_type' => $payload['type'] ?? 'inconnu'
-            ]);
-
-            $response = $this->httpClient->post($endpoint, [
-                'json' => $payload,
-                'http_errors' => false
-            ]);
-
-            $statusCode = $response->getStatusCode();
-            $responseData = json_decode($response->getBody()->getContents(), true);
-
-            if ($statusCode >= 200 && $statusCode < 300) {
-                $this->logger->info('Requête API WhatsApp réussie', [
-                    'status_code' => $statusCode,
-                    'response' => $responseData
-                ]);
-                return $responseData;
+            throw new \Exception('Erreur téléchargement média : ' . $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function getMediaUrl(string $mediaId): string
+    {
+        $endpoint = $this->config['api_version'] . '/' . $mediaId;
+        
+        try {
+            $response = $this->httpClient->get($endpoint);
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            if (!isset($result['url'])) {
+                throw new \Exception('URL du média non retournée par l\'API');
             }
-
-            $this->logger->error('Erreur lors de la requête API WhatsApp', [
-                'status_code' => $statusCode,
-                'response' => $responseData
-            ]);
-
-            throw new \Exception('Erreur API WhatsApp: ' . ($responseData['error']['message'] ?? 'Erreur inconnue'));
-
+            
+            return $result['url'];
+            
         } catch (GuzzleException $e) {
-            $this->logger->error('Exception lors de la requête API WhatsApp', [
+            $this->logger->error('Erreur obtention URL média WhatsApp', [
+                'media_id' => $mediaId,
                 'error' => $e->getMessage()
             ]);
-            throw new \Exception('Erreur de connexion à l\'API WhatsApp: ' . $e->getMessage());
+            
+            throw new \Exception('Erreur obtention URL média : ' . $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function getTemplates(): array
+    {
+        $endpoint = $this->config['api_version'] . '/' . $this->config['whatsapp_business_account_id'] . '/message_templates';
+        
+        try {
+            $response = $this->httpClient->get($endpoint, [
+                'query' => [
+                    'limit' => 100
+                ]
+            ]);
+            
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            return $result['data'] ?? [];
+            
+        } catch (GuzzleException $e) {
+            $this->logger->error('Erreur récupération templates WhatsApp', [
+                'error' => $e->getMessage()
+            ]);
+            
+            throw new \Exception('Erreur récupération templates : ' . $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function createTemplate(array $template): array
+    {
+        $endpoint = $this->config['api_version'] . '/' . $this->config['whatsapp_business_account_id'] . '/message_templates';
+        
+        try {
+            $response = $this->httpClient->post($endpoint, [
+                'json' => $template
+            ]);
+            
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            $this->logger->info('Template WhatsApp créé', [
+                'template_name' => $template['name'] ?? null,
+                'template_id' => $result['id'] ?? null
+            ]);
+            
+            return $result;
+            
+        } catch (GuzzleException $e) {
+            $this->logger->error('Erreur création template WhatsApp', [
+                'template' => $template,
+                'error' => $e->getMessage()
+            ]);
+            
+            throw new \Exception('Erreur création template : ' . $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function deleteTemplate(string $templateName): bool
+    {
+        $endpoint = $this->config['api_version'] . '/' . $this->config['whatsapp_business_account_id'] . '/message_templates';
+        
+        try {
+            $response = $this->httpClient->delete($endpoint, [
+                'query' => [
+                    'name' => $templateName
+                ]
+            ]);
+            
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            $this->logger->info('Template WhatsApp supprimé', [
+                'template_name' => $templateName,
+                'success' => $result['success'] ?? false
+            ]);
+            
+            return $result['success'] ?? false;
+            
+        } catch (GuzzleException $e) {
+            $this->logger->error('Erreur suppression template WhatsApp', [
+                'template_name' => $templateName,
+                'error' => $e->getMessage()
+            ]);
+            
+            return false;
         }
     }
 }

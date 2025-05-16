@@ -35,6 +35,17 @@ type Query {
   contactsInGroup(groupId: ID!, limit: Int, offset: Int): [Contact!]!
   contactsInGroupCount(groupId: ID!): Int!
   groupsForContact(contactId: ID!): [ContactGroup!]! # Query to get groups for a contact
+  
+  # WhatsApp queries
+  getWhatsAppMessages(
+    limit: Int
+    offset: Int
+    phoneNumber: String
+    status: String
+    type: String
+    direction: String
+  ): WhatsAppMessagesResult!
+  getWhatsAppUserTemplates: [WhatsAppUserTemplate!]!
 }
 
 type Segment {
@@ -108,6 +119,10 @@ type Mutation {
     contactIds: [ID!]!
     groupId: ID!
   ): AddContactsToGroupResult!
+  
+  # WhatsApp mutations
+  sendWhatsAppMessage(message: WhatsAppMessageInput!): WhatsAppMessageHistory!
+  sendWhatsAppTemplate(template: WhatsAppMessageInput!): WhatsAppMessageHistory!
 }
 
 type SMSHistory {
@@ -247,4 +262,71 @@ type AddContactsToGroupResult {
 type AddContactsToGroupError {
   contactId: ID!
   message: String!
+}
+
+# WhatsApp Types
+type WhatsAppMessageHistory {
+  id: ID
+  wabaMessageId: String
+  phoneNumber: String!
+  direction: String!
+  type: String!
+  content: String
+  status: String!
+  errorCode: Int
+  errorMessage: String
+  timestamp: String!
+  messageId: String
+  contactPhone: String
+  queueId: String
+  sentAt: String
+  deliveredAt: String
+  readAt: String
+  conversationId: String
+  pricingCategory: String
+  mediaId: String
+  templateName: String
+  templateLanguage: String
+  contextData: String
+  createdAt: String!
+  updatedAt: String
+}
+
+type WhatsAppMessagesResult {
+  messages: [WhatsAppMessageHistory!]!
+  totalCount: Int!
+  hasMore: Boolean!
+}
+
+input WhatsAppMessageInput {
+  recipient: String!
+  type: String!
+  content: String
+  mediaUrl: String
+  templateName: String
+  languageCode: String
+  components: [TemplateComponent]
+}
+
+input TemplateComponent {
+  type: String!
+  parameters: [ComponentParameter]
+}  
+
+input ComponentParameter {
+  type: String!
+  text: String
+  image: ImageParameter
+}
+
+input ImageParameter {
+  link: String!
+}
+
+type WhatsAppUserTemplate {
+  id: ID!
+  template_id: String!
+  name: String!
+  language: String!
+  status: String!
 }

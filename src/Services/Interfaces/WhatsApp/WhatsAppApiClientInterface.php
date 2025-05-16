@@ -3,53 +3,63 @@
 namespace App\Services\Interfaces\WhatsApp;
 
 /**
- * Interface pour le client API WhatsApp
+ * Interface pour le client API WhatsApp Business Cloud
  */
 interface WhatsAppApiClientInterface
 {
     /**
-     * Envoie un message texte WhatsApp
-     *
-     * @param string $to Numéro de téléphone du destinataire
-     * @param string $message Contenu du message
+     * Envoyer un message via l'API WhatsApp
+     * 
+     * @param array $payload Données du message
      * @return array Réponse de l'API
      */
-    public function sendTextMessage(string $to, string $message): array;
-
+    public function sendMessage(array $payload): array;
+    
     /**
-     * Envoie un message template WhatsApp
-     *
-     * @param string $to Numéro de téléphone du destinataire
+     * Uploader un média
+     * 
+     * @param string $filePath Chemin du fichier
+     * @param string $mimeType Type MIME
+     * @return string ID du média
+     */
+    public function uploadMedia(string $filePath, string $mimeType): string;
+    
+    /**
+     * Télécharger un média
+     * 
+     * @param string $mediaId ID du média
+     * @return array Contenu et type MIME
+     */
+    public function downloadMedia(string $mediaId): array;
+    
+    /**
+     * Obtenir l'URL d'un média
+     * 
+     * @param string $mediaId ID du média
+     * @return string URL du média
+     */
+    public function getMediaUrl(string $mediaId): string;
+    
+    /**
+     * Obtenir la liste des templates
+     * 
+     * @return array Liste des templates
+     */
+    public function getTemplates(): array;
+    
+    /**
+     * Créer un nouveau template
+     * 
+     * @param array $template Données du template
+     * @return array Réponse de l'API
+     */
+    public function createTemplate(array $template): array;
+    
+    /**
+     * Supprimer un template
+     * 
      * @param string $templateName Nom du template
-     * @param string $languageCode Code de langue pour le template
-     * @param array $parameters Paramètres du template
-     * @return array Réponse de l'API
-     */
-    public function sendTemplateMessage(string $to, string $templateName, string $languageCode, array $parameters = []): array;
-
-    /**
-     * Envoie un message image WhatsApp
-     *
-     * @param string $to Numéro de téléphone du destinataire
-     * @param string $imageUrl URL de l'image
-     * @param string|null $caption Légende optionnelle
-     * @return array Réponse de l'API
-     */
-    public function sendImageMessage(string $to, string $imageUrl, ?string $caption = null): array;
-
-    /**
-     * Télécharge un média depuis l'API WhatsApp
-     *
-     * @param string $mediaId ID du média à télécharger
-     * @return string|null Contenu du média ou null en cas d'échec
-     */
-    public function downloadMedia(string $mediaId): ?string;
-
-    /**
-     * Marque un message comme lu
-     *
-     * @param string $messageId ID du message à marquer comme lu
      * @return bool Succès de l'opération
      */
-    public function markMessageAsRead(string $messageId): bool;
+    public function deleteTemplate(string $templateName): bool;
 }

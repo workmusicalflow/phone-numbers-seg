@@ -1,0 +1,119 @@
+<?php
+/**
+ * Point d'API de secours pour les templates WhatsApp
+ *
+ * Ce script fournit une API de secours simplifiée pour les templates WhatsApp
+ * lorsque l'API GraphQL principale rencontre des problèmes. Il retourne des données
+ * de test cohérentes directement au format JSON pour débloquer le frontend.
+ *
+ * Améliorations:
+ * - Ajout d'entêtes anti-cache pour éviter la mise en cache côté navigateur
+ * - Support du paramètre timestamp (_) pour forcer le rafraîchissement
+ */
+
+// Configuration d'accès CORS pour permettre les requêtes du frontend en développement
+header('Access-Control-Allow-Origin: http://localhost:5173');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Content-Type: application/json');
+
+// Entêtes pour empêcher la mise en cache par le navigateur
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Gérer les requêtes OPTIONS (pre-flight pour CORS)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Analyser les paramètres de requête
+$userId = $_GET['userId'] ?? 1;
+$limit = $_GET['limit'] ?? 10;
+$offset = $_GET['offset'] ?? 0;
+$timestamp = $_GET['_'] ?? null; // Paramètre de timestamp pour éviter le cache
+
+// Journaliser la requête pour debugging
+error_log("Fallback WhatsApp Templates API - Request: userId=$userId, limit=$limit, offset=$offset, timestamp=$timestamp");
+
+// Collection de templates de secours pour garantir le fonctionnement du frontend
+$fallbackTemplates = [
+    [
+        'id' => '1',
+        'userId' => (string)$userId,
+        'templateName' => 'connection_check',
+        'languageCode' => 'fr',
+        'bodyVariablesCount' => 0,
+        'hasHeaderMedia' => false,
+        'isSpecialTemplate' => false,
+        'headerMediaUrl' => null,
+        'createdAt' => date('Y-m-d H:i:s', strtotime('-2 days')),
+        'updatedAt' => date('Y-m-d H:i:s', strtotime('-1 day'))
+    ],
+    [
+        'id' => '2',
+        'userId' => (string)$userId,
+        'templateName' => 'welcome_new_user',
+        'languageCode' => 'fr',
+        'bodyVariablesCount' => 1,
+        'hasHeaderMedia' => true,
+        'isSpecialTemplate' => false,
+        'headerMediaUrl' => 'https://example.com/media/welcome.jpg',
+        'createdAt' => date('Y-m-d H:i:s', strtotime('-10 days')),
+        'updatedAt' => date('Y-m-d H:i:s', strtotime('-10 days'))
+    ],
+    [
+        'id' => '3',
+        'userId' => (string)$userId,
+        'templateName' => 'qshe_invitation',
+        'languageCode' => 'fr',
+        'bodyVariablesCount' => 0,
+        'hasHeaderMedia' => false,
+        'isSpecialTemplate' => true,
+        'headerMediaUrl' => null,
+        'createdAt' => date('Y-m-d H:i:s', strtotime('-30 days')),
+        'updatedAt' => date('Y-m-d H:i:s', strtotime('-30 days'))
+    ],
+    [
+        'id' => '4',
+        'userId' => (string)$userId,
+        'templateName' => 'delivery_confirmation',
+        'languageCode' => 'fr',
+        'bodyVariablesCount' => 2,
+        'hasHeaderMedia' => false,
+        'isSpecialTemplate' => false,
+        'headerMediaUrl' => null,
+        'createdAt' => date('Y-m-d H:i:s', strtotime('-15 days')),
+        'updatedAt' => date('Y-m-d H:i:s', strtotime('-15 days'))
+    ],
+    [
+        'id' => '5',
+        'userId' => (string)$userId,
+        'templateName' => 'promotional_offer',
+        'languageCode' => 'fr',
+        'bodyVariablesCount' => 3,
+        'hasHeaderMedia' => true,
+        'isSpecialTemplate' => false,
+        'headerMediaUrl' => 'https://example.com/media/promo.jpg',
+        'createdAt' => date('Y-m-d H:i:s', strtotime('-5 days')),
+        'updatedAt' => date('Y-m-d H:i:s', strtotime('-5 days'))
+    ]
+];
+
+// Appliquer la pagination
+$totalTemplates = count($fallbackTemplates);
+$pagedTemplates = array_slice($fallbackTemplates, $offset, $limit);
+
+// Construire la réponse au format attendu par la requête GraphQL
+$response = [
+    'data' => [
+        'whatsappUserTemplates' => $pagedTemplates
+    ]
+];
+
+// Journaliser la réponse pour debugging
+error_log("Fallback WhatsApp Templates API - Response: " . count($pagedTemplates) . " templates");
+
+// Retourner la réponse au format JSON
+echo json_encode($response);

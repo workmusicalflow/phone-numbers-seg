@@ -10,6 +10,10 @@ use App\Services\Observers\SMSHistoryObserver;
  * (Core framework setup, Observers, Controllers, Middleware, etc.)
  */
 return [
+    // Logger
+    \Psr\Log\LoggerInterface::class => factory(function () {
+        return new \App\Services\SimpleLogger('app', __DIR__ . '/../../var/logs/app.log');
+    }),
     // --- Core Setup ---
 
     // Doctrine EntityManager

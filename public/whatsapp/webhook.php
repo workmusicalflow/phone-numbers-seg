@@ -1,75 +1,106 @@
 <?php
 /**
- * Point d'entrée pour les webhooks de l'API WhatsApp Business de Meta
- * 
- * Ce fichier gère:
- * 1. La vérification initiale du webhook (requête GET)
- * 2. La réception des notifications de messages (requête POST)
+ * Webhook WhatsApp avec stockage automatique des messages
  */
 
-// Inclusion du chargeur automatique et de la configuration
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-// Afficher toutes les erreurs pour le débogage
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 use DI\ContainerBuilder;
+use App\Services\WhatsApp\WhatsAppWebhookService;
+use Psr\Log\LoggerInterface;
 
-// Construction du conteneur d'injection de dépendances
+// Configuration
+$WEBHOOK_VERIFY_TOKEN = $_ENV['WHATSAPP_WEBHOOK_VERIFY_TOKEN'] ?? 'oracle_whatsapp_verify_token_2025';
+
+// Créer le conteneur DI
 $containerBuilder = new ContainerBuilder();
 $containerBuilder->addDefinitions(__DIR__ . '/../../src/config/di.php');
 $container = $containerBuilder->build();
 
-// Récupération de la méthode HTTP
+// Récupérer les services
+$webhookService = $container->get(WhatsAppWebhookService::class);
+$logger = $container->get(LoggerInterface::class);
+
+// Headers
+header('Content-Type: application/json');
+
+// Récupérer la méthode HTTP
 $method = $_SERVER['REQUEST_METHOD'];
 
-try {
-    // Différentes manipulations selon le type de requête
-    if ($method === 'GET') {
-        // Vérification du webhook par Meta - appel du contrôleur approprié
-        $controller = $container->get('App\\GraphQL\\Controllers\\WhatsApp\\WebhookController');
-        $response = $controller->verifyWebhook(
-            $_GET['hub_mode'] ?? '',
-            $_GET['hub_verify_token'] ?? '',
-            $_GET['hub_challenge'] ?? ''
-        );
-        
-        echo $response;
-    } elseif ($method === 'POST') {
-        // Réception d'une notification - traitement du message entrant
-        $controller = $container->get('App\\GraphQL\\Controllers\\WhatsApp\\WebhookController');
-        
-        // Récupération du payload JSON
-        $payload = file_get_contents('php://input');
-        $data = json_decode($payload, true);
-        
-        // Stockage des logs pour débogage en développement
-        // Toujours enregistrer les logs pendant les tests initiaux
-        file_put_contents(
-            __DIR__ . '/../../var/logs/whatsapp/webhook_' . date('Y-m-d_H-i-s') . '.json',
-            $payload
-        );
-        
-        // Traitement du payload
-        $response = $controller->processWebhook($data);
-        
-        // Réponse à Meta - 200 OK suffit pour confirmer la réception
-        http_response_code(200);
-        header('Content-Type: application/json');
-        echo json_encode(['status' => 'success']);
-    } else {
-        // Méthode non autorisée
-        http_response_code(405);
-        echo json_encode(['error' => 'Method not allowed']);
-    }
-} catch (Exception $e) {
-    // Log de l'erreur
-    error_log('WhatsApp Webhook Error: ' . $e->getMessage());
+// Vérification du webhook (GET)
+if ($method === 'GET') {
+    $mode = $_GET['hub_mode'] ?? '';
+    $token = $_GET['hub_verify_token'] ?? '';
+    $challenge = $_GET['hub_challenge'] ?? '';
     
-    // Réponse d'erreur
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Internal Server Error']);
+    if ($mode === 'subscribe' && $token === $WEBHOOK_VERIFY_TOKEN) {
+        $logger->info('WhatsApp webhook verification successful');
+        echo $challenge;
+        exit;
+    }
+    
+    $logger->warning('WhatsApp webhook verification failed', [
+        'mode' => $mode,
+        'token_match' => ($token === $WEBHOOK_VERIFY_TOKEN)
+    ]);
+    
+    http_response_code(403);
+    echo json_encode(['error' => 'Verification failed']);
+    exit;
 }
+
+// Réception des notifications (POST)
+if ($method === 'POST') {
+    try {
+        // Récupérer le payload
+        $input = file_get_contents('php://input');
+        
+        // Vérifier la signature
+        $signature = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
+        if (!$webhookService->verifyWebhookSignature($input, $signature)) {
+            $logger->warning('Invalid WhatsApp webhook signature');
+            http_response_code(401);
+            echo json_encode(['error' => 'Invalid signature']);
+            exit;
+        }
+        
+        // Parser le payload
+        $data = json_decode($input, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $logger->error('Invalid JSON in WhatsApp webhook payload');
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid JSON']);
+            exit;
+        }
+        
+        // Logger le payload brut pour debug
+        $logger->debug('WhatsApp webhook received', [
+            'headers' => getallheaders(),
+            'payload' => $data
+        ]);
+        
+        // Traiter le webhook
+        $webhookService->processWebhook($data);
+        
+        // Toujours retourner 200 OK pour éviter que Meta ne retente
+        http_response_code(200);
+        echo json_encode(['success' => true]);
+        exit;
+        
+    } catch (\Exception $e) {
+        $logger->error('Error processing WhatsApp webhook', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        // Retourner 200 OK même en cas d'erreur pour éviter les retries
+        http_response_code(200);
+        echo json_encode(['success' => false, 'error' => 'Internal error']);
+        exit;
+    }
+}
+
+// Méthode non supportée
+http_response_code(405);
+echo json_encode(['error' => 'Method not allowed']);
+exit;

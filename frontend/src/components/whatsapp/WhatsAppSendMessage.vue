@@ -28,6 +28,7 @@
             <q-tab-panels v-model="messageType" animated>
               <!-- Panneau de message texte -->
               <q-tab-panel name="text">
+                <q-form ref="textForm">
                 <q-input
                   v-model="recipient"
                   label="Numéro de téléphone du destinataire"
@@ -62,6 +63,7 @@
                     :disable="!recipient || !textMessage"
                   />
                 </div>
+                </q-form>
               </q-tab-panel>
 
               <!-- Panneau de message template -->
@@ -175,12 +177,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { useWhatsAppStore, type SendTemplateInput } from '@/stores/whatsappStore';
+import { useWhatsAppStore } from '@/stores/whatsappStore';
 
 const $q = useQuasar();
 const whatsAppStore = useWhatsAppStore();
+
+// Références
+const textForm = ref(null);
 
 // État local
 const messageType = ref('text');
@@ -197,20 +202,33 @@ const param3 = ref('');
 
 // État de chargement
 const sending = ref(false);
+const loadingTemplates = ref(false);
 
-// Options pour les templates
-// Note: Ces options devraient idéalement être récupérées depuis le backend
-const templateOptions = [
-  { label: 'Hello World', value: 'hello_world' },
-  { label: 'QSHE Invitation', value: 'qshe_invitation1' }
-];
+// Computed properties for dynamic values
+const templateOptions = computed(() => {
+  return whatsAppStore.userTemplates.map(template => ({
+    label: template.name,
+    value: template.template_id
+  }));
+});
 
 // Options pour les langues
 const languageOptions = [
   { label: 'Français', value: 'fr' },
-  { label: 'Anglais', value: 'en_US' },
-  { label: 'Espagnol', value: 'es' }
+  { label: 'Anglais', value: 'en_US' }
 ];
+
+// Load templates on mount
+onMounted(async () => {
+  loadingTemplates.value = true;
+  try {
+    await whatsAppStore.loadUserTemplates();
+  } catch (error) {
+    console.error('Error loading templates:', error);
+  } finally {
+    loadingTemplates.value = false;
+  }
+});
 
 // Validation du numéro de téléphone
 function phoneNumberRule(val: string) {
@@ -243,24 +261,33 @@ async function sendTextMessage() {
   
   try {
     const normalizedRecipient = normalizePhoneNumber(recipient.value);
-    const response = await whatsAppStore.sendTextMessage(normalizedRecipient, textMessage.value);
     
-    if (response.success) {
-      $q.notify({
-        type: 'positive',
-        message: 'Message envoyé avec succès'
-      });
-      textMessage.value = ''; // Réinitialiser le message après envoi réussi
-    } else {
-      $q.notify({
-        type: 'negative',
-        message: `Erreur lors de l'envoi: ${response.error || 'Erreur inconnue'}`
-      });
+    await whatsAppStore.sendMessage({
+      recipient: normalizedRecipient,
+      type: 'text',
+      content: textMessage.value
+    });
+    
+    $q.notify({
+      type: 'positive',
+      message: 'Message envoyé avec succès'
+    });
+    
+    // Réinitialiser les champs après envoi réussi
+    textMessage.value = '';
+    recipient.value = '';
+    
+    // Réinitialiser la validation du formulaire
+    if (textForm.value) {
+      textForm.value.resetValidation();
     }
-  } catch (error) {
+    
+    // Recharger les messages pour voir le nouveau message
+    await whatsAppStore.fetchMessages();
+  } catch (error: any) {
     $q.notify({
       type: 'negative',
-      message: 'Erreur lors de l\'envoi du message'
+      message: `Erreur lors de l'envoi: ${error.message || 'Erreur inconnue'}`
     });
   } finally {
     sending.value = false;
@@ -277,50 +304,59 @@ async function sendTemplateMessage() {
   try {
     const normalizedRecipient = normalizePhoneNumber(recipient.value);
     
-    const templateInput: SendTemplateInput = {
+    // Construire les composants du template
+    const components: any[] = [];
+    
+    // Ajouter le header si une image est fournie
+    if (headerImageUrl.value) {
+      components.push({
+        type: 'header',
+        parameters: [{
+          type: 'image',
+          image: {
+            link: headerImageUrl.value
+          }
+        }]
+      });
+    }
+    
+    // Ajouter le body avec les paramètres
+    const bodyParams = [];
+    if (param1.value) bodyParams.push({ type: 'text', text: param1.value });
+    if (param2.value) bodyParams.push({ type: 'text', text: param2.value });
+    if (param3.value) bodyParams.push({ type: 'text', text: param3.value });
+    
+    if (bodyParams.length > 0) {
+      components.push({
+        type: 'body',
+        parameters: bodyParams
+      });
+    }
+    
+    await whatsAppStore.sendTemplate({
       recipient: normalizedRecipient,
       templateName: selectedTemplate.value,
-      languageCode: templateLanguage.value
-    };
+      languageCode: templateLanguage.value,
+      components: components.length > 0 ? components : undefined
+    });
     
-    // Ajouter les paramètres optionnels s'ils sont fournis
-    if (headerImageUrl.value) {
-      templateInput.headerImageUrl = headerImageUrl.value;
-    }
+    $q.notify({
+      type: 'positive',
+      message: 'Template envoyé avec succès'
+    });
     
-    if (param1.value) {
-      templateInput.body1Param = param1.value;
-    }
+    // Réinitialiser tous les champs après envoi réussi
+    recipient.value = '';
+    param1.value = '';
+    param2.value = '';
+    param3.value = '';
     
-    if (param2.value) {
-      templateInput.body2Param = param2.value;
-    }
-    
-    if (param3.value) {
-      templateInput.body3Param = param3.value;
-    }
-    
-    const response = await whatsAppStore.sendTemplateMessage(templateInput);
-    
-    if (response.success) {
-      $q.notify({
-        type: 'positive',
-        message: 'Template envoyé avec succès'
-      });
-      // Réinitialiser certains champs après envoi réussi
-      param1.value = '';
-      param2.value = '';
-      param3.value = '';
-    } else {
-      $q.notify({
-        type: 'negative',
-        message: `Erreur lors de l'envoi: ${response.error || 'Erreur inconnue'}`
-      });
-    }
-  } catch (error) {
+    // Recharger les messages pour voir le nouveau message
+    await whatsAppStore.fetchMessages();
+  } catch (error: any) {
     $q.notify({
       type: 'negative',
-      message: 'Erreur lors de l\'envoi du template'
+      message: `Erreur lors de l'envoi: ${error.message || 'Erreur inconnue'}`
     });
   } finally {
     sending.value = false;

@@ -13,9 +13,12 @@ error_reporting(E_ALL);
 use DI\ContainerBuilder;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
-use App\Entities\WhatsApp\WhatsAppMessage;
+use App\Entities\WhatsApp\WhatsAppMessageHistory;
+use App\Entities\WhatsApp\WhatsAppTemplate;
+use App\Entities\WhatsApp\WhatsAppQueue;
+use App\Entities\WhatsApp\WhatsAppUserTemplate;
 
-echo "Création des tables WhatsApp...\n";
+echo "=== Création des tables WhatsApp ===\n\n";
 
 try {
     // Construction du conteneur d'injection de dépendances
@@ -31,16 +34,44 @@ try {
     
     // Liste des entités WhatsApp
     $classes = [
-        $entityManager->getClassMetadata(WhatsAppMessage::class)
+        $entityManager->getClassMetadata(WhatsAppMessageHistory::class),
+        $entityManager->getClassMetadata(WhatsAppTemplate::class),
+        $entityManager->getClassMetadata(WhatsAppQueue::class),
+        $entityManager->getClassMetadata(WhatsAppUserTemplate::class)
     ];
     
+    // Afficher le SQL qui sera exécuté
+    $sql = $schemaTool->getCreateSchemaSql($classes);
+    echo "SQL à exécuter :\n";
+    foreach ($sql as $query) {
+        echo $query . ";\n";
+    }
+    echo "\n";
+    
     // Mise à jour du schéma
-    echo "Mise à jour du schéma pour: " . WhatsAppMessage::class . "\n";
+    echo "Création/mise à jour des tables...\n";
     $schemaTool->updateSchema($classes, true);
     
-    echo "Tables WhatsApp créées avec succès!\n";
+    echo "\n✅ Tables WhatsApp créées/mises à jour avec succès :\n";
+    echo "- whatsapp_message_history\n";
+    echo "- whatsapp_templates\n";
+    echo "- whatsapp_queue\n";
+    echo "- whatsapp_user_templates\n\n";
+    
+    // Vérifier l'existence des tables
+    $connection = $entityManager->getConnection();
+    $schemaManager = $connection->createSchemaManager();
+    $tables = $schemaManager->listTableNames();
+    
+    echo "Tables WhatsApp dans la base de données :\n";
+    foreach ($tables as $table) {
+        if (strpos($table, 'whatsapp') !== false) {
+            echo "✅ $table\n";
+        }
+    }
     
 } catch (Exception $e) {
-    echo "Erreur lors de la création des tables WhatsApp: " . $e->getMessage() . "\n";
-    echo "Trace: " . $e->getTraceAsString() . "\n";
+    echo "❌ Erreur lors de la création des tables WhatsApp : " . $e->getMessage() . "\n";
+    echo "Trace : " . $e->getTraceAsString() . "\n";
+    exit(1);
 }

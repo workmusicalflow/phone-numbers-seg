@@ -1,0 +1,41 @@
+{
+    "timestamp": "2025-05-16_11-52-14",
+    "type": "status",
+    "method": "POST",
+    "data": {
+        "action": "status_update",
+        "status": {
+            "id": "wamid.HBgLMjI1NzcxMDQ5MzYVAgARGBI3RDA4MjQxMkNDRUY3MzU2OEIA",
+            "status": "failed",
+            "timestamp": "1747396333",
+            "recipient_id": "22577104936",
+            "errors": [
+                {
+                    "code": 131047,
+                    "title": "Re-engagement message",
+                    "message": "Re-engagement message",
+                    "error_data": {
+                        "details": "Message failed to send because more than 24 hours have passed since the customer last replied to this number."
+                    },
+                    "href": "https:\/\/developers.facebook.com\/docs\/whatsapp\/cloud-api\/support\/error-codes\/"
+                }
+            ]
+        }
+    },
+    "headers": {
+        "x-forwarded-for": "173.252.127.61",
+        "x-forwarded-port": "443",
+        "host": "olive-meals-win.loca.lt",
+        "x-forwarded-proto": "https, https",
+        "content-length": "710",
+        "x-hub-signature-256": "sha256=d2020913812dbd8e98ec05e3c2097dda6f34fcbf7587f0dc08e22ca6cab37f20",
+        "x-hub-signature": "sha1=f4b788a873d30eb3bc876b0dae0c1ea6736e0c70",
+        "content-type": "application\/json",
+        "user-agent": "facebookexternalua",
+        "accept-encoding": "deflate, gzip",
+        "accept": "*\/*",
+        "x-forwarded-host": "olive-meals-win.loca.lt",
+        "connection": "keep-alive"
+    },
+    "query": []
+}
