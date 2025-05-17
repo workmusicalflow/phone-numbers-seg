@@ -6,6 +6,7 @@ use App\Entities\WhatsApp\WhatsAppMessageHistory; // Changed
 use App\Repositories\Doctrine\BaseRepository;
 use App\Repositories\Interfaces\WhatsApp\WhatsAppMessageHistoryRepositoryInterface; // Interface name implies History
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\DBAL\LockMode; // Added import
 use InvalidArgumentException;
 use App\Repositories\Interfaces\SearchRepositoryInterface;
 
@@ -338,9 +339,11 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
      * Trouver un message par son ID.
      *
      * @param mixed $id
-     * @return WhatsAppMessageHistory|null
+     * @param LockMode|int|null $lockMode
+     * @param int|null $lockVersion
+     * @return object|null
      */
-    public function find(mixed $id, $lockMode = null, $lockVersion = null): ?WhatsAppMessageHistory
+    public function find(mixed $id, LockMode|int|null $lockMode = null, ?int $lockVersion = null): ?object
     {
         return $this->getEntityManager()->find(WhatsAppMessageHistory::class, $id, $lockMode, $lockVersion);
     }
@@ -372,6 +375,10 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
                 // Assuming 'oracleUser' is a mapped association in WhatsAppMessage entity
                 $qb->andWhere($qb->expr()->eq('e.oracleUser', ':' . $paramName));
                 $qb->setParameter($paramName, $value); // Pass the User entity directly if it's an association
+            } elseif ($field === 'phoneNumber' && is_string($value) && $value !== '') {
+                // Use LIKE for partial phone number matching
+                $qb->andWhere($qb->expr()->like('e.phoneNumber', ':' . $paramName));
+                $qb->setParameter($paramName, '%' . $value . '%');
             } elseif ($value === null) {
                 $qb->andWhere($qb->expr()->isNull('e.' . $field));
             } else {
@@ -431,9 +438,9 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
      *
      * @param array $criteria
      * @param array|null $orderBy
-     * @return WhatsAppMessageHistory|null
+     * @return object|null
      */
-    public function findOneBy(array $criteria, ?array $orderBy = null): ?WhatsAppMessageHistory // Changed
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?object // Changed
     {
         // This can directly use Doctrine's own findOneBy
         // The existing findBy method in this class has custom logic for 'oracleUser'
@@ -548,5 +555,199 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
             $stats[$row['status']] = $row['count'];
         }
         return $stats; // Example: ['sent' => 10, 'delivered' => 8, 'failed' => 2]
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function findByWithDateRange(array $criteria, array $dateFilters, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('m')
+           ->from(WhatsAppMessageHistory::class, 'm');
+        
+        // Ajouter les critères standards
+        foreach ($criteria as $field => $value) {
+            if ($field === 'oracleUser') {
+                $qb->andWhere('m.oracleUser = :' . $field)
+                   ->setParameter($field, $value);
+            } else {
+                $qb->andWhere('m.' . $field . ' = :' . $field)
+                   ->setParameter($field, $value);
+            }
+        }
+        
+        // Ajouter les filtres de date
+        if (isset($dateFilters['startDate'])) {
+            $qb->andWhere('m.createdAt >= :startDate')
+               ->setParameter('startDate', $dateFilters['startDate']);
+        }
+        
+        if (isset($dateFilters['endDate'])) {
+            $qb->andWhere('m.createdAt <= :endDate')
+               ->setParameter('endDate', $dateFilters['endDate']);
+        }
+        
+        // Ajouter le tri
+        if ($orderBy !== null) {
+            foreach ($orderBy as $field => $direction) {
+                $qb->orderBy('m.' . $field, $direction);
+            }
+        } else {
+            $qb->orderBy('m.createdAt', 'DESC');
+        }
+        
+        // Ajouter la pagination
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
+        
+        if ($offset !== null) {
+            $qb->setFirstResult($offset);
+        }
+        
+        return $qb->getQuery()->getResult();
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function countWithDateRange(array $criteria, array $dateFilters): int
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('COUNT(m.id)')
+           ->from(WhatsAppMessageHistory::class, 'm');
+        
+        // Ajouter les critères standards
+        foreach ($criteria as $field => $value) {
+            if ($field === 'oracleUser') {
+                $qb->andWhere('m.oracleUser = :' . $field)
+                   ->setParameter($field, $value);
+            } else {
+                $qb->andWhere('m.' . $field . ' = :' . $field)
+                   ->setParameter($field, $value);
+            }
+        }
+        
+        // Ajouter les filtres de date
+        if (isset($dateFilters['startDate'])) {
+            $qb->andWhere('m.createdAt >= :startDate')
+               ->setParameter('startDate', $dateFilters['startDate']);
+        }
+        
+        if (isset($dateFilters['endDate'])) {
+            $qb->andWhere('m.createdAt <= :endDate')
+               ->setParameter('endDate', $dateFilters['endDate']);
+        }
+        
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function findByWithFilters(array $criteria, array $dateFilters = [], ?string $phoneFilter = null, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('m')
+           ->from(WhatsAppMessageHistory::class, 'm');
+        
+        // Ajouter les critères standards
+        foreach ($criteria as $field => $value) {
+            if ($field === 'oracleUser') {
+                $qb->andWhere('m.oracleUser = :' . $field)
+                   ->setParameter($field, $value);
+            } else {
+                $qb->andWhere('m.' . $field . ' = :' . $field)
+                   ->setParameter($field, $value);
+            }
+        }
+        
+        // Ajouter le filtre de téléphone avec LIKE si présent
+        if ($phoneFilter !== null) {
+            error_log('[WhatsAppMessageRepository] Applying phone LIKE filter: ' . $phoneFilter);
+            $qb->andWhere('m.phoneNumber LIKE :phoneFilter')
+               ->setParameter('phoneFilter', '%' . $phoneFilter . '%');
+        }
+        
+        // Ajouter les filtres de date
+        if (isset($dateFilters['startDate'])) {
+            $qb->andWhere('m.createdAt >= :startDate')
+               ->setParameter('startDate', $dateFilters['startDate']);
+        }
+        
+        if (isset($dateFilters['endDate'])) {
+            $qb->andWhere('m.createdAt <= :endDate')
+               ->setParameter('endDate', $dateFilters['endDate']);
+        }
+        
+        // Ajouter le tri
+        if ($orderBy !== null) {
+            foreach ($orderBy as $field => $direction) {
+                $qb->orderBy('m.' . $field, $direction);
+            }
+        } else {
+            $qb->orderBy('m.createdAt', 'DESC');
+        }
+        
+        // Ajouter la pagination
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
+        
+        if ($offset !== null) {
+            $qb->setFirstResult($offset);
+        }
+        
+        // Log de la requête SQL
+        $sql = $qb->getQuery()->getSQL();
+        $parameters = $qb->getQuery()->getParameters();
+        error_log('[WhatsAppMessageRepository] SQL Query: ' . $sql);
+        foreach ($parameters as $param) {
+            error_log('[WhatsAppMessageRepository] Parameter ' . $param->getName() . ': ' . $param->getValue());
+        }
+        
+        return $qb->getQuery()->getResult();
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function countWithFilters(array $criteria, array $dateFilters = [], ?string $phoneFilter = null): int
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('COUNT(m.id)')
+           ->from(WhatsAppMessageHistory::class, 'm');
+        
+        // Ajouter les critères standards
+        foreach ($criteria as $field => $value) {
+            if ($field === 'oracleUser') {
+                $qb->andWhere('m.oracleUser = :' . $field)
+                   ->setParameter($field, $value);
+            } else {
+                $qb->andWhere('m.' . $field . ' = :' . $field)
+                   ->setParameter($field, $value);
+            }
+        }
+        
+        // Ajouter le filtre de téléphone avec LIKE si présent
+        if ($phoneFilter !== null) {
+            error_log('[WhatsAppMessageRepository] Applying phone LIKE filter for count: ' . $phoneFilter);
+            $qb->andWhere('m.phoneNumber LIKE :phoneFilter')
+               ->setParameter('phoneFilter', '%' . $phoneFilter . '%');
+        }
+        
+        // Ajouter les filtres de date
+        if (isset($dateFilters['startDate'])) {
+            $qb->andWhere('m.createdAt >= :startDate')
+               ->setParameter('startDate', $dateFilters['startDate']);
+        }
+        
+        if (isset($dateFilters['endDate'])) {
+            $qb->andWhere('m.createdAt <= :endDate')
+               ->setParameter('endDate', $dateFilters['endDate']);
+        }
+        
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 }

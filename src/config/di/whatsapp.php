@@ -35,7 +35,7 @@ return [
     
     // Repositories
     WhatsAppMessageRepositoryInterface::class => \DI\factory(function(EntityManagerInterface $entityManager) {
-        return new WhatsAppMessageRepository($entityManager, WhatsAppMessage::class);
+        return new WhatsAppMessageRepository($entityManager, WhatsAppMessageHistory::class);
     }),
     
     WhatsAppMessageHistoryRepositoryInterface::class => \DI\factory(function(EntityManagerInterface $entityManager) {

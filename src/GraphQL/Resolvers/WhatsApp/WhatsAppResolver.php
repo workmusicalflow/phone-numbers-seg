@@ -135,6 +135,8 @@ class WhatsAppResolver
         ?string $status = null,
         ?string $type = null,
         ?string $direction = null,
+        ?string $startDate = null,
+        ?string $endDate = null,
         ?GraphQLContext $context = null
     ): array {
         $user = $context->getCurrentUser();
@@ -143,9 +145,13 @@ class WhatsAppResolver
         }
 
         $criteria = ['oracleUser' => $user];
-
+        
+        // Filtrage spécial pour le numéro de téléphone (recherche partielle)
+        $phoneFilter = null;
         if ($phoneNumber !== null && $phoneNumber !== '') {
-            $criteria['phoneNumber'] = $phoneNumber;
+            // On ne l'ajoute pas aux criteria standard, on le traite séparément
+            $phoneFilter = $phoneNumber;
+            error_log('[WhatsAppResolver] Phone number filter: ' . $phoneFilter);
         }
 
         if ($status !== null && $status !== '') {
@@ -160,14 +166,46 @@ class WhatsAppResolver
             $criteria['direction'] = $direction;
         }
 
-        $messages = $this->whatsappMessageRepository->findBy(
-            $criteria,
-            ['createdAt' => 'DESC'],
-            $limit,
-            $offset
-        );
+        // Gérer les filtres de date
+        $dateFilters = [];
+        if ($startDate !== null && $startDate !== '') {
+            error_log('[WhatsAppResolver] Start date filter received: ' . $startDate);
+            $dateFilters['startDate'] = new \DateTime($startDate . ' 00:00:00');
+            error_log('[WhatsAppResolver] Start date with time: ' . $dateFilters['startDate']->format('Y-m-d H:i:s T'));
+        }
+        if ($endDate !== null && $endDate !== '') {
+            error_log('[WhatsAppResolver] End date filter received: ' . $endDate);
+            $dateFilters['endDate'] = new \DateTime($endDate . ' 23:59:59');
+            error_log('[WhatsAppResolver] End date with time: ' . $dateFilters['endDate']->format('Y-m-d H:i:s T'));
+        }
+        
+        // Log le nombre de filtres de date
+        error_log('[WhatsAppResolver] Date filters count: ' . count($dateFilters));
 
-        $totalCount = $this->whatsappMessageRepository->count($criteria);
+        // Si nous avons des filtres (date ou téléphone), utiliser une méthode dédiée
+        if (!empty($dateFilters) || $phoneFilter !== null) {
+            error_log('[WhatsAppResolver] Using advanced filtering');
+            $messages = $this->whatsappMessageRepository->findByWithFilters(
+                $criteria,
+                $dateFilters,
+                $phoneFilter,
+                ['createdAt' => 'DESC'],
+                $limit,
+                $offset
+            );
+            $totalCount = $this->whatsappMessageRepository->countWithFilters($criteria, $dateFilters, $phoneFilter);
+            error_log('[WhatsAppResolver] Found ' . count($messages) . ' messages with advanced filters');
+        } else {
+            error_log('[WhatsAppResolver] Using standard filtering');
+            $messages = $this->whatsappMessageRepository->findBy(
+                $criteria,
+                ['createdAt' => 'DESC'],
+                $limit,
+                $offset
+            );
+            $totalCount = $this->whatsappMessageRepository->count($criteria);
+            error_log('[WhatsAppResolver] Found ' . count($messages) . ' messages without filters');
+        }
 
         return [
             'messages' => $messages,

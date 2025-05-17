@@ -94,6 +94,13 @@
       
       <!-- Barre de résumé des filtres appliqués -->
       <div v-if="hasActiveFilters" class="row q-mt-md">
+        <!-- Badge spécial pour aujourd'hui -->
+        <q-badge v-if="filters.date === new Date().toISOString().split('T')[0]" 
+                 color="accent" 
+                 class="q-mr-sm q-mt-xs">
+          Filtré sur aujourd'hui ({{ totalCount }} messages)
+        </q-badge>
+        
         <q-chip 
           v-for="filter in activeFilters" 
           :key="filter.type"
@@ -616,13 +623,23 @@ async function fetchMessages(props?: any) {
   isLoading.value = true;
   
   try {
+    // Log filters before sending
+    console.log('[Component] Current filters:', filters.value);
+    console.log('[Component] Phone filter:', filters.value.phoneNumber);
+    console.log('[Component] Phone filter type:', typeof filters.value.phoneNumber);
+    
     // Préparation des paramètres pour l'API
     const params = {
       page: props?.pagination?.page || pagination.value.page,
       limit: props?.pagination?.rowsPerPage || pagination.value.rowsPerPage,
       sortBy: props?.pagination?.sortBy || pagination.value.sortBy,
       descending: props?.pagination?.descending ?? pagination.value.descending,
-      filters: filters.value
+      filters: {
+        phoneNumber: filters.value.phoneNumber || '',
+        status: filters.value.status || '',
+        direction: filters.value.direction || '',
+        date: filters.value.date || ''
+      }
     };
     
     console.log('Fetching messages with params:', params);
@@ -672,6 +689,11 @@ function resetPageAndFetch() {
 }
 
 function onDateSelected(date: string) {
+  console.log('[WhatsApp Component] Date selected:', date);
+  console.log('[WhatsApp Component] Date type:', typeof date);
+  console.log('[WhatsApp Component] Current date:', new Date().toISOString().split('T')[0]);
+  console.log('[WhatsApp Component] Is today?', date === new Date().toISOString().split('T')[0]);
+  
   filters.value.date = date;
   datePopup.value?.hide();
   resetPageAndFetch();

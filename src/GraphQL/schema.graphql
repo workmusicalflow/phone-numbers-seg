@@ -44,6 +44,8 @@ type Query {
     status: String
     type: String
     direction: String
+    startDate: String
+    endDate: String
   ): WhatsAppMessagesResult!
   getWhatsAppUserTemplates: [WhatsAppUserTemplate!]!
 }

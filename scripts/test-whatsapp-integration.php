@@ -196,8 +196,8 @@ try {
     $duration = $endTime - $startTime;
     $avgTime = $duration / $messageCount;
     
-    echo "{$green}✓ {$messageCount} messages traités en {$duration:.2f} secondes{$reset}\n";
-    echo "  - Temps moyen par message : {$avgTime:.2f} secondes\n\n";
+    echo "{$green}✓ {$messageCount} messages traités en " . number_format($duration, 2) . " secondes{$reset}\n";
+    echo "  - Temps moyen par message : " . number_format($avgTime, 2) . " secondes\n\n";
     
     // 10. Résumé des tests
     echo "{$blue}=== Résumé des tests ==={$reset}\n";

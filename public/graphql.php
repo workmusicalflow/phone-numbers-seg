@@ -274,6 +274,8 @@ try {
                             $args['status'] ?? null,
                             $args['type'] ?? null,
                             $args['direction'] ?? null,
+                            $args['startDate'] ?? null,
+                            $args['endDate'] ?? null,
                             $context
                         );
                     case 'getWhatsAppUserTemplates':

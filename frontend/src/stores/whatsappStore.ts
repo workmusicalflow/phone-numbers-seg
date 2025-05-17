@@ -308,6 +308,23 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
       // Calcul de l'offset à partir de la page
       const offset = (params.page - 1) * params.limit;
       
+      // Préparer les dates si nécessaire
+      let startDate = null;
+      let endDate = null;
+      
+      if (params.filters.date) {
+        console.log('[WhatsApp Store] Date filter received:', params.filters.date);
+        console.log('[WhatsApp Store] Date type:', typeof params.filters.date);
+        startDate = params.filters.date;
+        endDate = params.filters.date;
+        console.log('[WhatsApp Store] Sending date range:', { startDate, endDate });
+      }
+      
+      // Log phone filter
+      console.log('[WhatsApp Store] Phone filter:', params.filters.phoneNumber);
+      console.log('[WhatsApp Store] Phone filter type:', typeof params.filters.phoneNumber);
+      console.log('[WhatsApp Store] Phone filter empty?', !params.filters.phoneNumber);
+      
       const result = await apolloClient.query({
         query: gql`
           query GetWhatsAppMessages(
@@ -316,7 +333,9 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
             $phoneNumber: String,
             $status: String,
             $type: String,
-            $direction: String
+            $direction: String,
+            $startDate: String,
+            $endDate: String
           ) {
             getWhatsAppMessages(
               limit: $limit,
@@ -324,7 +343,9 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
               phoneNumber: $phoneNumber,
               status: $status,
               type: $type,
-              direction: $direction
+              direction: $direction,
+              startDate: $startDate,
+              endDate: $endDate
             ) {
               messages {
                 id
@@ -354,9 +375,11 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
         variables: {
           limit: params.limit,
           offset: offset,
-          phoneNumber: params.filters.phoneNumber,
-          status: params.filters.status,
-          direction: params.filters.direction
+          phoneNumber: params.filters.phoneNumber || null,
+          status: params.filters.status || null,
+          direction: params.filters.direction || null,
+          startDate: startDate,
+          endDate: endDate
         },
         fetchPolicy: 'network-only'
       });

@@ -5,6 +5,7 @@ namespace App\Repositories\Interfaces\WhatsApp;
 use App\Entities\WhatsApp\WhatsAppMessageHistory;
 use App\Entities\User;
 use App\Entities\Contact;
+use Doctrine\DBAL\LockMode;
 
 /**
  * Interface pour le repository de l'historique des messages WhatsApp
@@ -101,9 +102,11 @@ interface WhatsAppMessageHistoryRepositoryInterface
      * Trouver un message par son ID.
      *
      * @param mixed $id
-     * @return WhatsAppMessageHistory|null
+     * @param LockMode|int|null $lockMode
+     * @param int|null $lockVersion
+     * @return object|null
      */
-    public function find(mixed $id): ?WhatsAppMessageHistory;
+    public function find(mixed $id, LockMode|int|null $lockMode = null, ?int $lockVersion = null): ?object;
 
     /**
      * Trouver des messages par un ensemble de critères.
@@ -129,7 +132,51 @@ interface WhatsAppMessageHistoryRepositoryInterface
      *
      * @param array $criteria
      * @param array|null $orderBy
-     * @return WhatsAppMessageHistory|null
+     * @return object|null
      */
-    public function findOneBy(array $criteria, ?array $orderBy = null): ?WhatsAppMessageHistory;
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?object;
+
+    /**
+     * Trouver des messages avec filtrage par plage de dates
+     *
+     * @param array $criteria Critères de recherche
+     * @param array $dateFilters Filtres de date (startDate, endDate)
+     * @param array|null $orderBy Ordre de tri
+     * @param int|null $limit Limite de résultats
+     * @param int|null $offset Offset pour la pagination
+     * @return WhatsAppMessageHistory[]
+     */
+    public function findByWithDateRange(array $criteria, array $dateFilters, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array;
+
+    /**
+     * Compter les messages avec filtrage par plage de dates
+     *
+     * @param array $criteria Critères de recherche
+     * @param array $dateFilters Filtres de date (startDate, endDate)
+     * @return int
+     */
+    public function countWithDateRange(array $criteria, array $dateFilters): int;
+
+    /**
+     * Trouver des messages avec filtres avancés (date et téléphone)
+     * 
+     * @param array $criteria Critères de recherche
+     * @param array $dateFilters Filtres de date
+     * @param string|null $phoneFilter Filtre de téléphone (recherche partielle)
+     * @param array|null $orderBy Ordre de tri
+     * @param int|null $limit Limite de résultats
+     * @param int|null $offset Décalage
+     * @return array
+     */
+    public function findByWithFilters(array $criteria, array $dateFilters = [], ?string $phoneFilter = null, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array;
+
+    /**
+     * Compter les messages avec filtres avancés (date et téléphone)
+     * 
+     * @param array $criteria Critères de recherche
+     * @param array $dateFilters Filtres de date
+     * @param string|null $phoneFilter Filtre de téléphone (recherche partielle)
+     * @return int
+     */
+    public function countWithFilters(array $criteria, array $dateFilters = [], ?string $phoneFilter = null): int;
 }
