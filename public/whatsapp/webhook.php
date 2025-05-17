@@ -9,8 +9,9 @@ use DI\ContainerBuilder;
 use App\Services\WhatsApp\WhatsAppWebhookService;
 use Psr\Log\LoggerInterface;
 
-// Configuration
-$WEBHOOK_VERIFY_TOKEN = $_ENV['WHATSAPP_WEBHOOK_VERIFY_TOKEN'] ?? 'oracle_whatsapp_verify_token_2025';
+// Configuration - Utiliser la configuration centralisée
+$config = require __DIR__ . '/../../src/config/whatsapp.php';
+$WEBHOOK_VERIFY_TOKEN = $config['webhook_verify_token'];
 
 // Créer le conteneur DI
 $containerBuilder = new ContainerBuilder();

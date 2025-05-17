@@ -3,7 +3,7 @@
 ## 1. Démarrer localtunnel
 
 ```bash
-lt --port 8080 --subdomain oracle-whatsapp
+lt --port 8000 --subdomain oracle-whatsapp
 ```
 
 ## 2. URL du nouveau webhook
@@ -23,7 +23,7 @@ https://oracle-whatsapp.loca.lt/whatsapp/webhook.php
 3. WhatsApp > Configuration
 4. Dans la section Webhook :
    - URL : `https://oracle-whatsapp.loca.lt/whatsapp/webhook.php`
-   - Token : `oracle_whatsapp_verify_token_2025`
+   - Token : `oracle_whatsapp_webhook_verification_token`
 5. Sauvegarder les changements
 
 ## 4. Caractéristiques du nouveau webhook
@@ -49,6 +49,7 @@ php scripts/test-whatsapp-webhook-storage.php
 ## 6. Structure des données stockées
 
 ### Messages entrants
+
 - `wabaMessageId` : ID unique du message WhatsApp
 - `phoneNumber` : Numéro de l'expéditeur
 - `direction` : 'INCOMING'
@@ -58,6 +59,7 @@ php scripts/test-whatsapp-webhook-storage.php
 - `metadata` : Données complètes du message
 
 ### Mises à jour de statut
+
 - `status` : sent, delivered, read, failed
 - `errors` : Détails des erreurs si échec
 - `metadata.pricing` : Information de tarification
@@ -77,18 +79,21 @@ tail -f var/logs/whatsapp/webhook_*.json
 ## 8. Troubleshooting
 
 ### Le webhook ne reçoit rien
+
 1. Vérifiez que localtunnel est actif
 2. Vérifiez l'URL dans Meta
 3. Testez la vérification :
    ```bash
-   curl "https://oracle-whatsapp.loca.lt/whatsapp/webhook.php?hub_mode=subscribe&hub_verify_token=oracle_whatsapp_verify_token_2025&hub_challenge=test"
+   curl "https://oracle-whatsapp.loca.lt/whatsapp/webhook.php?hub_mode=subscribe&hub_verify_token=oracle_whatsapp_webhook_verification_token&hub_challenge=test"
    ```
 
 ### Les messages ne sont pas stockés
+
 1. Vérifiez les permissions de la base de données
 2. Vérifiez que les colonnes `metadata` et `errors` existent
 3. Consultez les logs d'erreur
 
 ### Erreur de signature
+
 1. Vérifiez que `app_secret` est configuré dans WhatsApp config
 2. Si en développement, la vérification peut être désactivée temporairement

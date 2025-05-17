@@ -68,6 +68,32 @@
                 </q-card-section>
               </q-card>
 
+              <!-- Aperçu du dernier message reçu -->
+              <q-card v-if="lastReceivedMessage" class="q-mt-md">
+                <q-card-section>
+                  <div class="text-h6">Dernier message reçu</div>
+                </q-card-section>
+                <q-separator />
+                <q-card-section>
+                  <div class="row q-mb-sm">
+                    <div class="col-5 text-weight-bold">De :</div>
+                    <div class="col-7">{{ lastReceivedMessage.phoneNumber }}</div>
+                  </div>
+                  <div class="row q-mb-sm">
+                    <div class="col-5 text-weight-bold">Type :</div>
+                    <div class="col-7">{{ lastReceivedMessage.type }}</div>
+                  </div>
+                  <div class="row q-mb-sm" v-if="lastReceivedMessage.content">
+                    <div class="col-5 text-weight-bold">Message :</div>
+                    <div class="col-7">{{ lastReceivedMessage.content }}</div>
+                  </div>
+                  <div class="row">
+                    <div class="col-5 text-weight-bold">Date :</div>
+                    <div class="col-7">{{ formatDate(lastReceivedMessage.createdAt) }}</div>
+                  </div>
+                </q-card-section>
+              </q-card>
+
               <!-- Statistiques rapides -->
               <q-card class="q-mt-md">
                 <q-card-section>
@@ -103,6 +129,15 @@
                         <q-item-label caption>{{ stats.readMessages }}</q-item-label>
                       </q-item-section>
                     </q-item>
+                    <q-item>
+                      <q-item-section avatar>
+                        <q-icon name="mail" color="green" />
+                      </q-item-section>
+                      <q-item-section>
+                        <q-item-label>Messages reçus</q-item-label>
+                        <q-item-label caption>{{ stats.receivedMessages }}</q-item-label>
+                      </q-item-section>
+                    </q-item>
                   </q-list>
                 </q-card-section>
               </q-card>
@@ -121,7 +156,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
 import { useContactStore } from '@/stores/contactStore';
 import { useWhatsAppStore } from '@/stores/whatsappStore';
@@ -135,7 +170,6 @@ const contactStore = useContactStore();
 const whatsAppStore = useWhatsAppStore();
 
 // Router and route
-const router = useRouter();
 const route = useRoute();
 
 // État local
@@ -150,6 +184,13 @@ const lastSentMessage = computed(() => {
   return messages[0] || null;
 });
 
+const lastReceivedMessage = computed(() => {
+  const messages = whatsAppStore.messages
+    .filter(msg => msg.direction === 'INCOMING')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return messages[0] || null;
+});
+
 const stats = computed(() => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -157,13 +198,17 @@ const stats = computed(() => {
   const todayMessages = whatsAppStore.messages.filter(msg => {
     const msgDate = new Date(msg.createdAt);
     msgDate.setHours(0, 0, 0, 0);
-    return msgDate.getTime() === today.getTime() && msg.direction === 'OUTGOING';
+    return msgDate.getTime() === today.getTime();
   });
 
+  const outgoingMessages = todayMessages.filter(msg => msg.direction === 'OUTGOING');
+  const incomingMessages = todayMessages.filter(msg => msg.direction === 'INCOMING');
+
   return {
-    totalMessages: todayMessages.length,
-    deliveredMessages: todayMessages.filter(msg => msg.deliveredAt).length,
-    readMessages: todayMessages.filter(msg => msg.readAt).length,
+    totalMessages: outgoingMessages.length,
+    deliveredMessages: outgoingMessages.filter(msg => msg.status === 'delivered' || msg.status === 'read').length,
+    readMessages: outgoingMessages.filter(msg => msg.status === 'read').length,
+    receivedMessages: incomingMessages.length,
     conversationsActive: new Set(todayMessages.map(msg => msg.phoneNumber)).size
   };
 });
@@ -218,7 +263,7 @@ watch(() => route.query, () => {
 }, { deep: true });
 
 // Watch for successful message send
-whatsAppStore.$subscribe((mutation, state) => {
+whatsAppStore.$subscribe((mutation) => {
   // Refresh stats when messages change
   if (mutation.type === 'direct') {
     refreshContactsCount();
