@@ -89,6 +89,19 @@ try {
 
 // Start the session before any output or session access
 if (session_status() === PHP_SESSION_NONE) {
+    // Configure session cookie parameters for local development (cross-port)
+    // Ensure these are set *before* session_start()
+    // For production with HTTPS, SameSite=None; Secure=true would be better.
+    // For local HTTP, SameSite=Lax is a common compromise.
+    // Domain is omitted to default to the exact hostname (localhost), path is root.
+    session_set_cookie_params([
+        'lifetime' => 0, // Session cookie
+        'path' => '/',
+        'domain' => '', // Defaults to the host name of the server which issued the cookie
+        'secure' => false, // Set to true if backend is HTTPS
+        'httponly' => true,
+        'samesite' => 'Lax' // Lax allows cookies with top-level navigations and GET requests
+    ]);
     session_start();
 }
 
@@ -110,17 +123,18 @@ use GraphQL\Error\DebugFlag;
 
 // Enable CORS for GraphQL endpoint
 header('Access-Control-Allow-Origin: http://localhost:5173');
-header('Access-Control-Allow-Headers: Content-Type');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS'); // Added GET for potential simple checks
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With'); // Added common headers
 header('Access-Control-Allow-Credentials: true');
 
 // Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('HTTP/1.1 200 OK');
+    // Respond to preflight request with allowed methods and headers
+    header('HTTP/1.1 204 No Content'); // 204 is often preferred for OPTIONS
     exit;
 }
 
-// Only accept POST requests
+// Only accept POST requests for GraphQL mutations/queries
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('HTTP/1.1 405 Method Not Allowed');
     header('Allow: POST, OPTIONS');
@@ -193,7 +207,7 @@ try {
         $parentTypeName = $info->parentType->name;
 
         $logger->debug("Attempting to resolve field: {$parentTypeName}.{$fieldName}");
-        
+
         // Always use our GraphQLContext for consistent access to DataLoaders
         // If $context is not already our GraphQLContext, use the one we created
         if (!($context instanceof \App\GraphQL\Context\GraphQLContext)) {
@@ -213,7 +227,7 @@ try {
                     case 'userByUsername':
                         return $userResolver->resolveUserByUsername($args);
                     case 'me':
-                        return $userResolver->resolveMe();
+                        return $authResolver->resolveMe($args, $context); // Corrected to use AuthResolver
                     case 'verifyToken':
                         return $authResolver->resolveVerifyToken($args, $context);
                     case 'contacts':
@@ -328,49 +342,49 @@ try {
             // Handle WhatsAppMessageHistory fields
             if ($parentTypeName === 'WhatsAppMessageHistory') {
                 $logger->debug("Resolving WhatsAppMessageHistory field: {$fieldName}");
-                
+
                 // Pour les types personnalisés, on utilise notre Type GraphQL
                 $whatsappType = $container->get(\App\GraphQL\Types\WhatsApp\WhatsAppMessageHistoryType::class);
-                
+
                 // Appeler la méthode correspondante sur le type
                 $methodName = 'get' . ucfirst($fieldName);
                 if (method_exists($whatsappType, $methodName)) {
                     return $whatsappType->$methodName($source);
                 }
-                
+
                 // Fallback to default resolver si la méthode n'existe pas
                 return Executor::defaultFieldResolver($source, $args, $context, $info);
             }
-            
+
             // Handle nested field resolvers
             if ($parentTypeName === 'Contact') {
                 $logger->debug("Resolving Contact field: {$fieldName}");
-                
+
                 // Groups field handling
                 if ($fieldName === 'groups') {
                     $logger->debug("Resolving Contact.groups field");
-                    
+
                     // Capture all contact IDs for batch processing
                     static $isFirstContact = true;
                     static $allContactIds = [];
                     static $contactGroupsCache = [];
                     static $batchProcessed = false;
-                    
+
                     $contactId = (int)($source['id'] ?? 0);
                     if ($contactId <= 0) {
                         return [];
                     }
-                    
+
                     // If we've already processed contacts in batch and have this result cached
                     if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
                         $logger->debug("Returning cached groups for contact ID: $contactId from batch");
                         return $contactGroupsCache[$contactId];
                     }
-                    
+
                     // For the first contact, get ALL contacts and process them
                     if ($isFirstContact) {
                         $isFirstContact = false;
-                        
+
                         // Get all contact IDs from the source data
                         if (isset($info) && isset($info->operation) && isset($info->operation->selectionSet)) {
                             $selections = $info->operation->selectionSet->selections;
@@ -379,10 +393,10 @@ try {
                                     // Find the 'contacts' field and extract all contact IDs
                                     // Safely access path information with null coalescing operator
                                     $rootValue = $info->path ?? [];
-                                    
+
                                     // Debug info
                                     $logger->debug('GraphQL path info: ' . json_encode($rootValue));
-                                    
+
                                     // Check if we have a contacts field in the root value
                                     if (isset($rootValue[0]) && $rootValue[0] === 'contacts' && isset($info->rootValue['contacts'])) {
                                         $contacts = $info->rootValue['contacts'];
@@ -395,15 +409,15 @@ try {
                                 }
                             }
                         }
-                        
+
                         // If we couldn't get all contacts, at least add this one
                         if (empty($allContactIds)) {
                             $allContactIds[] = $contactId;
                         }
-                        
+
                         $uniqueContactIds = array_values(array_unique($allContactIds));
                         $logger->info("SUPER BATCH OPTIMIZATION: Pre-loading ALL " . count($uniqueContactIds) . " contacts' groups in one batch");
-                        
+
                         // Get the context-scoped DataLoader
                         if (isset($context) && method_exists($context, 'getDataLoader')) {
                             $dataLoader = $context->getDataLoader('contactGroups');
@@ -411,7 +425,7 @@ try {
                                 // Load all contact groups at once
                                 $results = $dataLoader->loadMany($uniqueContactIds);
                                 $batchProcessed = true;
-                                
+
                                 // Map results to contact IDs
                                 foreach ($uniqueContactIds as $index => $cId) {
                                     $contactGroupsCache[$cId] = $results[$index] ?? [];
@@ -419,19 +433,19 @@ try {
                             }
                         }
                     }
-                    
+
                     // Always collect this contact ID for potential future batching
                     $allContactIds[] = $contactId;
-                    
+
                     // If we have already processed in batch, return from cache
                     if ($batchProcessed && isset($contactGroupsCache[$contactId])) {
                         return $contactGroupsCache[$contactId];
                     }
-                    
+
                     // If not batched yet, process normally
                     return $contactResolver->resolveContactGroups($source, $args, $context);
                 }
-                
+
                 // SMS fields - use our dedicated resolver
                 if ($fieldName === 'smsHistory') {
                     return $contactSmsResolver->resolveSmsHistory($source, $args);
@@ -483,7 +497,7 @@ try {
             $contactGroupsLoader->dispatchQueue();
             $logger->debug('Final ContactGroups DataLoader batch dispatched');
         }
-        
+
         // Dispatch SMSHistory DataLoader
         $smsHistoryLoader = $graphQLContext->getDataLoader('smsHistory');
         if ($smsHistoryLoader && method_exists($smsHistoryLoader, 'dispatchQueue')) {

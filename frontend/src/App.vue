@@ -199,11 +199,11 @@ const logout = async () => {
 };
 
 // Initialiser l'authentification au démarrage de l'application
-onMounted(async () => {
-  // Initialiser l'authentification
-  // Cela va également charger les informations de l'utilisateur connecté dans userStore.currentUser
-  await authStore.init();
-});
+// onMounted(async () => { // Removed: authStore.init() is now called in main.ts before app mount
+//   // Initialiser l'authentification
+//   // Cela va également charger les informations de l'utilisateur connecté dans userStore.currentUser
+//   // await authStore.init(); 
+// });
 </script>
 
 <style>

@@ -152,4 +152,48 @@ class AuthResolver
 
     // --- Helper Methods ---
     // No helper methods needed here now
+
+    /**
+     * Resolver for the 'me' query.
+     * Retrieves the currently authenticated user's details.
+     *
+     * @param array<string, mixed> $args
+     * @param mixed $context
+     * @return array<string, mixed>|null User data as an array or null if not authenticated.
+     */
+    public function resolveMe(array $args, $context): ?array
+    {
+        $this->logger->info('Executing AuthResolver::resolveMe');
+
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user_id'])) {
+            $this->logger->info('No active session found for "me" query.');
+            return null;
+        }
+
+        $userId = $_SESSION['user_id'];
+        $this->logger->info('Active session found for user ID: ' . $userId . '. Attempting to fetch user details.');
+
+        try {
+            $user = $this->authService->getUserById((int)$userId); // Corrected method name
+            if (!$user) {
+                $this->logger->warning('User ID ' . $userId . ' found in session, but no user found in database.');
+                // This case might indicate a stale session, so clear it.
+                $this->authService->destroyUserSession();
+                return null;
+            }
+
+            $this->logger->info('User details fetched successfully for user ID: ' . $userId);
+            // Use the formatter to convert the User entity to the expected array structure for GraphQL
+            return $this->formatter->formatUser($user);
+        } catch (Exception $e) {
+            $this->logger->error('Error fetching user details for "me" query (User ID: ' . $userId . '): ' . $e->getMessage(), ['exception' => $e]);
+            // Optionally, destroy session if user retrieval fails critically
+            // $this->authService->destroyUserSession();
+            return null; // Or throw an exception to be caught by GraphQL error handler
+        }
+    }
 }

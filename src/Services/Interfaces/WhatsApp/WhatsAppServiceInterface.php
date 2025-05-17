@@ -29,7 +29,7 @@ interface WhatsAppServiceInterface
         ?string $content = null,
         ?string $mediaUrl = null
     ): WhatsAppMessageHistory;
-    
+
     /**
      * Envoyer un message template WhatsApp avec API simplifiée
      * 
@@ -49,7 +49,7 @@ interface WhatsAppServiceInterface
         ?string $headerImageUrl = null,
         array $bodyParams = []
     ): WhatsAppMessageHistory;
-    
+
     /**
      * Envoyer un message texte
      * 
@@ -65,7 +65,7 @@ interface WhatsAppServiceInterface
         string $message,
         ?string $contextMessageId = null
     ): array;
-    
+
     /**
      * Envoyer un message template avec composants détaillés
      * 
@@ -83,7 +83,7 @@ interface WhatsAppServiceInterface
         string $languageCode,
         array $components = []
     ): array;
-    
+
     /**
      * Envoyer un message média
      * 
@@ -101,7 +101,7 @@ interface WhatsAppServiceInterface
         string $mediaIdOrUrl,
         ?string $caption = null
     ): array;
-    
+
     /**
      * Envoyer un message interactif
      * 
@@ -115,7 +115,7 @@ interface WhatsAppServiceInterface
         string $recipient,
         array $interactive
     ): array;
-    
+
     /**
      * Marquer un message comme lu
      * 
@@ -124,7 +124,7 @@ interface WhatsAppServiceInterface
      * @return bool
      */
     public function markAsRead(User $user, string $messageId): bool;
-    
+
     /**
      * Obtenir l'historique des messages
      * 
@@ -142,7 +142,7 @@ interface WhatsAppServiceInterface
         int $limit = 100,
         int $offset = 0
     ): array;
-    
+
     /**
      * Traiter un message webhook entrant
      * 
@@ -150,7 +150,7 @@ interface WhatsAppServiceInterface
      * @return void
      */
     public function processWebhookMessage(array $webhookData): void;
-    
+
     /**
      * Uploader un média
      * 
@@ -160,7 +160,7 @@ interface WhatsAppServiceInterface
      * @return string ID du média
      */
     public function uploadMedia(User $user, string $filePath, string $mimeType): string;
-    
+
     /**
      * Télécharger un média
      * 
@@ -169,7 +169,7 @@ interface WhatsAppServiceInterface
      * @return array
      */
     public function downloadMedia(User $user, string $mediaId): array;
-    
+
     /**
      * Obtenir l'URL d'un média
      * 
@@ -178,7 +178,7 @@ interface WhatsAppServiceInterface
      * @return string
      */
     public function getMediaUrl(User $user, string $mediaId): string;
-    
+
     /**
      * Traiter un webhook entrant
      * 
@@ -186,7 +186,7 @@ interface WhatsAppServiceInterface
      * @return void
      */
     public function processWebhook(array $payload): void;
-    
+
     /**
      * Vérifier le webhook
      * 
@@ -196,4 +196,13 @@ interface WhatsAppServiceInterface
      * @return string|null
      */
     public function verifyWebhook(string $mode, string $challenge, string $verifyToken): ?string;
+
+    /**
+     * Récupère les templates WhatsApp approuvés pour un utilisateur.
+     *
+     * @param User $user L'utilisateur pour lequel récupérer les templates.
+     * @return array La liste des templates, potentiellement vide.
+     *               Chaque template pourrait être un tableau associatif ou un objet.
+     */
+    public function getUserTemplates(User $user): array;
 }

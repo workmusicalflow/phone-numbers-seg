@@ -36,14 +36,14 @@ class WhatsAppResolver
     ): WhatsAppMessageHistory {
         try {
             error_log("WhatsApp sendMessage - Input: " . json_encode($message));
-            
+
             $user = $context->getCurrentUser();
             if (!$user) {
                 throw new \Exception("L'utilisateur doit être authentifié.");
             }
-            
+
             error_log("WhatsApp sendMessage - User: " . $user->getId());
-            
+
             // Créer l'objet message à partir du tableau
             $messageInput = new WhatsAppMessageInputType();
             $messageInput->recipient = $message['recipient'];
@@ -52,9 +52,9 @@ class WhatsAppResolver
             $messageInput->mediaUrl = $message['mediaUrl'] ?? null;
             $messageInput->templateName = $message['templateName'] ?? null;
             $messageInput->languageCode = $message['languageCode'] ?? null;
-            
+
             error_log("WhatsApp sendMessage - Calling service");
-            
+
             $result = $this->whatsappService->sendMessage(
                 $user,
                 $messageInput->recipient,
@@ -62,15 +62,14 @@ class WhatsAppResolver
                 $messageInput->content,
                 $messageInput->mediaUrl
             );
-            
+
             error_log("WhatsApp sendMessage - Result: " . json_encode([
                 'id' => $result->getId(),
                 'wabaMessageId' => $result->getWabaMessageId(),
                 'status' => $result->getStatus()
             ]));
-            
+
             return $result;
-            
         } catch (\Exception $e) {
             error_log("WhatsApp sendMessage - Error: " . $e->getMessage());
             error_log("WhatsApp sendMessage - Trace: " . $e->getTraceAsString());
@@ -92,26 +91,26 @@ class WhatsAppResolver
         if (!$user) {
             throw new \Exception("L'utilisateur doit être authentifié.");
         }
-        
+
         // Créer l'objet template à partir du tableau
         $templateInput = new WhatsAppTemplateSendInput();
         $templateInput->recipient = $template['recipient'];
         $templateInput->templateName = $template['templateName'];
         $templateInput->languageCode = $template['languageCode'];
-        
+
         // Convertir en objet message pour l'envoi
         $messageInput = new WhatsAppMessageInputType();
         $messageInput->recipient = $templateInput->recipient;
         $messageInput->type = 'template';
         $messageInput->templateName = $templateInput->templateName;
         $messageInput->languageCode = $templateInput->languageCode;
-        
+
         // Gérer les paramètres si présents
         $params = [];
         if (isset($template['body1Param'])) $params[] = $template['body1Param'];
         if (isset($template['body2Param'])) $params[] = $template['body2Param'];
         if (isset($template['body3Param'])) $params[] = $template['body3Param'];
-        
+
         return $this->whatsappService->sendTemplateMessage(
             $user,
             $messageInput->recipient,
@@ -127,7 +126,7 @@ class WhatsAppResolver
      * 
      * @Query
      * @Logged
-     * @return WhatsAppMessageHistory[]
+     * @return array{messages: WhatsAppMessageHistory[], totalCount: int, hasMore: bool}
      */
     public function getWhatsAppMessages(
         ?int $limit = 100,
@@ -142,34 +141,34 @@ class WhatsAppResolver
         if (!$user) {
             throw new \Exception("L'utilisateur doit être authentifié.");
         }
-        
+
         $criteria = ['oracleUser' => $user];
-        
-        if ($phoneNumber !== null) {
+
+        if ($phoneNumber !== null && $phoneNumber !== '') {
             $criteria['phoneNumber'] = $phoneNumber;
         }
-        
-        if ($status !== null) {
+
+        if ($status !== null && $status !== '') {
             $criteria['status'] = $status;
         }
-        
-        if ($type !== null) {
+
+        if ($type !== null && $type !== '') {
             $criteria['type'] = $type;
         }
-        
-        if ($direction !== null) {
+
+        if ($direction !== null && $direction !== '') {
             $criteria['direction'] = $direction;
         }
-        
+
         $messages = $this->whatsappMessageRepository->findBy(
             $criteria,
             ['createdAt' => 'DESC'],
             $limit,
             $offset
         );
-        
+
         $totalCount = $this->whatsappMessageRepository->count($criteria);
-        
+
         return [
             'messages' => $messages,
             'totalCount' => $totalCount,
@@ -191,14 +190,14 @@ class WhatsAppResolver
         if (!$user) {
             throw new \Exception("L'utilisateur doit être authentifié.");
         }
-        
+
         $message = $this->whatsappMessageRepository->find($id);
-        
+
         // Vérifier que le message appartient à l'utilisateur
         if ($message && $message->getOracleUser()->getId() === $user->getId()) {
             return $message;
         }
-        
+
         return null;
     }
 
@@ -217,20 +216,20 @@ class WhatsAppResolver
         if (!$user) {
             throw new \Exception("L'utilisateur doit être authentifié.");
         }
-        
+
         $criteria = ['oracleUser' => $user];
-        
-        if ($status !== null) {
+
+        if ($status !== null && $status !== '') {
             $criteria['status'] = $status;
         }
-        
-        if ($direction !== null) {
+
+        if ($direction !== null && $direction !== '') {
             $criteria['direction'] = $direction;
         }
-        
+
         return $this->whatsappMessageRepository->count($criteria);
     }
-    
+
     /**
      * Récupère les templates WhatsApp de l'utilisateur
      * 
@@ -244,7 +243,7 @@ class WhatsAppResolver
         if (!$user) {
             throw new \Exception("L'utilisateur doit être authentifié.");
         }
-        
+
         return $this->whatsappService->getUserTemplates($user);
     }
 }

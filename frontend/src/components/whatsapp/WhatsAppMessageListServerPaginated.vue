@@ -4,13 +4,13 @@
       <div class="row q-col-gutter-md">
         <div class="col-12 col-md-3">
           <q-input
-            v-model="phoneFilter"
+            v-model="filters.phoneNumber"
             label="Rechercher par numéro"
             outlined
             dense
             clearable
-            debounce="300"
-            @update:model-value="applyFilters"
+            debounce="500"
+            @update:model-value="resetPageAndFetch"
           >
             <template v-slot:prepend>
               <q-icon name="search" />
@@ -19,7 +19,7 @@
         </div>
         <div class="col-12 col-md-2">
           <q-select
-            v-model="statusFilter"
+            v-model="filters.status"
             :options="statusOptions"
             label="Statut"
             outlined
@@ -27,12 +27,12 @@
             clearable
             emit-value
             map-options
-            @update:model-value="applyFilters"
+            @update:model-value="resetPageAndFetch"
           />
         </div>
         <div class="col-12 col-md-2">
           <q-select
-            v-model="directionFilter"
+            v-model="filters.direction"
             :options="directionOptions"
             label="Direction"
             outlined
@@ -40,22 +40,27 @@
             clearable
             emit-value
             map-options
-            @update:model-value="applyFilters"
+            @update:model-value="resetPageAndFetch"
           />
         </div>
         <div class="col-12 col-md-3">
-          <q-date 
-            v-model="dateFilter"
+          <q-input
+            v-model="formattedDateFilter"
             label="Filtrer par date"
             outlined
             dense
-            mask="YYYY-MM-DD"
-            @update:model-value="applyFilters"
+            readonly
+            clearable
+            @clear="filters.date = ''; resetPageAndFetch()"
           >
-            <template v-slot:prepend>
+            <template v-slot:append>
               <q-icon name="event" class="cursor-pointer">
-                <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                  <q-date v-model="dateFilter" mask="YYYY-MM-DD" @update:model-value="applyFilters">
+                <q-popup-proxy cover transition-show="scale" transition-hide="scale" ref="datePopup">
+                  <q-date 
+                    v-model="filters.date" 
+                    mask="YYYY-MM-DD" 
+                    @update:model-value="onDateSelected"
+                  >
                     <div class="row items-center justify-end">
                       <q-btn v-close-popup label="Fermer" color="primary" flat />
                     </div>
@@ -63,14 +68,14 @@
                 </q-popup-proxy>
               </q-icon>
             </template>
-          </q-date>
+          </q-input>
         </div>
         <div class="col-12 col-md-2 flex items-center">
           <q-btn 
             color="primary" 
             icon="refresh" 
             label="Actualiser" 
-            @click="refreshMessages" 
+            @click="fetchMessages" 
             :loading="isLoading"
           />
           <q-separator vertical inset class="q-mx-md" />
@@ -80,9 +85,9 @@
             icon="file_download"
             color="primary"
             @click="exportMessages"
-            :disable="!filteredMessages.length"
+            :disable="!totalCount"
           >
-            <q-tooltip>Exporter les messages filtrés</q-tooltip>
+            <q-tooltip>Exporter tous les messages filtrés</q-tooltip>
           </q-btn>
         </div>
       </div>
@@ -114,27 +119,27 @@
     <div class="stats-bar q-pa-md bg-grey-2">
       <div class="row q-col-gutter-md text-center">
         <div class="col">
-          <div class="text-h6">{{ messageStats.total }}</div>
+          <div class="text-h6">{{ stats.total }}</div>
           <div class="text-caption">Total</div>
         </div>
         <div class="col">
-          <div class="text-h6 text-primary">{{ messageStats.incoming }}</div>
+          <div class="text-h6 text-primary">{{ stats.incoming }}</div>
           <div class="text-caption">Reçus</div>
         </div>
         <div class="col">
-          <div class="text-h6 text-positive">{{ messageStats.outgoing }}</div>
+          <div class="text-h6 text-positive">{{ stats.outgoing }}</div>
           <div class="text-caption">Envoyés</div>
         </div>
         <div class="col">
-          <div class="text-h6 text-green">{{ messageStats.delivered }}</div>
+          <div class="text-h6 text-green">{{ stats.delivered }}</div>
           <div class="text-caption">Délivrés</div>
         </div>
         <div class="col">
-          <div class="text-h6 text-info">{{ messageStats.read }}</div>
+          <div class="text-h6 text-info">{{ stats.read }}</div>
           <div class="text-caption">Lus</div>
         </div>
         <div class="col">
-          <div class="text-h6 text-negative">{{ messageStats.failed }}</div>
+          <div class="text-h6 text-negative">{{ stats.failed }}</div>
           <div class="text-caption">Échoués</div>
         </div>
       </div>
@@ -142,15 +147,15 @@
 
     <div class="table-container q-pa-md">
       <q-table
-        :rows="paginatedMessages"
+        ref="tableRef"
+        :rows="rows"
         :columns="columns"
         :loading="isLoading"
         row-key="id"
-        :pagination="pagination"
+        v-model:pagination="pagination"
         @request="onRequest"
-        binary-state-sort
-        virtual-scroll
         :rows-per-page-options="[10, 20, 50, 100]"
+        binary-state-sort
       >
         <template v-slot:loading>
           <q-inner-loading showing>
@@ -158,6 +163,7 @@
           </q-inner-loading>
         </template>
 
+        <!-- Templates de cellules identiques à la version précédente -->
         <template v-slot:body-cell-direction="props">
           <q-td :props="props">
             <q-icon 
@@ -300,26 +306,10 @@
             </q-btn-group>
           </q-td>
         </template>
-
-        <template v-slot:bottom>
-          <div class="row justify-between items-center full-width q-px-md">
-            <div class="text-caption">
-              {{ paginationLabel }}
-            </div>
-            <q-pagination
-              v-model="pagination.page"
-              :max="totalPages"
-              :max-pages="7"
-              boundary-numbers
-              direction-links
-              @update:model-value="updatePage"
-            />
-          </div>
-        </template>
       </q-table>
     </div>
 
-    <!-- Dialogue de réponse -->
+    <!-- Dialogues (inchangés) -->
     <q-dialog v-model="replyDialogOpen" persistent>
       <q-card style="min-width: 450px">
         <q-card-section>
@@ -360,7 +350,6 @@
       </q-card>
     </q-dialog>
 
-    <!-- Dialogue des détails du message -->
     <q-dialog v-model="detailsDialogOpen">
       <q-card style="min-width: 500px; max-width: 800px">
         <q-card-section>
@@ -447,25 +436,57 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue';
-import { useQuasar } from 'quasar';
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue';
+import { useQuasar, QTableProps } from 'quasar';
 import { useWhatsAppStore, type WhatsAppMessageHistory } from '@/stores/whatsappStore';
+import { formatPhoneNumber, formatTime, formatDateOnly, formatFullDate } from '@/utils/formatters';
+import { MESSAGE_CONSTANTS } from '@/constants/whatsapp';
 
 const $q = useQuasar();
 const whatsAppStore = useWhatsAppStore();
 
-// État des filtres
-const phoneFilter = ref('');
-const statusFilter = ref('');
-const directionFilter = ref('');
-const dateFilter = ref('');
+// Props avec valeurs par défaut
+const props = withDefaults(defineProps<{
+  autoRefresh?: boolean;
+  refreshInterval?: number;
+}>(), {
+  autoRefresh: true,
+  refreshInterval: 30000
+});
 
-// État de la pagination
+// Refs
+const tableRef = ref();
+const datePopup = ref();
+
+// État des filtres
+const filters = ref({
+  phoneNumber: '',
+  status: '',
+  direction: '',
+  date: ''
+});
+
+// État de la pagination serveur
 const pagination = ref({
-  rowsPerPage: 20,
+  sortBy: 'timestamp',
+  descending: true,
   page: 1,
+  rowsPerPage: 20,
   rowsNumber: 0
 });
+
+// État local
+const rows = ref<WhatsAppMessageHistory[]>([]);
+const stats = ref({
+  total: 0,
+  incoming: 0,
+  outgoing: 0,
+  delivered: 0,
+  read: 0,
+  failed: 0
+});
+const isLoading = ref(false);
+const totalCount = ref(0);
 
 // État des dialogues
 const replyDialogOpen = ref(false);
@@ -478,157 +499,64 @@ const sendingReply = ref(false);
 let refreshTimer: number | null = null;
 
 // Computed
-const isLoading = computed(() => whatsAppStore.isLoading);
-const messages = computed(() => whatsAppStore.messages);
-
-// Messages filtrés
-const filteredMessages = computed(() => {
-  let filtered = [...messages.value];
-  
-  // Filtre par numéro de téléphone
-  if (phoneFilter.value) {
-    const normalizedFilter = phoneFilter.value.replace(/\s/g, '');
-    filtered = filtered.filter(msg => 
-      msg.phoneNumber.replace(/\s/g, '').includes(normalizedFilter)
-    );
-  }
-  
-  // Filtre par statut
-  if (statusFilter.value) {
-    filtered = filtered.filter(msg => msg.status === statusFilter.value);
-  }
-  
-  // Filtre par direction
-  if (directionFilter.value) {
-    filtered = filtered.filter(msg => msg.direction === directionFilter.value);
-  }
-  
-  // Filtre par date
-  if (dateFilter.value) {
-    const filterDate = new Date(dateFilter.value);
-    filterDate.setHours(0, 0, 0, 0);
-    const nextDay = new Date(filterDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    
-    filtered = filtered.filter(msg => {
-      const msgDate = new Date(msg.timestamp);
-      return msgDate >= filterDate && msgDate < nextDay;
-    });
-  }
-  
-  // Tri par date décroissante
-  filtered.sort((a, b) => 
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
-  
-  return filtered;
+const formattedDateFilter = computed(() => {
+  if (!filters.value.date) return '';
+  return formatDateOnly(filters.value.date);
 });
 
-// Messages paginés
-const paginatedMessages = computed(() => {
-  const start = (pagination.value.page - 1) * pagination.value.rowsPerPage;
-  const end = start + pagination.value.rowsPerPage;
-  return filteredMessages.value.slice(start, end);
-});
-
-// Total des pages
-const totalPages = computed(() => {
-  return Math.ceil(filteredMessages.value.length / pagination.value.rowsPerPage);
-});
-
-// Label de pagination
-const paginationLabel = computed(() => {
-  const start = (pagination.value.page - 1) * pagination.value.rowsPerPage + 1;
-  const end = Math.min(start + pagination.value.rowsPerPage - 1, filteredMessages.value.length);
-  return `${start} - ${end} sur ${filteredMessages.value.length} messages`;
-});
-
-// Statistiques
-const messageStats = computed(() => {
-  const stats = {
-    total: filteredMessages.value.length,
-    incoming: 0,
-    outgoing: 0,
-    delivered: 0,
-    read: 0,
-    failed: 0
-  };
-  
-  filteredMessages.value.forEach(msg => {
-    if (msg.direction === 'INCOMING') {
-      stats.incoming++;
-    } else {
-      stats.outgoing++;
-    }
-    
-    if (msg.status === 'delivered') stats.delivered++;
-    if (msg.status === 'read') stats.read++;
-    if (msg.status === 'failed') stats.failed++;
-  });
-  
-  return stats;
-});
-
-// Filtres actifs
 const hasActiveFilters = computed(() => {
-  return !!(phoneFilter.value || statusFilter.value || directionFilter.value || dateFilter.value);
+  return Object.values(filters.value).some(v => !!v);
 });
 
 const activeFilters = computed(() => {
-  const filters = [];
+  const filterList = [];
   
-  if (phoneFilter.value) {
-    filters.push({ type: 'phone', label: 'Numéro', value: phoneFilter.value });
+  if (filters.value.phoneNumber) {
+    filterList.push({ 
+      type: 'phoneNumber', 
+      label: 'Numéro', 
+      value: filters.value.phoneNumber 
+    });
   }
   
-  if (statusFilter.value) {
-    filters.push({ 
+  if (filters.value.status) {
+    filterList.push({ 
       type: 'status', 
       label: 'Statut', 
-      value: statusOptions.find(opt => opt.value === statusFilter.value)?.label || statusFilter.value 
+      value: statusOptions.find(opt => opt.value === filters.value.status)?.label || filters.value.status 
     });
   }
   
-  if (directionFilter.value) {
-    filters.push({ 
+  if (filters.value.direction) {
+    filterList.push({ 
       type: 'direction', 
       label: 'Direction', 
-      value: directionOptions.find(opt => opt.value === directionFilter.value)?.label || directionFilter.value 
+      value: directionOptions.find(opt => opt.value === filters.value.direction)?.label || filters.value.direction 
     });
   }
   
-  if (dateFilter.value) {
-    filters.push({ 
+  if (filters.value.date) {
+    filterList.push({ 
       type: 'date', 
       label: 'Date', 
-      value: formatDateOnly(dateFilter.value) 
+      value: formattedDateFilter.value
     });
   }
   
-  return filters;
+  return filterList;
 });
 
-// Options
-const statusOptions = [
-  { label: 'Envoyé', value: 'sent' },
-  { label: 'Livré', value: 'delivered' },
-  { label: 'Lu', value: 'read' },
-  { label: 'Échoué', value: 'failed' },
-  { label: 'Reçu', value: 'received' }
-];
+// Options - Importées depuis des constantes
+const statusOptions = MESSAGE_CONSTANTS.statusOptions;
+const directionOptions = MESSAGE_CONSTANTS.directionOptions;
 
-const directionOptions = [
-  { label: 'Entrant', value: 'INCOMING' },
-  { label: 'Sortant', value: 'OUTGOING' }
-];
-
-// Définition des colonnes
-const columns = [
+// Colonnes de la table
+const columns: QTableProps['columns'] = [
   {
     name: 'direction',
     required: true,
     label: '',
-    align: 'center' as const,
+    align: 'center',
     field: 'direction',
     sortable: true,
     style: 'width: 40px'
@@ -637,7 +565,7 @@ const columns = [
     name: 'phoneNumber',
     required: true,
     label: 'Numéro',
-    align: 'left' as const,
+    align: 'left',
     field: 'phoneNumber',
     sortable: true
   },
@@ -645,7 +573,7 @@ const columns = [
     name: 'type',
     required: true,
     label: 'Type',
-    align: 'center' as const,
+    align: 'center',
     field: 'type',
     sortable: true
   },
@@ -653,7 +581,7 @@ const columns = [
     name: 'content',
     required: true,
     label: 'Contenu',
-    align: 'left' as const,
+    align: 'left',
     field: 'content',
     sortable: false
   },
@@ -661,7 +589,7 @@ const columns = [
     name: 'status',
     required: true,
     label: 'Statut',
-    align: 'center' as const,
+    align: 'center',
     field: 'status',
     sortable: true
   },
@@ -669,7 +597,7 @@ const columns = [
     name: 'timestamp',
     required: true,
     label: 'Date/Heure',
-    align: 'center' as const,
+    align: 'center',
     field: 'timestamp',
     sortable: true
   },
@@ -677,247 +605,147 @@ const columns = [
     name: 'actions',
     required: true,
     label: 'Actions',
-    align: 'center' as const,
+    align: 'center',
     field: 'actions',
     sortable: false
   }
 ];
 
-// Fonctions de formatage
-function formatPhoneNumber(phoneNumber: string): string {
-  if (!phoneNumber) return '';
+// Actions principales
+async function fetchMessages(props?: any) {
+  isLoading.value = true;
   
-  // Nettoyer le numéro
-  const cleaned = phoneNumber.replace(/\D/g, '');
-  
-  // Format Côte d'Ivoire: +225 XX XX XX XX XX
-  if (cleaned.startsWith('225') && cleaned.length === 13) {
-    return `+${cleaned.slice(0, 3)} ${cleaned.slice(3, 5)} ${cleaned.slice(5, 7)} ${cleaned.slice(7, 9)} ${cleaned.slice(9, 11)} ${cleaned.slice(11)}`;
-  }
-  
-  // Format international générique
-  if (phoneNumber.startsWith('+')) {
-    const parts = [];
-    let remaining = phoneNumber.substring(1);
+  try {
+    // Préparation des paramètres pour l'API
+    const params = {
+      page: props?.pagination?.page || pagination.value.page,
+      limit: props?.pagination?.rowsPerPage || pagination.value.rowsPerPage,
+      sortBy: props?.pagination?.sortBy || pagination.value.sortBy,
+      descending: props?.pagination?.descending ?? pagination.value.descending,
+      filters: filters.value
+    };
     
-    // Code pays (1-4 chiffres)
-    parts.push('+' + remaining.substring(0, 3));
-    remaining = remaining.substring(3);
+    console.log('Fetching messages with params:', params);
     
-    // Grouper par 2
-    while (remaining.length > 0) {
-      parts.push(remaining.substring(0, 2));
-      remaining = remaining.substring(2);
+    // Appel API
+    const response = await whatsAppStore.fetchMessagesPaginated(params);
+    
+    console.log('Response received:', response);
+    
+    if (response) {
+      rows.value = response.data || [];
+      stats.value = response.stats || {};
+      totalCount.value = response.totalCount || 0;
+      
+      // Mise à jour de la pagination
+      pagination.value = {
+        ...pagination.value,
+        page: params.page,
+        rowsPerPage: params.limit,
+        sortBy: params.sortBy,
+        descending: params.descending,
+        rowsNumber: response.totalCount || 0
+      };
     }
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    $q.notify({
+      type: 'negative',
+      message: `Erreur lors du chargement des messages: ${error.message}`,
+      position: 'top'
+    });
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// Gestionnaire de requête de la table
+function onRequest(props: any) {
+  console.log('onRequest called with props:', props);
+  fetchMessages(props);
+}
+
+// Gestion des filtres
+function resetPageAndFetch() {
+  pagination.value.page = 1;
+  fetchMessages();
+}
+
+function onDateSelected(date: string) {
+  filters.value.date = date;
+  datePopup.value?.hide();
+  resetPageAndFetch();
+}
+
+function clearFilter(type: string) {
+  filters.value[type as keyof typeof filters.value] = '';
+  resetPageAndFetch();
+}
+
+function clearAllFilters() {
+  filters.value = {
+    phoneNumber: '',
+    status: '',
+    direction: '',
+    date: ''
+  };
+  resetPageAndFetch();
+}
+
+function filterByPhone(phone: string) {
+  filters.value.phoneNumber = phone;
+  resetPageAndFetch();
+}
+
+// Export des messages
+async function exportMessages() {
+  try {
+    // Appel API pour récupérer tous les messages filtrés
+    const response = await whatsAppStore.exportFilteredMessages(filters.value);
     
-    return parts.join(' ');
+    if (response) {
+      const csvContent = generateCSV(response.data);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `whatsapp_messages_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      $q.notify({
+        type: 'positive',
+        message: 'Messages exportés avec succès',
+        position: 'top'
+      });
+    }
+  } catch (error) {
+    $q.notify({
+      type: 'negative',
+      message: 'Erreur lors de l\'export',
+      position: 'top'
+    });
   }
-  
-  return phoneNumber;
 }
 
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('fr-FR', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
-}
-
-function formatDateOnly(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  
-  // Aujourd'hui
-  if (isSameDay(date, now)) {
-    return "Aujourd'hui";
-  }
-  
-  // Hier
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (isSameDay(date, yesterday)) {
-    return "Hier";
-  }
-  
-  // Cette semaine
-  const weekAgo = new Date(now);
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  if (date > weekAgo) {
-    return date.toLocaleDateString('fr-FR', { weekday: 'long' });
-  }
-  
-  // Date complète
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-  });
-}
-
-function formatFullDate(dateString: string): string {
-  return new Date(dateString).toLocaleString('fr-FR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-}
-
-function isSameDay(date1: Date, date2: Date): boolean {
-  return date1.getFullYear() === date2.getFullYear() &&
-         date1.getMonth() === date2.getMonth() &&
-         date1.getDate() === date2.getDate();
-}
-
+// Utilitaires (utilisant les fonctions importées)
 function truncateContent(content: string, maxLength: number = 50): string {
   if (content.length <= maxLength) return content;
   return content.substring(0, maxLength) + '...';
 }
 
-// Couleurs et icônes
-function getMessageTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    'text': 'primary',
-    'image': 'green',
-    'document': 'blue',
-    'audio': 'deep-purple',
-    'video': 'red',
-    'template': 'info',
-    'sticker': 'amber',
-    'location': 'teal'
-  };
-  return colors[type] || 'grey';
-}
-
-function getMessageTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    'text': 'message',
-    'image': 'image',
-    'document': 'description',
-    'audio': 'audio_file',
-    'video': 'video_file',
-    'template': 'article',
-    'sticker': 'sentiment_satisfied',
-    'location': 'location_on'
-  };
-  return icons[type] || 'help_outline';
-}
-
-function getMessageTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    'text': 'Texte',
-    'image': 'Image',
-    'document': 'Document',
-    'audio': 'Audio',
-    'video': 'Vidéo',
-    'template': 'Modèle',
-    'sticker': 'Sticker',
-    'location': 'Position'
-  };
-  return labels[type] || type;
-}
-
-function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    'sent': 'blue',
-    'delivered': 'green',
-    'read': 'deep-purple',
-    'failed': 'negative',
-    'received': 'primary',
-    'pending': 'orange'
-  };
-  return colors[status] || 'grey';
-}
-
-function getStatusIcon(status: string): string {
-  const icons: Record<string, string> = {
-    'sent': 'done',
-    'delivered': 'done_all',
-    'read': 'visibility',
-    'failed': 'error',
-    'received': 'inbox',
-    'pending': 'schedule'
-  };
-  return icons[status] || 'help';
-}
-
-function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    'sent': 'Envoyé',
-    'delivered': 'Livré',
-    'read': 'Lu',
-    'failed': 'Échoué',
-    'received': 'Reçu',
-    'pending': 'En attente'
-  };
-  return labels[status] || status;
-}
-
-// Actions
-async function refreshMessages() {
-  await whatsAppStore.fetchMessageHistory();
-  pagination.value.rowsNumber = filteredMessages.value.length;
-}
-
-function applyFilters() {
-  pagination.value.page = 1;
-  pagination.value.rowsNumber = filteredMessages.value.length;
-}
-
-function clearFilter(type: string) {
-  switch (type) {
-    case 'phone':
-      phoneFilter.value = '';
-      break;
-    case 'status':
-      statusFilter.value = '';
-      break;
-    case 'direction':
-      directionFilter.value = '';
-      break;
-    case 'date':
-      dateFilter.value = '';
-      break;
-  }
-  applyFilters();
-}
-
-function clearAllFilters() {
-  phoneFilter.value = '';
-  statusFilter.value = '';
-  directionFilter.value = '';
-  dateFilter.value = '';
-  applyFilters();
-}
-
-function filterByPhone(phone: string) {
-  phoneFilter.value = phone;
-  applyFilters();
-}
-
-function updatePage(page: number) {
-  pagination.value.page = page;
-}
-
-function onRequest(props: any) {
-  const { page, rowsPerPage } = props.pagination;
-  
-  pagination.value.page = page;
-  pagination.value.rowsPerPage = rowsPerPage;
-}
-
 function canReply(message: WhatsAppMessageHistory): boolean {
-  // Vérifier si on peut répondre (fenêtre de 24h)
   const messageDate = new Date(message.timestamp);
   const now = new Date();
   const hoursDiff = (now.getTime() - messageDate.getTime()) / (1000 * 60 * 60);
-  
   return hoursDiff <= 24;
 }
 
+// Gestion des messages
 function promptReply(message: WhatsAppMessageHistory) {
   selectedMessage.value = message;
   replyMessage.value = '';
@@ -945,7 +773,7 @@ async function sendReply() {
         position: 'top'
       });
       replyDialogOpen.value = false;
-      await refreshMessages();
+      await fetchMessages();
     } else {
       $q.notify({
         type: 'negative',
@@ -974,43 +802,19 @@ function downloadMedia(message: WhatsAppMessageHistory) {
     return;
   }
   
-  // TODO: Implémenter le téléchargement des médias
-  $q.notify({
-    type: 'info',
-    message: 'Le téléchargement des médias sera bientôt disponible',
-    position: 'top'
+  // Appel à l'API pour télécharger le média
+  whatsAppStore.downloadMedia(message.mediaId).then(url => {
+    window.open(url, '_blank');
+  }).catch(() => {
+    $q.notify({
+      type: 'negative',
+      message: 'Erreur lors du téléchargement',
+      position: 'top'
+    });
   });
 }
 
-async function exportMessages() {
-  try {
-    const csvContent = generateCSV(filteredMessages.value);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `whatsapp_messages_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    $q.notify({
-      type: 'positive',
-      message: 'Messages exportés avec succès',
-      position: 'top'
-    });
-  } catch (error) {
-    $q.notify({
-      type: 'negative',
-      message: 'Erreur lors de l\'export',
-      position: 'top'
-    });
-  }
-}
-
+// CSV Generation
 function generateCSV(messages: WhatsAppMessageHistory[]): string {
   const headers = [
     'Date/Heure',
@@ -1032,18 +836,27 @@ function generateCSV(messages: WhatsAppMessageHistory[]): string {
     msg.wabaMessageId || ''
   ]);
   
-  return [headers, ...rows].map(row => row.join(',')).join('\n');
+  return [headers, ...rows]
+    .map(row => row.map(cell => typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell).join(','))
+    .join('\n');
 }
 
-// Hooks de cycle de vie
-onMounted(() => {
-  // Charger les messages initiaux
-  refreshMessages();
+// Fonctions utilitaires pour les styles (importées depuis MESSAGE_CONSTANTS)
+const { getMessageTypeColor, getMessageTypeIcon, getMessageTypeLabel, getStatusColor, getStatusIcon, getStatusLabel } = MESSAGE_CONSTANTS;
+
+// Lifecycle
+onMounted(async () => {
+  console.log('Component mounted');
   
-  // Rafraîchissement automatique toutes les 30 secondes
-  refreshTimer = window.setInterval(() => {
-    refreshMessages();
-  }, 30000);
+  // Charger les messages initiaux
+  await fetchMessages();
+  
+  // Configuration du rafraîchissement automatique
+  if (props.autoRefresh) {
+    refreshTimer = window.setInterval(() => {
+      fetchMessages();
+    }, props.refreshInterval);
+  }
 });
 
 onUnmounted(() => {

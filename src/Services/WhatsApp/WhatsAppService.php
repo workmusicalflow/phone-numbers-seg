@@ -24,7 +24,7 @@ class WhatsAppService implements WhatsAppServiceInterface
     private WhatsAppTemplateRepositoryInterface $templateRepository;
     private LoggerInterface $logger;
     private array $config;
-    
+
     public function __construct(
         WhatsAppApiClientInterface $apiClient,
         WhatsAppMessageHistoryRepositoryInterface $messageRepository,
@@ -38,7 +38,7 @@ class WhatsAppService implements WhatsAppServiceInterface
         $this->logger = $logger;
         $this->config = $config;
     }
-    
+
     /**
      * Envoie un message WhatsApp générique
      */
@@ -52,7 +52,7 @@ class WhatsAppService implements WhatsAppServiceInterface
         try {
             $normalizedRecipient = $this->normalizePhoneNumber($recipient);
             $result = null;
-            
+
             switch ($type) {
                 case 'text':
                     $payload = [
@@ -65,7 +65,7 @@ class WhatsAppService implements WhatsAppServiceInterface
                     ];
                     $result = $this->apiClient->sendMessage($payload);
                     break;
-                    
+
                 case 'image':
                 case 'video':
                 case 'audio':
@@ -83,11 +83,11 @@ class WhatsAppService implements WhatsAppServiceInterface
                     }
                     $result = $this->apiClient->sendMessage($payload);
                     break;
-                    
+
                 default:
                     throw new \InvalidArgumentException("Type de message non supporté: $type");
             }
-            
+
             // Créer l'historique
             $messageHistory = new WhatsAppMessageHistory();
             $messageHistory->setOracleUser($user);
@@ -104,19 +104,18 @@ class WhatsAppService implements WhatsAppServiceInterface
             if ($mediaUrl) {
                 $messageHistory->setMediaId($mediaUrl);
             }
-            
+
             // Debug log
             error_log("WhatsApp Service - Before save - phoneNumber: " . $messageHistory->getPhoneNumber());
-            
+
             // Sauvegarder
             $this->messageRepository->save($messageHistory);
-            
+
             // Debug log après save
             error_log("WhatsApp Service - After save - phoneNumber: " . $messageHistory->getPhoneNumber());
             error_log("WhatsApp Service - After save - id: " . $messageHistory->getId());
-            
+
             return $messageHistory;
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur envoi message WhatsApp', [
                 'user_id' => $user->getId(),
@@ -127,7 +126,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * Envoie un message template WhatsApp
      */
@@ -141,7 +140,7 @@ class WhatsAppService implements WhatsAppServiceInterface
     ): WhatsAppMessageHistory {
         try {
             $components = [];
-            
+
             // Ajout de l'image d'en-tête si fournie
             if ($headerImageUrl) {
                 $components[] = [
@@ -156,7 +155,7 @@ class WhatsAppService implements WhatsAppServiceInterface
                     ]
                 ];
             }
-            
+
             // Ajout des paramètres du corps si fournis
             if (!empty($bodyParams)) {
                 $bodyParameters = [];
@@ -166,13 +165,13 @@ class WhatsAppService implements WhatsAppServiceInterface
                         'text' => $param
                     ];
                 }
-                
+
                 $components[] = [
                     'type' => 'body',
                     'parameters' => $bodyParameters
                 ];
             }
-            
+
             // Construire le payload pour le template
             $payload = [
                 'messaging_product' => 'whatsapp',
@@ -185,15 +184,15 @@ class WhatsAppService implements WhatsAppServiceInterface
                     ]
                 ]
             ];
-            
+
             // Ajouter les composants si présents
             if (!empty($components)) {
                 $payload['template']['components'] = $components;
             }
-            
+
             // Envoyer le message via l'API client
             $result = $this->apiClient->sendMessage($payload);
-            
+
             // Créer l'historique du message
             $messageHistory = new WhatsAppMessageHistory();
             $messageHistory->setOracleUser($user);
@@ -210,12 +209,11 @@ class WhatsAppService implements WhatsAppServiceInterface
                 'components' => $components
             ]));
             $messageHistory->setTimestamp(new DateTime());
-            
+
             // Sauvegarder l'historique
             $this->messageRepository->save($messageHistory);
-            
+
             return $messageHistory;
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur lors de l\'envoi du template WhatsApp', [
                 'error' => $e->getMessage(),
@@ -226,7 +224,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -247,17 +245,17 @@ class WhatsAppService implements WhatsAppServiceInterface
                     'body' => $message
                 ]
             ];
-            
+
             // Ajouter le contexte si fourni
             if ($contextMessageId !== null) {
                 $payload['context'] = [
                     'message_id' => $contextMessageId
                 ];
             }
-            
+
             // Envoyer via l'API
             $response = $this->apiClient->sendMessage($payload);
-            
+
             // Sauvegarder dans l'historique
             $this->saveMessage(
                 $user,
@@ -267,20 +265,19 @@ class WhatsAppService implements WhatsAppServiceInterface
                 $message,
                 $response['messages'][0]['id'] ?? null
             );
-            
+
             return $response;
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur envoi message texte WhatsApp', [
                 'user_id' => $user->getId(),
                 'recipient' => $recipient,
                 'error' => $e->getMessage()
             ]);
-            
+
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -298,11 +295,11 @@ class WhatsAppService implements WhatsAppServiceInterface
                 'language' => $languageCode,
                 'isActive' => true
             ]);
-            
+
             if ($template === null || $template->getStatus() !== 'APPROVED') {
                 throw new \Exception("Template non trouvé ou non approuvé : $templateName ($languageCode)");
             }
-            
+
             // Construire le payload
             $payload = [
                 'messaging_product' => 'whatsapp',
@@ -316,15 +313,15 @@ class WhatsAppService implements WhatsAppServiceInterface
                     ]
                 ]
             ];
-            
+
             // Ajouter les composants si fournis
             if (!empty($components)) {
                 $payload['template']['components'] = $components;
             }
-            
+
             // Envoyer via l'API
             $response = $this->apiClient->sendMessage($payload);
-            
+
             // Sauvegarder dans l'historique
             $this->saveMessage(
                 $user,
@@ -338,9 +335,8 @@ class WhatsAppService implements WhatsAppServiceInterface
                 ],
                 $response['messages'][0]['id'] ?? null
             );
-            
+
             return $response;
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur envoi template WhatsApp', [
                 'user_id' => $user->getId(),
@@ -348,11 +344,11 @@ class WhatsAppService implements WhatsAppServiceInterface
                 'template' => $templateName,
                 'error' => $e->getMessage()
             ]);
-            
+
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -369,7 +365,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             if (!in_array($type, $validTypes)) {
                 throw new \InvalidArgumentException("Type de média invalide : $type");
             }
-            
+
             // Construire le payload
             $payload = [
                 'messaging_product' => 'whatsapp',
@@ -378,22 +374,22 @@ class WhatsAppService implements WhatsAppServiceInterface
                 'type' => $type,
                 $type => []
             ];
-            
+
             // Ajouter l'ID ou l'URL du média
             if (strpos($mediaIdOrUrl, 'http') === 0) {
                 $payload[$type]['link'] = $mediaIdOrUrl;
             } else {
                 $payload[$type]['id'] = $mediaIdOrUrl;
             }
-            
+
             // Ajouter la légende si applicable
             if ($caption !== null && in_array($type, ['image', 'video', 'document'])) {
                 $payload[$type]['caption'] = $caption;
             }
-            
+
             // Envoyer via l'API
             $response = $this->apiClient->sendMessage($payload);
-            
+
             // Sauvegarder dans l'historique
             $this->saveMessage(
                 $user,
@@ -407,9 +403,8 @@ class WhatsAppService implements WhatsAppServiceInterface
                 ],
                 $response['messages'][0]['id'] ?? null
             );
-            
+
             return $response;
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur envoi média WhatsApp', [
                 'user_id' => $user->getId(),
@@ -417,11 +412,11 @@ class WhatsAppService implements WhatsAppServiceInterface
                 'type' => $type,
                 'error' => $e->getMessage()
             ]);
-            
+
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -439,10 +434,10 @@ class WhatsAppService implements WhatsAppServiceInterface
                 'type' => 'interactive',
                 'interactive' => $interactive
             ];
-            
+
             // Envoyer via l'API
             $response = $this->apiClient->sendMessage($payload);
-            
+
             // Sauvegarder dans l'historique
             $this->saveMessage(
                 $user,
@@ -452,20 +447,19 @@ class WhatsAppService implements WhatsAppServiceInterface
                 $interactive,
                 $response['messages'][0]['id'] ?? null
             );
-            
+
             return $response;
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur envoi message interactif WhatsApp', [
                 'user_id' => $user->getId(),
                 'recipient' => $recipient,
                 'error' => $e->getMessage()
             ]);
-            
+
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -477,29 +471,28 @@ class WhatsAppService implements WhatsAppServiceInterface
                 'status' => 'read',
                 'message_id' => $messageId
             ];
-            
+
             $this->apiClient->sendMessage($payload);
-            
+
             // Mettre à jour le statut dans l'historique si le message existe
             $message = $this->messageRepository->findOneBy(['wabaMessageId' => $messageId]);
             if ($message) {
                 $message->setStatus(WhatsAppMessageHistory::STATUS_READ);
                 $this->messageRepository->save($message);
             }
-            
+
             return true;
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur marquage message comme lu', [
                 'user_id' => $user->getId(),
                 'message_id' => $messageId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return false;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -511,15 +504,15 @@ class WhatsAppService implements WhatsAppServiceInterface
         int $offset = 0
     ): array {
         $criteria = ['oracle_user_id' => $user->getId()];
-        
+
         if ($phoneNumber !== null) {
             $criteria['phoneNumber'] = $phoneNumber;
         }
-        
+
         if ($status !== null) {
             $criteria['status'] = $status;
         }
-        
+
         return $this->messageRepository->findBy(
             $criteria,
             ['timestamp' => 'DESC'],
@@ -527,7 +520,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             $offset
         );
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -538,26 +531,25 @@ class WhatsAppService implements WhatsAppServiceInterface
             if ($entry === null) {
                 return;
             }
-            
+
             $changes = $entry['changes'][0] ?? null;
             if ($changes === null || $changes['field'] !== 'messages') {
                 return;
             }
-            
+
             $value = $changes['value'];
             $messages = $value['messages'] ?? [];
             $statuses = $value['statuses'] ?? [];
-            
+
             // Traiter les messages entrants
             foreach ($messages as $message) {
                 $this->processIncomingMessage($message, $value['metadata']['phone_number_id']);
             }
-            
+
             // Traiter les mises à jour de statut
             foreach ($statuses as $status) {
                 $this->processStatusUpdate($status);
             }
-            
         } catch (\Exception $e) {
             $this->logger->error('Erreur traitement webhook WhatsApp', [
                 'error' => $e->getMessage(),
@@ -565,7 +557,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             ]);
         }
     }
-    
+
     /**
      * Normalise un numéro de téléphone pour l'API WhatsApp
      */
@@ -573,15 +565,15 @@ class WhatsAppService implements WhatsAppServiceInterface
     {
         // Supprimer tous les caractères non numériques
         $normalized = preg_replace('/[^0-9]/', '', $phoneNumber);
-        
+
         // S'assurer que le numéro commence par un code pays
         if (strpos($normalized, '225') !== 0) {
             $normalized = '225' . $normalized;
         }
-        
+
         return $normalized;
     }
-    
+
     /**
      * Sauvegarde un message dans l'historique
      */
@@ -598,29 +590,29 @@ class WhatsAppService implements WhatsAppServiceInterface
         $message->setPhoneNumber($phoneNumber);
         $message->setDirection($direction);
         $message->setType($type);
-        
+
         if (is_array($content)) {
             $message->setContent(json_encode($content));
         } else {
             $message->setContent((string)$content);
         }
-        
+
         if ($wabaMessageId !== null) {
             $message->setWabaMessageId($wabaMessageId);
         }
-        
+
         $message->setStatus(WhatsAppMessageHistory::STATUS_SENT);
         $message->setTimestamp(new \DateTime());
-        
+
         $this->messageRepository->save($message);
     }
-    
+
     /**
      * Mappe le type de média vers le type d'historique
      */
     private function mapMediaTypeToHistoryType(string $mediaType): string
     {
-        return match($mediaType) {
+        return match ($mediaType) {
             'image' => WhatsAppMessageHistory::TYPE_IMAGE,
             'video' => WhatsAppMessageHistory::TYPE_VIDEO,
             'audio' => WhatsAppMessageHistory::TYPE_AUDIO,
@@ -628,7 +620,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             default => throw new \InvalidArgumentException("Type de média non supporté : $mediaType")
         };
     }
-    
+
     /**
      * Traite un message entrant du webhook
      */
@@ -641,13 +633,13 @@ class WhatsAppService implements WhatsAppServiceInterface
         $messageHistory->setType($message['type']);
         $messageHistory->setTimestamp(\DateTime::createFromFormat('U', $message['timestamp']));
         $messageHistory->setStatus(WhatsAppMessageHistory::STATUS_RECEIVED);
-        
+
         // Contenu selon le type
         switch ($message['type']) {
             case 'text':
                 $messageHistory->setContent($message['text']['body']);
                 break;
-                
+
             case 'image':
             case 'video':
             case 'audio':
@@ -658,15 +650,15 @@ class WhatsAppService implements WhatsAppServiceInterface
                     $messageHistory->setContent($mediaData['caption']);
                 }
                 break;
-                
+
             case 'interactive':
                 $messageHistory->setContent(json_encode($message['interactive']));
                 break;
-                
+
             default:
                 $messageHistory->setContent(json_encode($message));
         }
-        
+
         // Déterminer l'utilisateur Oracle associé
         // Pour l'instant, on utilise le phone_number_id du webhook
         // Dans une vraie implémentation, il faudrait mapper ceci à un utilisateur spécifique
@@ -676,7 +668,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             $this->messageRepository->save($messageHistory);
         }
     }
-    
+
     /**
      * Traite une mise à jour de statut du webhook
      */
@@ -684,32 +676,32 @@ class WhatsAppService implements WhatsAppServiceInterface
     {
         $wabaMessageId = $status['id'];
         $newStatus = $status['status'];
-        
+
         // Mapper le statut WhatsApp vers notre statut interne
-        $internalStatus = match($newStatus) {
+        $internalStatus = match ($newStatus) {
             'sent' => WhatsAppMessageHistory::STATUS_SENT,
             'delivered' => WhatsAppMessageHistory::STATUS_DELIVERED,
             'read' => WhatsAppMessageHistory::STATUS_READ,
             'failed' => WhatsAppMessageHistory::STATUS_FAILED,
             default => WhatsAppMessageHistory::STATUS_SENT
         };
-        
+
         // Mettre à jour le message dans l'historique
         $message = $this->messageRepository->findOneBy(['wabaMessageId' => $wabaMessageId]);
         if ($message !== null) {
             $message->setStatus($internalStatus);
-            
+
             // Ajouter les informations d'erreur si le message a échoué
             if ($newStatus === 'failed' && isset($status['errors'])) {
                 $error = $status['errors'][0] ?? [];
                 $message->setErrorCode($error['code'] ?? null);
                 $message->setErrorMessage($error['message'] ?? null);
             }
-            
+
             $this->messageRepository->save($message);
         }
     }
-    
+
     /**
      * Trouve un utilisateur Oracle basé sur l'ID du numéro de téléphone WhatsApp
      * 
@@ -722,7 +714,7 @@ class WhatsAppService implements WhatsAppServiceInterface
         // basé sur le phone_number_id de WhatsApp
         return null;
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -739,7 +731,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -756,7 +748,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -773,7 +765,7 @@ class WhatsAppService implements WhatsAppServiceInterface
             throw $e;
         }
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -781,7 +773,7 @@ class WhatsAppService implements WhatsAppServiceInterface
     {
         $this->processWebhookMessage($payload);
     }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -791,5 +783,17 @@ class WhatsAppService implements WhatsAppServiceInterface
             return $challenge;
         }
         return null;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getUserTemplates(User $user): array
+    {
+        // TODO: Implement actual logic to fetch templates for the user
+        // This might involve calling $this->apiClient->getTemplates() or similar,
+        // or querying $this->templateRepository if templates are synced locally.
+        $this->logger->info('WhatsAppService::getUserTemplates called for user ' . $user->getId() . '. Placeholder implementation returns empty array.');
+        return [];
     }
 }

@@ -2,9 +2,9 @@
 
 namespace App\Repositories\Doctrine\WhatsApp;
 
-use App\Entities\WhatsApp\WhatsAppMessage;
+use App\Entities\WhatsApp\WhatsAppMessageHistory; // Changed
 use App\Repositories\Doctrine\BaseRepository;
-use App\Repositories\Interfaces\WhatsApp\WhatsAppMessageRepositoryInterface;
+use App\Repositories\Interfaces\WhatsApp\WhatsAppMessageHistoryRepositoryInterface; // Interface name implies History
 use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use App\Repositories\Interfaces\SearchRepositoryInterface;
@@ -12,7 +12,7 @@ use App\Repositories\Interfaces\SearchRepositoryInterface;
 /**
  * Repository Doctrine pour les messages WhatsApp
  */
-class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessageRepositoryInterface
+class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessageHistoryRepositoryInterface // Interface name implies History
 {
     /**
      * Constructeur
@@ -21,7 +21,7 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
      */
     public function __construct(EntityManagerInterface $entityManager)
     {
-        parent::__construct($entityManager, WhatsAppMessage::class);
+        parent::__construct($entityManager, WhatsAppMessageHistory::class); // Changed
     }
 
     /**
@@ -32,14 +32,14 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
      */
     public function save($message)
     {
-        if (!$message instanceof WhatsAppMessage) {
-            throw new InvalidArgumentException('Expected instance of WhatsAppMessage');
+        if (!$message instanceof WhatsAppMessageHistory) { // Changed
+            throw new InvalidArgumentException('Expected instance of WhatsAppMessageHistory'); // Changed
         }
         $this->getEntityManager()->persist($message);
         $this->getEntityManager()->flush();
         return $message;
     }
-    
+
     /**
      * Sauvegarde plusieurs messages WhatsApp
      *
@@ -49,12 +49,12 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function saveMany(array $entities): array
     {
         foreach ($entities as $entity) {
-            if (!$entity instanceof WhatsAppMessage) {
-                throw new InvalidArgumentException('Expected instance of WhatsAppMessage');
+            if (!$entity instanceof WhatsAppMessageHistory) { // Changed
+                throw new InvalidArgumentException('Expected instance of WhatsAppMessageHistory'); // Changed
             }
             $this->getEntityManager()->persist($entity);
         }
-        
+
         $this->getEntityManager()->flush();
         return $entities;
     }
@@ -62,13 +62,13 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     /**
      * Recherche un message par son identifiant Meta
      *
-     * @param string $messageId
-     * @return WhatsAppMessage|null
+     * @param string $wabaMessageId
+     * @return WhatsAppMessageHistory|null
      */
-    public function findByMessageId(string $messageId): ?WhatsAppMessage
+    public function findByWabaMessageId(string $wabaMessageId): ?WhatsAppMessageHistory // Changed method name to match interface
     {
-        return $this->getEntityManager()->getRepository(WhatsAppMessage::class)
-            ->findOneBy(['messageId' => $messageId]);
+        return $this->getEntityManager()->getRepository(WhatsAppMessageHistory::class) // Changed
+            ->findOneBy(['wabaMessageId' => $wabaMessageId]); // Corrected field name based on WhatsAppMessageHistory entity
     }
 
     /**
@@ -82,11 +82,16 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function findBySender(string $sender, int $limit = 50, int $offset = 0): array
     {
         $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        
+
+        // Assuming 'sender' corresponds to 'phoneNumber' for outgoing, or a related field.
+        // WhatsAppMessageHistory does not have a direct 'sender' field.
+        // This method might need re-evaluation based on how 'sender' is defined for WhatsAppMessageHistory.
+        // For now, let's assume it refers to phoneNumber for outgoing messages.
         return $queryBuilder->select('wm')
-            ->from(WhatsAppMessage::class, 'wm')
-            ->where('wm.sender = :sender')
+            ->from(WhatsAppMessageHistory::class, 'wm') // Changed
+            ->where('wm.phoneNumber = :sender AND wm.direction = :direction') // Adjusted for WhatsAppMessageHistory
             ->setParameter('sender', $sender)
+            ->setParameter('direction', WhatsAppMessageHistory::DIRECTION_OUTBOUND) // Assuming sender means outgoing
             ->orderBy('wm.timestamp', 'DESC')
             ->setMaxResults($limit)
             ->setFirstResult($offset)
@@ -105,11 +110,13 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function findByRecipient(string $recipient, int $limit = 50, int $offset = 0): array
     {
         $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        
+
+        // Assuming 'recipient' corresponds to 'phoneNumber' for incoming messages.
         return $queryBuilder->select('wm')
-            ->from(WhatsAppMessage::class, 'wm')
-            ->where('wm.recipient = :recipient')
+            ->from(WhatsAppMessageHistory::class, 'wm') // Changed
+            ->where('wm.phoneNumber = :recipient AND wm.direction = :direction') // Adjusted for WhatsAppMessageHistory
             ->setParameter('recipient', $recipient)
+            ->setParameter('direction', WhatsAppMessageHistory::DIRECTION_INBOUND) // Assuming recipient means incoming
             ->orderBy('wm.timestamp', 'DESC')
             ->setMaxResults($limit)
             ->setFirstResult($offset)
@@ -126,11 +133,12 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function countBySender(string $sender): int
     {
         $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        
-        return $queryBuilder->select('COUNT(wm.id)')
-            ->from(WhatsAppMessage::class, 'wm')
-            ->where('wm.sender = :sender')
+
+        return (int) $queryBuilder->select('COUNT(wm.id)') // Cast to int
+            ->from(WhatsAppMessageHistory::class, 'wm') // Changed
+            ->where('wm.phoneNumber = :sender AND wm.direction = :direction') // Adjusted
             ->setParameter('sender', $sender)
+            ->setParameter('direction', WhatsAppMessageHistory::DIRECTION_OUTBOUND) // Assuming sender means outgoing
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -146,9 +154,9 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function findByType(string $type, int $limit = 50, int $offset = 0): array
     {
         $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        
+
         return $queryBuilder->select('wm')
-            ->from(WhatsAppMessage::class, 'wm')
+            ->from(WhatsAppMessageHistory::class, 'wm') // Changed
             ->where('wm.type = :type')
             ->setParameter('type', $type)
             ->orderBy('wm.timestamp', 'DESC')
@@ -170,11 +178,16 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function findByDateRange(int $startTimestamp, int $endTimestamp, int $limit = 50, int $offset = 0): array
     {
         $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        
+        // Convert timestamps to DateTime objects for comparison if 'timestamp' field is DateTime
+        $startDate = (new \DateTime())->setTimestamp($startTimestamp);
+        $endDate = (new \DateTime())->setTimestamp($endTimestamp);
+
         return $queryBuilder->select('wm')
-            ->from(WhatsAppMessage::class, 'wm')
+            ->from(WhatsAppMessageHistory::class, 'wm') // Changed
             ->where('wm.timestamp >= :startTimestamp')
             ->andWhere('wm.timestamp <= :endTimestamp')
+            ->setParameter('startTimestamp', $startDate) // Use DateTime objects
+            ->setParameter('endTimestamp', $endDate)   // Use DateTime objects
             ->setParameter('startTimestamp', $startTimestamp)
             ->setParameter('endTimestamp', $endTimestamp)
             ->orderBy('wm.timestamp', 'DESC')
@@ -183,7 +196,7 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
             ->getQuery()
             ->getResult();
     }
-    
+
     /**
      * Retourne le nom de la classe d'entité gérée par ce repository
      * 
@@ -191,7 +204,7 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
      */
     public function getEntityClassName(): string
     {
-        return WhatsAppMessage::class;
+        return WhatsAppMessageHistory::class; // Changed
     }
 
     /**
@@ -203,16 +216,16 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function deleteMany(array $entities): bool
     {
         foreach ($entities as $entity) {
-            if (!$entity instanceof WhatsAppMessage) {
-                throw new InvalidArgumentException('Expected instance of WhatsAppMessage');
+            if (!$entity instanceof WhatsAppMessageHistory) { // Changed
+                throw new InvalidArgumentException('Expected instance of WhatsAppMessageHistory'); // Changed
             }
             $this->getEntityManager()->remove($entity);
         }
-        
+
         $this->getEntityManager()->flush();
         return true;
     }
-    
+
     /**
      * Recherche des entités par une requête textuelle
      * 
@@ -226,45 +239,47 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     {
         $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('wm')
-            ->from(WhatsAppMessage::class, 'wm');
-            
-        // Définir les champs de recherche par défaut si non spécifiés
+            ->from(WhatsAppMessageHistory::class, 'wm'); // Changed
+
+        // Définir les champs de recherche par défaut si non spécifiés, adaptés à WhatsAppMessageHistory
         if ($fields === null) {
-            $fields = ['content', 'sender', 'recipient', 'type'];
+            // 'sender' and 'recipient' are not direct fields in WhatsAppMessageHistory.
+            // Assuming search on 'phoneNumber' and 'content' and 'type'.
+            $fields = ['content', 'phoneNumber', 'type', 'wabaMessageId'];
         }
-        
+
         // Construire la clause WHERE pour la recherche textuelle
         $whereExpressions = [];
         $parameters = [];
-        
+
         foreach ($fields as $index => $field) {
             $paramName = 'query_' . $index;
             $whereExpressions[] = "wm.$field LIKE :$paramName";
             $parameters[$paramName] = '%' . $query . '%';
         }
-        
+
         if (count($whereExpressions) > 0) {
             $queryBuilder->where(implode(' OR ', $whereExpressions));
             foreach ($parameters as $key => $value) {
                 $queryBuilder->setParameter($key, $value);
             }
         }
-        
+
         // Tri par défaut
         $queryBuilder->orderBy('wm.timestamp', 'DESC');
-        
+
         // Ajouter la limite et le décalage
         if ($limit) {
             $queryBuilder->setMaxResults($limit);
         }
-        
+
         if ($offset) {
             $queryBuilder->setFirstResult($offset);
         }
-        
+
         return $queryBuilder->getQuery()->getResult();
     }
-    
+
     /**
      * Recherche des entités selon des critères donnés
      * 
@@ -277,41 +292,261 @@ class WhatsAppMessageRepository extends BaseRepository implements WhatsAppMessag
     public function findByCriteria(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
     {
         $queryBuilder = $this->getEntityManager()->createQueryBuilder();
-        $queryBuilder->select('wm')
-            ->from(WhatsAppMessage::class, 'wm');
-            
+        $queryBuilder->select('e') // Changed alias for consistency
+            ->from(WhatsAppMessageHistory::class, 'e'); // Changed, Changed alias
+
         // Ajouter les critères de recherche
-        $i = 0;
+        $paramIndex = 0; // Renamed for clarity
         foreach ($criteria as $field => $value) {
-            $paramName = 'param_' . $i;
-            if ($i === 0) {
-                $queryBuilder->where("wm.$field = :$paramName");
+            $paramName = 'critval_' . $paramIndex++; // Renamed for clarity
+            // Handle 'oracleUser' specifically if it's an object
+            if ($field === 'oracleUser' && $value instanceof \App\Entities\User) {
+                // Assuming 'oracleUser' is a mapped association in WhatsAppMessageHistory entity
+                $queryBuilder->andWhere($queryBuilder->expr()->eq('e.oracleUser', ':' . $paramName)); // Changed alias
+                $queryBuilder->setParameter($paramName, $value); // Pass the User entity directly if it's an association
+            } elseif ($value === null) {
+                $queryBuilder->andWhere($queryBuilder->expr()->isNull("e.$field")); // Changed alias
             } else {
-                $queryBuilder->andWhere("wm.$field = :$paramName");
+                $queryBuilder->andWhere($queryBuilder->expr()->eq("e.$field", ":$paramName")); // Changed alias
+                $queryBuilder->setParameter($paramName, $value);
             }
-            $queryBuilder->setParameter($paramName, $value);
-            $i++;
         }
-        
+
         // Ajouter les critères de tri
-        if ($orderBy) {
+        if ($orderBy !== null) { // Check for null explicitly
             foreach ($orderBy as $field => $direction) {
-                $queryBuilder->addOrderBy("wm.$field", $direction);
+                $queryBuilder->addOrderBy("e.$field", $direction); // Changed alias
             }
         } else {
             // Tri par défaut
-            $queryBuilder->orderBy('wm.timestamp', 'DESC');
+            $queryBuilder->orderBy('e.timestamp', 'DESC'); // Changed alias
         }
-        
+
         // Ajouter la limite et le décalage
-        if ($limit) {
+        if ($limit !== null) {
             $queryBuilder->setMaxResults($limit);
         }
-        
-        if ($offset) {
+
+        if ($offset !== null) {
             $queryBuilder->setFirstResult($offset);
         }
-        
+
         return $queryBuilder->getQuery()->getResult();
+    }
+
+    /**
+     * Trouver un message par son ID.
+     *
+     * @param mixed $id
+     * @return WhatsAppMessageHistory|null
+     */
+    public function find(mixed $id, $lockMode = null, $lockVersion = null): ?WhatsAppMessageHistory
+    {
+        return $this->getEntityManager()->find(WhatsAppMessageHistory::class, $id, $lockMode, $lockVersion);
+    }
+
+    /**
+     * Trouver des messages par un ensemble de critères.
+     *
+     * @param array $criteria
+     * @param array|null $orderBy
+     * @param int|null $limit
+     * @param int|null $offset
+     * @return WhatsAppMessageHistory[]
+     */
+    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array // Changed return type
+    {
+        // This can directly use the existing findByCriteria or Doctrine's own findBy
+        // For consistency with how criteria might be handled (e.g. oracleUser object),
+        // let's adapt the logic from findByCriteria or call it.
+        // Re-implementing here for clarity based on typical Doctrine findBy needs.
+
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('e')
+            ->from($this->getEntityClassName(), 'e');
+
+        $paramIndex = 0;
+        foreach ($criteria as $field => $value) {
+            $paramName = 'critval_' . $paramIndex++;
+            if ($field === 'oracleUser' && $value instanceof \App\Entities\User) {
+                // Assuming 'oracleUser' is a mapped association in WhatsAppMessage entity
+                $qb->andWhere($qb->expr()->eq('e.oracleUser', ':' . $paramName));
+                $qb->setParameter($paramName, $value); // Pass the User entity directly if it's an association
+            } elseif ($value === null) {
+                $qb->andWhere($qb->expr()->isNull('e.' . $field));
+            } else {
+                $qb->andWhere($qb->expr()->eq('e.' . $field, ':' . $paramName));
+                $qb->setParameter($paramName, $value);
+            }
+        }
+
+        if ($orderBy !== null) {
+            foreach ($orderBy as $sort => $order) {
+                $qb->addOrderBy('e.' . $sort, $order);
+            }
+        }
+
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
+
+        if ($offset !== null) {
+            $qb->setFirstResult($offset);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Compter les messages par un ensemble de critères.
+     *
+     * @param array $criteria
+     * @return int
+     */
+    public function count(array $criteria = []): int
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select($qb->expr()->count('e.id'))
+            ->from($this->getEntityClassName(), 'e');
+
+        $paramIndex = 0;
+        foreach ($criteria as $field => $value) {
+            $paramName = 'countval_' . $paramIndex++;
+            if ($field === 'oracleUser' && $value instanceof \App\Entities\User) {
+                $qb->andWhere($qb->expr()->eq('e.oracleUser', ':' . $paramName));
+                $qb->setParameter($paramName, $value);
+            } elseif ($value === null) {
+                $qb->andWhere($qb->expr()->isNull('e.' . $field));
+            } else {
+                $qb->andWhere($qb->expr()->eq('e.' . $field, ':' . $paramName));
+                $qb->setParameter($paramName, $value);
+            }
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Trouver un message par un ensemble de critères, retournant le premier résultat.
+     *
+     * @param array $criteria
+     * @param array|null $orderBy
+     * @return WhatsAppMessageHistory|null
+     */
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?WhatsAppMessageHistory // Changed
+    {
+        // This can directly use Doctrine's own findOneBy
+        // The existing findBy method in this class has custom logic for 'oracleUser'
+        // which might not be what parent::findOneBy does directly if 'oracleUser' is just an ID.
+        // For simplicity and directness, using the parent's findOneBy.
+        // If specific handling for 'oracleUser' as an entity is needed here,
+        // the logic from the custom findBy would need to be adapted.
+        return $this->getEntityManager()->getRepository($this->getEntityClassName())->findOneBy($criteria, $orderBy);
+    }
+
+    // Implementation for methods from WhatsAppMessageHistoryRepositoryInterface
+    // Note: findByMessageId was already implemented, but its return type was WhatsAppMessage, now it's WhatsAppMessageHistory.
+    // The existing findByMessageId uses 'messageId' as criteria key, WhatsAppMessageHistory uses 'wabaMessageId'. This was corrected.
+
+    public function findByUser(\App\Entities\User $user, int $limit = 50, int $offset = 0): array
+    {
+        return $this->findBy(['oracleUser' => $user], ['timestamp' => 'DESC'], $limit, $offset);
+    }
+
+    public function findByContact(\App\Entities\Contact $contact, int $limit = 50, int $offset = 0): array
+    {
+        return $this->findBy(['contact' => $contact], ['timestamp' => 'DESC'], $limit, $offset);
+    }
+
+    // findByPhoneNumber was not in the original WhatsAppMessageRepository, adding it.
+    public function findByPhoneNumber(string $phoneNumber, ?\App\Entities\User $user = null, int $limit = 50, int $offset = 0): array
+    {
+        $criteria = ['phoneNumber' => $phoneNumber];
+        if ($user !== null) {
+            $criteria['oracleUser'] = $user;
+        }
+        return $this->findBy($criteria, ['timestamp' => 'DESC'], $limit, $offset);
+    }
+
+    public function findByStatus(string $status, int $limit = 100): array
+    {
+        return $this->findBy(['status' => $status], ['timestamp' => 'DESC'], $limit);
+    }
+
+    public function updateStatus(string $wabaMessageId, string $status, ?array $errorData = null): bool
+    {
+        $message = $this->findByWabaMessageId($wabaMessageId);
+        if ($message) {
+            $message->setStatus($status);
+            if ($errorData) {
+                $message->setErrorCode($errorData['code'] ?? null);
+                $message->setErrorMessage($errorData['message'] ?? null);
+                // Potentially log more detailed errors if $errorData contains more
+                $message->setErrors($errorData['errors'] ?? null);
+            }
+            $this->save($message);
+            return true;
+        }
+        return false;
+    }
+
+    public function countByUser(\App\Entities\User $user, ?\DateTime $startDate = null, ?\DateTime $endDate = null): int
+    {
+        $criteria = ['oracleUser' => $user];
+        if ($startDate) {
+            // Add criteria for startDate - requires QueryBuilder
+            // $criteria['timestamp >='] = $startDate; // This simple form won't work with findBy
+        }
+        if ($endDate) {
+            // Add criteria for endDate - requires QueryBuilder
+            // $criteria['timestamp <='] = $endDate; // This simple form won't work with findBy
+        }
+        // This needs a more complex query for date ranges. For now, counting all by user.
+        // A proper implementation would use QueryBuilder.
+
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select($qb->expr()->count('e.id'))
+            ->from($this->getEntityClassName(), 'e')
+            ->where($qb->expr()->eq('e.oracleUser', ':user'));
+        $qb->setParameter('user', $user);
+
+        if ($startDate) {
+            $qb->andWhere($qb->expr()->gte('e.timestamp', ':startDate'));
+            $qb->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere($qb->expr()->lte('e.timestamp', ':endDate'));
+            $qb->setParameter('endDate', $endDate);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    public function getStatistics(\App\Entities\User $user, ?\DateTime $startDate = null, ?\DateTime $endDate = null): array
+    {
+        // Placeholder - requires complex query logic
+        // Example: count messages by status, type, direction within a date range for a user
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('e.status, COUNT(e.id) as count')
+            ->from($this->getEntityClassName(), 'e')
+            ->where($qb->expr()->eq('e.oracleUser', ':user'))
+            ->groupBy('e.status');
+        $qb->setParameter('user', $user);
+
+        if ($startDate) {
+            $qb->andWhere($qb->expr()->gte('e.timestamp', ':startDate'));
+            $qb->setParameter('startDate', $startDate);
+        }
+        if ($endDate) {
+            $qb->andWhere($qb->expr()->lte('e.timestamp', ':endDate'));
+            $qb->setParameter('endDate', $endDate);
+        }
+
+        $results = $qb->getQuery()->getResult();
+        $stats = [];
+        foreach ($results as $row) {
+            $stats[$row['status']] = $row['count'];
+        }
+        return $stats; // Example: ['sent' => 10, 'delivered' => 8, 'failed' => 2]
     }
 }

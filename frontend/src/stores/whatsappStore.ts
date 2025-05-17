@@ -287,6 +287,192 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     filterStatus.value = status;
     currentPage.value = 1;
   }
+  
+  // Nouvelle action pour la pagination serveur
+  async function fetchMessagesPaginated(params: {
+    page: number;
+    limit: number;
+    sortBy: string;
+    descending: boolean;
+    filters: {
+      phoneNumber?: string;
+      status?: string;
+      direction?: string;
+      date?: string;
+    };
+  }) {
+    isLoading.value = true;
+    error.value = null;
+    
+    try {
+      // Calcul de l'offset à partir de la page
+      const offset = (params.page - 1) * params.limit;
+      
+      const result = await apolloClient.query({
+        query: gql`
+          query GetWhatsAppMessages(
+            $limit: Int,
+            $offset: Int,
+            $phoneNumber: String,
+            $status: String,
+            $type: String,
+            $direction: String
+          ) {
+            getWhatsAppMessages(
+              limit: $limit,
+              offset: $offset,
+              phoneNumber: $phoneNumber,
+              status: $status,
+              type: $type,
+              direction: $direction
+            ) {
+              messages {
+                id
+                wabaMessageId
+                phoneNumber
+                direction
+                type
+                content
+                status
+                errorCode
+                errorMessage
+                timestamp
+                conversationId
+                pricingCategory
+                mediaId
+                templateName
+                templateLanguage
+                contextData
+                createdAt
+                updatedAt
+              }
+              totalCount
+              hasMore
+            }
+          }
+        `,
+        variables: {
+          limit: params.limit,
+          offset: offset,
+          phoneNumber: params.filters.phoneNumber,
+          status: params.filters.status,
+          direction: params.filters.direction
+        },
+        fetchPolicy: 'network-only'
+      });
+      
+      if (result?.data?.getWhatsAppMessages) {
+        const data = result.data.getWhatsAppMessages;
+        
+        // Calcul des statistiques à partir des messages reçus
+        const stats = {
+          total: data.totalCount,
+          incoming: 0,
+          outgoing: 0,
+          delivered: 0,
+          read: 0,
+          failed: 0
+        };
+        
+        data.messages.forEach((msg: any) => {
+          if (msg.direction === 'INCOMING') stats.incoming++;
+          if (msg.direction === 'OUTGOING') stats.outgoing++;
+          if (msg.status === 'delivered') stats.delivered++;
+          if (msg.status === 'read') stats.read++;
+          if (msg.status === 'failed') stats.failed++;
+        });
+        
+        return {
+          data: data.messages,
+          totalCount: data.totalCount,
+          stats: stats
+        };
+      }
+      
+      throw new Error('Réponse invalide du serveur');
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de la récupération des messages:', err);
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+  
+  // Export des messages filtrés
+  async function exportFilteredMessages(filters: {
+    phoneNumber?: string;
+    status?: string;
+    direction?: string;
+    date?: string;
+  }) {
+    try {
+      const result = await apolloClient.query({
+        query: gql`
+          query ExportWhatsAppMessages(
+            $phoneNumber: String,
+            $status: String,
+            $direction: String,
+            $dateFrom: String,
+            $dateTo: String
+          ) {
+            exportWhatsAppMessages(
+              phoneNumber: $phoneNumber,
+              status: $status,
+              direction: $direction,
+              dateFrom: $dateFrom,
+              dateTo: $dateTo
+            ) {
+              data {
+                id
+                wabaMessageId
+                phoneNumber
+                direction
+                type
+                content
+                status
+                timestamp
+                createdAt
+              }
+            }
+          }
+        `,
+        variables: {
+          phoneNumber: filters.phoneNumber,
+          status: filters.status,
+          direction: filters.direction,
+          dateFrom: filters.date ? `${filters.date} 00:00:00` : null,
+          dateTo: filters.date ? `${filters.date} 23:59:59` : null
+        }
+      });
+      
+      return result?.data?.exportWhatsAppMessages;
+    } catch (err: any) {
+      error.value = err.message || 'Erreur lors de l\'export';
+      throw err;
+    }
+  }
+  
+  // Téléchargement de média
+  async function downloadMedia(mediaId: string): Promise<string> {
+    try {
+      const result = await apolloClient.query({
+        query: gql`
+          query DownloadWhatsAppMedia($mediaId: String!) {
+            downloadWhatsAppMedia(mediaId: $mediaId) {
+              url
+            }
+          }
+        `,
+        variables: { mediaId }
+      });
+      
+      return result?.data?.downloadWhatsAppMedia?.url;
+    } catch (err: any) {
+      error.value = err.message || 'Erreur lors du téléchargement';
+      throw err;
+    }
+  }
 
   function clearFilters() {
     filterPhoneNumber.value = '';
@@ -324,6 +510,9 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     // Actions
     fetchMessages,
     fetchMessageHistory,
+    fetchMessagesPaginated,
+    exportFilteredMessages,
+    downloadMedia,
     sendMessage,
     sendTemplate,
     loadUserTemplates,

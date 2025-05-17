@@ -42,7 +42,7 @@ api.interceptors.response.use(
 
 // Apollo Client setup
 const apolloClient = new ApolloClient({
-  uri: 'http://localhost:8000/graphql.php',
+  uri: '/graphql.php', // URL relative pour utiliser le proxy Vite
   cache: new InMemoryCache(),
   credentials: 'include', // Important pour inclure les cookies
   headers: {
@@ -55,6 +55,9 @@ const apolloClient = new ApolloClient({
     },
     query: {
       errorPolicy: 'all' // Return both errors and data in response
+    },
+    watchQuery: {
+      fetchPolicy: 'cache-and-network' // Toujours chercher les données fraîches
     }
   }
 });

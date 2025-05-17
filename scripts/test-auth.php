@@ -20,10 +20,8 @@ $emailService = new \App\Services\EmailService();
 $authService = new \App\Services\AuthService($userRepository, $emailService);
 
 // Test credentials
-$adminUsername = 'Admin';
-$adminPassword = 'oraclesms2025-0';
-$africaQSHEUsername = 'AfricaQSHE';
-$africaQSHEPassword = 'Qualitas@2024';
+$adminUsername = 'admin';
+$adminPassword = 'admin123';
 
 // Test Admin login
 echo "Testing Admin login...\n";

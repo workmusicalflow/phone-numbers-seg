@@ -224,8 +224,51 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
   
-  // Removed checkAuth function as the query doesn't exist
-  // async function checkAuth(): Promise<boolean> { ... } 
+  // Check authentication using the 'me' query
+  async function checkAuth(): Promise<boolean> {
+    loading.value = true;
+    error.value = null;
+    
+    try {
+      const response = await fetch('/graphql.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: ME_QUERY }),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Network error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+      
+      if (result.data.me) {
+        userStore.currentUser = result.data.me;
+        isAuthenticated.value = true;
+        isAdmin.value = result.data.me.isAdmin;
+        return true;
+      }
+      
+      isAuthenticated.value = false;
+      isAdmin.value = false;
+      userStore.currentUser = null;
+      return false;
+    } catch (err) {
+      isAuthenticated.value = false;
+      isAdmin.value = false;
+      userStore.currentUser = null;
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
   
   async function requestPasswordReset(email: string): Promise<boolean> {
     loading.value = true;
@@ -304,10 +347,8 @@ export const useAuthStore = defineStore('auth', () => {
   
   // Initialiser l'authentification au chargement de l'application
   async function init(): Promise<void> {
-    // await checkAuth(); // Removed as checkAuth function was removed
-    // We could potentially try a 'me' query here if a session cookie might exist,
-    // but for now, let the navigation guard handle redirection if needed.
-    console.log('Auth store initialized.');
+    await checkAuth(); // Call checkAuth to verify session on app load
+    console.log('Auth store initialized and checkAuth attempted.');
   }
   
   return {

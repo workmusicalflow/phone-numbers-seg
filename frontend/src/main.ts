@@ -20,6 +20,7 @@ import "@quasar/extras/fontawesome-v6/fontawesome-v6.css";
 import "./assets/global.css";
 
 import App from "./App.vue";
+import { useAuthStore } from "./stores/authStore"; // Import the auth store
 
 // Create Apollo client
 const httpLink = createHttpLink({
@@ -48,15 +49,36 @@ const pinia = createPinia();
 // Create Vue app
 const app = createApp(App);
 
-// Use plugins
-app.use(Quasar, {
-  plugins: { Notify, Dialog }
-});
+// Use Pinia plugin first, so stores can be instantiated
 app.use(pinia);
-app.use(router);
 
-// Provide Apollo client
-app.provide(DefaultApolloClient, apolloClient);
+// Get AuthStore instance
+const authStore = useAuthStore(); // No need to pass pinia if app.use(pinia) is called before
 
-// Mount app
-app.mount("#app");
+// Asynchronous function to initialize critical services and then mount the app
+async function initializeAndMountApp() {
+  try {
+    // Initialize authentication: this will call checkAuth and update isAuthenticated
+    await authStore.init();
+    console.log('Auth store initialized from main.ts. isAuthenticated:', authStore.isAuthenticated);
+  } catch (error) {
+    console.error("Error during auth initialization in main.ts:", error);
+    // App will still mount, router guards will handle redirection if auth failed
+  } finally {
+    // Setup other plugins and mount the app AFTER auth init attempt
+    app.use(Quasar, {
+      plugins: { Notify, Dialog }
+    });
+    app.use(router); // Router is used after authStore.init has resolved
+
+    // Provide Apollo client
+    app.provide(DefaultApolloClient, apolloClient);
+
+    // Mount app
+    app.mount("#app");
+    console.log('Vue app mounted.');
+  }
+}
+
+// Call the initialization function
+initializeAndMountApp();

@@ -5,7 +5,7 @@
         <h1 class="text-h4 q-my-none">WhatsApp</h1>
         <q-space />
         <div v-if="userStore.currentUser" class="row items-center">
-          <!-- Badge contacts WhatsApp (utilise les mêmes contacts) -->
+          <!-- Badge des contacts WhatsApp -->
           <ContactCountBadge
             :count="contactsCount"
             color="green"
@@ -162,7 +162,7 @@ import { useContactStore } from '@/stores/contactStore';
 import { useWhatsAppStore } from '@/stores/whatsappStore';
 import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 import WhatsAppSendMessage from '@/components/whatsapp/WhatsAppSendMessage.vue';
-import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServerPaginated.vue';
+import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageList.vue';
 
 // Stores
 const userStore = useUserStore();
@@ -178,44 +178,65 @@ const contactsCount = ref(0);
 
 // Computed properties
 const lastSentMessage = computed(() => {
-  const messages = whatsAppStore.messages
-    .filter(msg => msg.direction === 'OUTGOING')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return messages[0] || null;
+  try {
+    const messages = whatsAppStore.messages
+      .filter(msg => msg.direction === 'OUTGOING')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return messages[0] || null;
+  } catch (err) {
+    console.error('Erreur dans lastSentMessage:', err);
+    return null;
+  }
 });
 
 const lastReceivedMessage = computed(() => {
-  const messages = whatsAppStore.messages
-    .filter(msg => msg.direction === 'INCOMING')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return messages[0] || null;
+  try {
+    const messages = whatsAppStore.messages
+      .filter(msg => msg.direction === 'INCOMING')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return messages[0] || null;
+  } catch (err) {
+    console.error('Erreur dans lastReceivedMessage:', err);
+    return null;
+  }
 });
 
 const stats = computed(() => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const todayMessages = whatsAppStore.messages.filter(msg => {
-    const msgDate = new Date(msg.createdAt);
-    msgDate.setHours(0, 0, 0, 0);
-    return msgDate.getTime() === today.getTime();
-  });
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayMessages = whatsAppStore.messages.filter(msg => {
+      const msgDate = new Date(msg.createdAt);
+      msgDate.setHours(0, 0, 0, 0);
+      return msgDate.getTime() === today.getTime();
+    });
 
-  const outgoingMessages = todayMessages.filter(msg => msg.direction === 'OUTGOING');
-  const incomingMessages = todayMessages.filter(msg => msg.direction === 'INCOMING');
+    const outgoingMessages = todayMessages.filter(msg => msg.direction === 'OUTGOING');
+    const incomingMessages = todayMessages.filter(msg => msg.direction === 'INCOMING');
 
-  return {
-    totalMessages: outgoingMessages.length,
-    deliveredMessages: outgoingMessages.filter(msg => msg.status === 'delivered' || msg.status === 'read').length,
-    readMessages: outgoingMessages.filter(msg => msg.status === 'read').length,
-    receivedMessages: incomingMessages.length,
-    conversationsActive: new Set(todayMessages.map(msg => msg.phoneNumber)).size
-  };
+    return {
+      totalMessages: outgoingMessages.length,
+      deliveredMessages: outgoingMessages.filter(msg => msg.status === 'delivered' || msg.status === 'read').length,
+      readMessages: outgoingMessages.filter(msg => msg.status === 'read').length,
+      receivedMessages: incomingMessages.length,
+      conversationsActive: new Set(todayMessages.map(msg => msg.phoneNumber)).size
+    };
+  } catch (err) {
+    console.error('Erreur dans stats:', err);
+    return {
+      totalMessages: 0,
+      deliveredMessages: 0,
+      readMessages: 0,
+      receivedMessages: 0,
+      conversationsActive: 0
+    };
+  }
 });
 
 // Helper functions
 function getStatusColor(status: string) {
-  switch (status.toLowerCase()) {
+  switch (status?.toLowerCase()) {
     case 'sent':
       return 'blue';
     case 'delivered':
@@ -230,30 +251,45 @@ function getStatusColor(status: string) {
 }
 
 function formatDate(date: string | Date) {
-  return new Date(date).toLocaleString('fr-FR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  try {
+    return new Date(date).toLocaleString('fr-FR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (err) {
+    console.error('Erreur dans formatDate:', err);
+    return 'Date invalide';
+  }
 }
 
 // Fonction pour rafraîchir le nombre de contacts
 const refreshContactsCount = async () => {
-  contactsCount.value = await contactStore.fetchContactsCount();
+  try {
+    contactsCount.value = await contactStore.fetchContactsCount();
+  } catch (err) {
+    console.error('Erreur lors du comptage des contacts:', err);
+    // Utiliser une valeur par défaut si l'erreur se produit
+    contactsCount.value = 0;
+  }
 };
 
 // Process URL parameters (similar to SMS.vue)
 function processRouteParams() {
-  if (route.query.recipient) {
-    // Si on a un destinataire dans l'URL, on pourrait le transmettre
-    // au composant WhatsAppSendMessage via des props ou un événement
-    activeTab.value = 'send';
-  }
-  
-  if (route.query.tab) {
-    activeTab.value = route.query.tab as string;
+  try {
+    if (route.query.recipient) {
+      // Si on a un destinataire dans l'URL, on pourrait le transmettre
+      // au composant WhatsAppSendMessage via des props ou un événement
+      activeTab.value = 'send';
+    }
+    
+    if (route.query.tab) {
+      activeTab.value = route.query.tab as string;
+    }
+  } catch (err) {
+    console.error('Erreur dans processRouteParams:', err);
   }
 }
 
@@ -270,24 +306,33 @@ whatsAppStore.$subscribe((mutation) => {
   }
 });
 
+// Variable pour l'intervalle
+let interval: any = null;
+
 // Initialisation
 onMounted(async () => {
-  // Charger les données initiales
-  await refreshContactsCount();
-  await whatsAppStore.fetchMessages();
-  
-  // Process URL parameters
-  processRouteParams();
-  
-  // Refresh data periodically for real-time feel
-  const interval = setInterval(() => {
-    whatsAppStore.fetchMessages();
-  }, 30000); // Every 30 seconds
-  
-  // Clean up interval on unmount
-  onUnmounted(() => {
+  try {
+    // Charger les données initiales
+    await refreshContactsCount();
+    await whatsAppStore.fetchMessages();
+    
+    // Process URL parameters
+    processRouteParams();
+    
+    // Refresh data periodically for real-time feel
+    interval = setInterval(() => {
+      whatsAppStore.fetchMessages();
+    }, 30000); // Every 30 seconds
+  } catch (err) {
+    console.error('Erreur lors du chargement de la page WhatsApp:', err);
+  }
+});
+
+// Nettoyage à la destruction du composant
+onUnmounted(() => {
+  if (interval) {
     clearInterval(interval);
-  });
+  }
 });
 </script>
 
