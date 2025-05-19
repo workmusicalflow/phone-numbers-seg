@@ -284,4 +284,137 @@ class WhatsAppResolver
 
         return $this->whatsappService->getUserTemplates($user);
     }
+
+    /**
+     * Obtient l'URL d'un média WhatsApp
+     * 
+     * @Query
+     * @Logged
+     */
+    public function getWhatsAppMediaUrl(
+        string $mediaId,
+        ?GraphQLContext $context = null
+    ): string {
+        $user = $context->getCurrentUser();
+        if (!$user) {
+            throw new \Exception("L'utilisateur doit être authentifié.");
+        }
+
+        try {
+            return $this->whatsappService->getMediaUrl($user, $mediaId);
+        } catch (\Exception $e) {
+            error_log("WhatsApp getMediaUrl - Error: " . $e->getMessage());
+            throw new \Exception("Erreur lors de la récupération de l'URL du média : " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Envoie un message média WhatsApp
+     * 
+     * @Mutation
+     * @Logged
+     */
+    public function sendWhatsAppMediaMessage(
+        string $recipient,
+        string $type,
+        string $mediaIdOrUrl,
+        ?string $caption = null,
+        ?GraphQLContext $context = null
+    ): WhatsAppMessageHistory {
+        error_log("[WhatsApp Resolver] sendWhatsAppMediaMessage called with: recipient=$recipient, type=$type, mediaIdOrUrl=$mediaIdOrUrl, caption=$caption");
+        
+        $user = $context->getCurrentUser();
+        if (!$user) {
+            throw new \Exception("L'utilisateur doit être authentifié.");
+        }
+        
+        error_log("[WhatsApp Resolver] User authenticated: " . $user->getId());
+
+        try {
+            // Valider le type de média
+            $validTypes = ['image', 'video', 'audio', 'document'];
+            if (!in_array($type, $validTypes)) {
+                throw new \InvalidArgumentException("Type de média invalide: $type");
+            }
+
+            // Utiliser le service WhatsApp pour envoyer le message média
+            error_log("[WhatsApp Resolver] Calling whatsappService->sendMediaMessage");
+            $response = $this->whatsappService->sendMediaMessage(
+                $user,
+                $recipient,
+                $type,
+                $mediaIdOrUrl,
+                $caption
+            );
+            error_log("[WhatsApp Resolver] Service response: " . json_encode($response));
+
+            // Récupérer l'historique du message créé
+            $wabaMessageId = $response['messages'][0]['id'] ?? null;
+            error_log("[WhatsApp Resolver] wabaMessageId: " . $wabaMessageId);
+            
+            if (!$wabaMessageId) {
+                throw new \Exception("ID du message WhatsApp non retourné");
+            }
+
+            // Créer manuellement l'objet de réponse pour éviter les problèmes de timing
+            $message = new WhatsAppMessageHistory();
+            $message->setOracleUser($user);
+            $message->setPhoneNumber($recipient);
+            $message->setWabaMessageId($wabaMessageId);
+            $message->setDirection(WhatsAppMessageHistory::DIRECTION_OUTBOUND);
+            $message->setType($this->mapMediaTypeToHistoryType($type));
+            $message->setContent(json_encode([
+                'media_id' => str_contains($mediaIdOrUrl, 'http') ? null : $mediaIdOrUrl,
+                'media_url' => str_contains($mediaIdOrUrl, 'http') ? $mediaIdOrUrl : null,
+                'caption' => $caption
+            ]));
+            $message->setStatus(WhatsAppMessageHistory::STATUS_SENT);
+            $message->setTimestamp(new \DateTime());
+            
+            // Définir le mediaId correctement
+            if (!str_contains($mediaIdOrUrl, 'http')) {
+                $message->setMediaId($mediaIdOrUrl);
+            }
+            
+            error_log("[WhatsApp Resolver] Created message object with ID: " . $message->getId());
+            
+            // Optionnel: essayer de récupérer depuis la DB, sinon retourner l'objet créé
+            $savedMessage = $this->whatsappMessageRepository->findOneBy(['wabaMessageId' => $wabaMessageId]);
+            error_log("[WhatsApp Resolver] Saved message from DB: " . ($savedMessage ? $savedMessage->getId() : 'null'));
+            
+            $result = $savedMessage ?: $message;
+            error_log("[WhatsApp Resolver] Returning message with ID: " . ($result ? $result->getId() : 'null'));
+            
+            return $result;
+        } catch (\Exception $e) {
+            error_log("WhatsApp sendMediaMessage - Error: " . $e->getMessage());
+            throw new \Exception("Erreur lors de l'envoi du message média : " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mutation de test simple
+     * 
+     * @Mutation
+     * @Logged
+     */
+    public function testWhatsAppMutation(
+        ?GraphQLContext $context = null
+    ): string {
+        return "Test mutation works!";
+    }
+
+    /**
+     * Mappe le type de média vers le type d'historique
+     */
+    private function mapMediaTypeToHistoryType(string $mediaType): string
+    {
+        return match ($mediaType) {
+            'image' => WhatsAppMessageHistory::TYPE_IMAGE,
+            'video' => WhatsAppMessageHistory::TYPE_VIDEO,
+            'audio' => WhatsAppMessageHistory::TYPE_AUDIO,
+            'document' => WhatsAppMessageHistory::TYPE_DOCUMENT,
+            default => throw new \InvalidArgumentException("Type de média non supporté : $mediaType")
+        };
+    }
 }

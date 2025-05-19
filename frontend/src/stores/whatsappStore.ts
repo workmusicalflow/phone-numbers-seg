@@ -497,6 +497,66 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     }
   }
 
+  // Envoi de message média
+  async function sendMediaMessage(mediaData: {
+    recipient: string;
+    type: string;
+    mediaIdOrUrl: string;
+    caption?: string;
+  }) {
+    isLoading.value = true;
+    error.value = null;
+    
+    try {
+      const result = await apolloClient.mutate({
+        mutation: gql`
+          mutation SendWhatsAppMediaMessage(
+            $recipient: String!
+            $type: String!
+            $mediaIdOrUrl: String!
+            $caption: String
+          ) {
+            sendWhatsAppMediaMessage(
+              recipient: $recipient
+              type: $type
+              mediaIdOrUrl: $mediaIdOrUrl
+              caption: $caption
+            ) {
+              id
+              wabaMessageId
+              phoneNumber
+              direction
+              type
+              content
+              status
+              timestamp
+              errorCode
+              errorMessage
+              mediaId
+              createdAt
+              updatedAt
+            }
+          }
+        `,
+        variables: mediaData
+      });
+      
+      if (result && result.data && result.data.sendWhatsAppMediaMessage) {
+        const newMessage = { ...result.data.sendWhatsAppMediaMessage };
+        messages.value = [newMessage, ...messages.value];
+        return newMessage;
+      }
+      
+      throw new Error('Réponse invalide du serveur');
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de l\'envoi du média:', err);
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   function clearFilters() {
     filterPhoneNumber.value = '';
     filterStatus.value = '';
@@ -538,6 +598,7 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     downloadMedia,
     sendMessage,
     sendTemplate,
+    sendMediaMessage,
     loadUserTemplates,
     setCurrentPage,
     setPageSize,

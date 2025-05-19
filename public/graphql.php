@@ -1,5 +1,13 @@
 <?php
 
+// CORS Headers
+header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Access-Control-Max-Age: 3600");
+
+
 // Désactiver l'affichage direct des erreurs PHP (elles sont toujours journalisées)
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
@@ -338,6 +346,14 @@ try {
                         return $whatsAppResolver->sendWhatsAppMessage($args['message'], $context);
                     case 'sendWhatsAppTemplate':
                         return $whatsAppResolver->sendWhatsAppTemplate($args['template'], $context);
+                    case 'sendWhatsAppMediaMessage':
+                        return $whatsAppResolver->sendWhatsAppMediaMessage(
+                            $args['recipient'],
+                            $args['type'],
+                            $args['mediaIdOrUrl'],
+                            $args['caption'] ?? null,
+                            $context
+                        );
                 }
             }
 

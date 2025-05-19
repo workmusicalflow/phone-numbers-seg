@@ -4,6 +4,7 @@ import { ApolloClient, InMemoryCache, gql } from '@apollo/client/core';
 // Créer une instance axios avec la configuration de base
 const api = axios.create({
   baseURL: 'http://localhost:8000/api', // URL de base pour toutes les requêtes
+  withCredentials: true, // Important pour inclure les cookies
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'

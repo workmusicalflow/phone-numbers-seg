@@ -22,6 +22,7 @@
         align="left"
       >
         <q-tab name="send" label="Envoyer" icon="send" />
+        <q-tab name="media" label="Médias" icon="attachment" />
         <q-tab name="messages" label="Messages" icon="chat" />
       </q-tabs>
 
@@ -145,6 +146,15 @@
           </div>
         </q-tab-panel>
 
+        <!-- Onglet Médias -->
+        <q-tab-panel name="media">
+          <div class="row q-col-gutter-md">
+            <div class="col-12 col-md-8">
+              <WhatsAppMediaUpload />
+            </div>
+          </div>
+        </q-tab-panel>
+
         <!-- Onglet Messages -->
         <q-tab-panel name="messages">
           <WhatsAppMessageList />
@@ -163,6 +173,7 @@ import { useWhatsAppStore } from '@/stores/whatsappStore';
 import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 import WhatsAppSendMessage from '@/components/whatsapp/WhatsAppSendMessage.vue';
 import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServerPaginated.vue';
+import WhatsAppMediaUpload from '@/components/whatsapp/WhatsAppMediaUpload.vue';
 
 // Stores
 const userStore = useUserStore();

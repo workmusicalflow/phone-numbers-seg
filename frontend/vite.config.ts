@@ -25,6 +25,16 @@ export default defineConfig({
         changeOrigin: true,
         // secure: false, // uncomment if your backend is on http
       },
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        // secure: false, // uncomment if your backend is on http
+      },
+      "/whatsapp": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        // secure: false, // uncomment if your backend is on http
+      },
     },
   },
   resolve: {

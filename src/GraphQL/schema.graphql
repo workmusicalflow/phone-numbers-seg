@@ -48,6 +48,7 @@ type Query {
     endDate: String
   ): WhatsAppMessagesResult!
   getWhatsAppUserTemplates: [WhatsAppUserTemplate!]!
+  getWhatsAppMediaUrl(mediaId: String!): String!
 }
 
 type Segment {
@@ -125,6 +126,12 @@ type Mutation {
   # WhatsApp mutations
   sendWhatsAppMessage(message: WhatsAppMessageInput!): WhatsAppMessageHistory!
   sendWhatsAppTemplate(template: WhatsAppMessageInput!): WhatsAppMessageHistory!
+  sendWhatsAppMediaMessage(
+    recipient: String!
+    type: String!
+    mediaIdOrUrl: String!
+    caption: String
+  ): WhatsAppMessageHistory!
 }
 
 type SMSHistory {

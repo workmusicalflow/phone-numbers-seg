@@ -316,7 +316,7 @@
       </q-table>
     </div>
 
-    <!-- Dialogues (inchangés) -->
+    <!-- Dialogues -->
     <q-dialog v-model="replyDialogOpen" persistent>
       <q-card style="min-width: 450px">
         <q-card-section>
