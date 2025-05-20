@@ -123,7 +123,14 @@
           <q-item-section avatar>
             <q-icon name="fab fa-whatsapp" />
           </q-item-section>
-          <q-item-section>WhatsApp</q-item-section>
+          <q-item-section>Messages WhatsApp</q-item-section>
+        </q-item>
+
+        <q-item clickable v-ripple to="/whatsapp-templates">
+          <q-item-section avatar>
+            <q-icon name="fab fa-whatsapp" />
+          </q-item-section>
+          <q-item-section>Templates WhatsApp</q-item-section>
         </q-item>
 
         <q-item clickable v-ripple to="/import">

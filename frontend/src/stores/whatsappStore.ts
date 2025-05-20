@@ -252,7 +252,7 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     try {
       const { data } = await apolloClient.query({
         query: gql`
-          query GetUserTemplates {
+          query GetWhatsAppTemplates {
             getWhatsAppUserTemplates {
               id
               template_id
@@ -265,9 +265,15 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
         fetchPolicy: 'network-only'
       });
       
-      return data.getWhatsAppUserTemplates || [];
+      if (data && data.getWhatsAppUserTemplates) {
+        console.log("Templates WhatsApp chargés avec succès:", data.getWhatsAppUserTemplates);
+        return data.getWhatsAppUserTemplates;
+      } else {
+        console.warn("Aucun template WhatsApp trouvé ou format de réponse inattendu");
+        return [];
+      }
     } catch (err: any) {
-      console.error('Erreur lors du chargement des templates:', err);
+      console.error('Erreur lors du chargement des templates WhatsApp:', err);
       return [];
     }
   }

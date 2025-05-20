@@ -346,6 +346,35 @@ try {
                         return $whatsAppResolver->sendWhatsAppMessage($args['message'], $context);
                     case 'sendWhatsAppTemplate':
                         return $whatsAppResolver->sendWhatsAppTemplate($args['template'], $context);
+                    case 'sendWhatsAppTemplateV2':
+                        // Utiliser notre nouveau contrôleur dédié pour cette mutation
+                        $whatsappTemplateController = $container->get('App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppTemplateController');
+                        $logger->info("Routing sendWhatsAppTemplateV2 to dedicated controller");
+                        
+                        // Créer l'objet SendTemplateInput à partir des arguments
+                        $input = new \App\GraphQL\Types\WhatsApp\SendTemplateInput(
+                            $args['input']['recipientPhoneNumber'],
+                            $args['input']['templateName'],
+                            $args['input']['templateLanguage'],
+                            $args['input']['templateComponentsJsonString'] ?? null,
+                            $args['input']['headerMediaUrl'] ?? null,
+                            $args['input']['bodyVariables'] ?? [],
+                            $args['input']['buttonVariables'] ?? []
+                        );
+                        
+                        // Appeler le contrôleur directement
+                        $result = $whatsappTemplateController->sendWhatsAppTemplateV2($input, $context);
+                        
+                        // Convertir l'objet en tableau associatif pour une meilleure compatibilité avec GraphQL
+                        if (is_object($result) && method_exists($result, 'getSuccess')) {
+                            return [
+                                'success' => $result->getSuccess() ?? false,
+                                'messageId' => $result->getMessageId(),
+                                'error' => $result->getError()
+                            ];
+                        }
+                        
+                        return $result;
                     case 'sendWhatsAppMediaMessage':
                         return $whatsAppResolver->sendWhatsAppMediaMessage(
                             $args['recipient'],

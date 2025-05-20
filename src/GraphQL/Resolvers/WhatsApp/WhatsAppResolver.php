@@ -8,8 +8,10 @@ use App\Entities\WhatsApp\WhatsAppMessageHistory;
 use App\GraphQL\Context\GraphQLContext;
 use App\GraphQL\Types\WhatsApp\WhatsAppMessageInputType;
 use App\GraphQL\Types\WhatsApp\WhatsAppTemplateSendInput;
+use App\GraphQL\Types\WhatsApp\SendTemplateResult;
 use App\Repositories\Interfaces\WhatsApp\WhatsAppMessageHistoryRepositoryInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppServiceInterface;
+use Psr\Log\LoggerInterface;
 use TheCodingMachine\GraphQLite\Annotations\Logged;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
 use TheCodingMachine\GraphQLite\Annotations\Query;
@@ -21,7 +23,8 @@ class WhatsAppResolver
 {
     public function __construct(
         private WhatsAppServiceInterface $whatsappService,
-        private WhatsAppMessageHistoryRepositoryInterface $whatsappMessageRepository
+        private WhatsAppMessageHistoryRepositoryInterface $whatsappMessageRepository,
+        private \Psr\Log\LoggerInterface $logger
     ) {}
 
     /**
@@ -392,6 +395,62 @@ class WhatsAppResolver
         }
     }
 
+    /**
+     * Envoie un message template WhatsApp avec le nouveau type d'entrée
+     * 
+     * @Mutation
+     * @Logged
+     */
+    public function sendWhatsAppTemplateV2(
+        array $input,
+        ?GraphQLContext $context = null
+    ): SendTemplateResult {
+        try {
+            $user = $context->getCurrentUser();
+            if (!$user) {
+                throw new \Exception("L'utilisateur doit être authentifié.");
+            }
+            
+            $this->logger->info("Envoi de template WhatsApp V2", [
+                'template' => $input['templateName'],
+                'recipient' => $input['recipientPhoneNumber'],
+                'language' => $input['templateLanguage']
+            ]);
+            
+            // Récupérer les paramètres
+            $bodyVariables = $input['bodyVariables'] ?? [];
+            $buttonVariables = $input['buttonVariables'] ?? [];
+            $headerMediaUrl = $input['headerMediaUrl'] ?? null;
+            
+            // Envoyer le template via le service
+            $messageHistory = $this->whatsappService->sendTemplateMessage(
+                $user,
+                $input['recipientPhoneNumber'],
+                $input['templateName'],
+                $input['templateLanguage'],
+                $headerMediaUrl,
+                $bodyVariables
+            );
+            
+            // Construire le résultat
+            return new SendTemplateResult(
+                true,
+                $messageHistory->getWabaMessageId(),
+                null
+            );
+        } catch (\Exception $e) {
+            $this->logger->error("Erreur envoi template WhatsApp V2", [
+                'error' => $e->getMessage()
+            ]);
+            
+            return new SendTemplateResult(
+                false,
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+    
     /**
      * Mutation de test simple
      * 

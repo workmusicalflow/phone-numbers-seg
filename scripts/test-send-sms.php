@@ -35,9 +35,13 @@ $defaultSenderAddress = $_ENV['ORANGE_DEFAULT_SENDER_ADDRESS'] ?? '';
 $defaultSenderName = $_ENV['ORANGE_DEFAULT_SENDER_NAME'] ?? '';
 $orangeApiClient = new OrangeAPIClient($clientId, $clientSecret, $defaultSenderAddress, $defaultSenderName);
 
+// Create a simple logger
+$logger = new \App\Services\SimpleLogger('test-script');
+
 // Create the SMS service
 $smsService = new SMSService(
     $orangeApiClient,
+    $logger,
     $phoneNumberRepository,
     $customSegmentRepository,
     $smsHistoryRepository,

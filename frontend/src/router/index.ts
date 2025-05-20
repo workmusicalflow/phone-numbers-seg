@@ -80,6 +80,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/whatsapp-templates',
+      name: 'whatsapp-templates',
+      component: () => import('../views/WhatsAppTemplates.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/test-auth',
       name: 'test-auth',
       component: () => import('../components/whatsapp/TestAuth.vue'),

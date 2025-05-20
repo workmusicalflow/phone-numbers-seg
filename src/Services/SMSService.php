@@ -35,32 +35,32 @@ class SMSService
      * Constructor
      * 
      * @param OrangeAPIClientInterface $orangeApiClient
+     * @param LoggerInterface $logger
      * @param PhoneNumberRepositoryInterface|null $phoneNumberRepository
      * @param CustomSegmentRepositoryInterface|null $customSegmentRepository
      * @param SMSHistoryRepositoryInterface|null $smsHistoryRepository
      * @param UserRepositoryInterface|null $userRepository
      * @param ContactRepositoryInterface|null $contactRepository
      * @param SMSQueueServiceInterface|null $smsQueueService
-     * @param LoggerInterface $logger
      */
     public function __construct(
         OrangeAPIClientInterface $orangeApiClient,
+        LoggerInterface $logger,
         ?PhoneNumberRepositoryInterface $phoneNumberRepository = null,
         ?CustomSegmentRepositoryInterface $customSegmentRepository = null,
         ?SMSHistoryRepositoryInterface $smsHistoryRepository = null,
         ?UserRepositoryInterface $userRepository = null,
         ?ContactRepositoryInterface $contactRepository = null,
-        ?SMSQueueServiceInterface $smsQueueService = null,
-        LoggerInterface $logger
+        ?SMSQueueServiceInterface $smsQueueService = null
     ) {
         $this->orangeApiClient = $orangeApiClient;
+        $this->logger = $logger;
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->customSegmentRepository = $customSegmentRepository;
         $this->smsHistoryRepository = $smsHistoryRepository;
         $this->userRepository = $userRepository;
         $this->contactRepository = $contactRepository;
         $this->smsQueueService = $smsQueueService;
-        $this->logger = $logger;
     }
 
     // getAccessToken method removed as it's handled by OrangeAPIClient

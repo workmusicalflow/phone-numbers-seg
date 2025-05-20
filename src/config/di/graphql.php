@@ -91,14 +91,21 @@ return [
         return new \App\GraphQL\Types\WhatsApp\WhatsAppMessageHistoryType();
     }),
     
+    \App\GraphQL\Types\WhatsApp\SendTemplateResult::class => factory(function (Container $container) {
+        return new \App\GraphQL\Types\WhatsApp\SendTemplateResult(false, null, null);
+    }),
+    
+    \App\GraphQL\Types\WhatsApp\SendTemplateInput::class => factory(function (Container $container) {
+        // Factory pour le type d'entrée
+        return null; // Les types d'entrée n'ont pas besoin d'être instanciés
+    }),
+    
     // GraphQL Controllers (If used directly, otherwise resolvers handle logic)
-    // Example: (Adjust based on actual usage)
-    // \App\GraphQL\Controllers\AdminContactController::class => factory(function (Container $container) {
-    //     return new \App\GraphQL\Controllers\AdminContactController(
-    //         $container->get(\App\Repositories\Interfaces\AdminContactRepositoryInterface::class),
-    //         $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class),
-    //         $container->get(\App\Services\Validators\AdminContactValidator::class) // Assuming validator is needed
-    //     );
-    // }),
+    \App\GraphQL\Controllers\WhatsApp\WhatsAppTemplateController::class => factory(function (Container $container) {
+        return new \App\GraphQL\Controllers\WhatsApp\WhatsAppTemplateController(
+            $container->get(\App\Services\Interfaces\WhatsApp\WhatsAppServiceInterface::class),
+            $container->get(Psr\Log\LoggerInterface::class)
+        );
+    }),
     // Add other GraphQL controllers if necessary
 ];

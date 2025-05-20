@@ -23,6 +23,16 @@ class WhatsAppUserTemplateType
     {
         return new ID($template->getId());
     }
+    
+    /**
+     * @Field
+     */
+    public function template_id(WhatsAppUserTemplate $template): string
+    {
+        // Comme WhatsAppUserTemplate ne contient pas de template_id, 
+        // nous utilisons l'ID de l'entité comme fallback
+        return (string)$template->getId();
+    }
 
     /**
      * @Field
@@ -86,5 +96,30 @@ class WhatsAppUserTemplateType
     public function getUpdatedAt(WhatsAppUserTemplate $template): string
     {
         return $template->getUpdatedAt()->format('Y-m-d H:i:s');
+    }
+    
+    /**
+     * @Field
+     */
+    public function name(WhatsAppUserTemplate $template): string
+    {
+        return $template->getTemplateName();
+    }
+    
+    /**
+     * @Field
+     */
+    public function language(WhatsAppUserTemplate $template): string
+    {
+        return $template->getLanguageCode();
+    }
+    
+    /**
+     * @Field
+     */
+    public function status(WhatsAppUserTemplate $template): string
+    {
+        // Statut par défaut pour les templates utilisateur
+        return 'APPROVED';
     }
 }

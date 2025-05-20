@@ -69,17 +69,17 @@ return [
         );
     }),
 
-    // SMSService now injects OrangeAPIClientInterface, repository interfaces, and LoggerInterface
+    // SMSService now injects OrangeAPIClientInterface, LoggerInterface, and repository interfaces
     \App\Services\SMSService::class => factory(function (Container $container) {
         return new \App\Services\SMSService(
             $container->get(\App\Services\Interfaces\OrangeAPIClientInterface::class), // Inject the client
+            $container->get(Psr\Log\LoggerInterface::class), // Inject Logger (moved to second position)
             $container->get(\App\Repositories\Interfaces\PhoneNumberRepositoryInterface::class),
             $container->get(\App\Repositories\Interfaces\CustomSegmentRepositoryInterface::class),
             $container->get(\App\Repositories\Interfaces\SMSHistoryRepositoryInterface::class),
             $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class),
             $container->get(\App\Repositories\Interfaces\ContactRepositoryInterface::class),
-            $container->get(\App\Services\Interfaces\SMSQueueServiceInterface::class), // Inject SMSQueueService
-            $container->get(Psr\Log\LoggerInterface::class) // Inject Logger
+            $container->get(\App\Services\Interfaces\SMSQueueServiceInterface::class) // Inject SMSQueueService
         );
     }),
 

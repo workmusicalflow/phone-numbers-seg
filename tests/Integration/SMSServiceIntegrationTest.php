@@ -161,13 +161,13 @@ class SMSServiceIntegrationTest extends TestCase
         // Instantiate the service manually
         $smsService = new SMSService(
             $this->mockApiClient->reveal(),
-            $smsHistoryRepository,
+            $mockLogger, // Inject the mock logger (moved to second position)
             $userRepository,
             $configRepository,
+            $smsHistoryRepository,
             $contactRepository,
             $customSegmentRepository,
-            $this->mockEventManager->reveal(),
-            $mockLogger // Inject the mock logger
+            $this->mockEventManager->reveal()
         );
 
 

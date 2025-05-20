@@ -7,7 +7,12 @@ import { resolve } from "path";
 export default defineConfig({
   plugins: [
     vue({
-      template: { transformAssetUrls },
+      template: { 
+        transformAssetUrls,
+        compilerOptions: {
+          isCustomElement: (tag) => tag.includes('whatsapp-')
+        }
+      },
     }),
     quasar({
       sassVariables: "@/quasar-variables.sass", // Use alias for quasar sass variable path

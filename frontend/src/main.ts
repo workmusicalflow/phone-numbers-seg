@@ -22,6 +22,9 @@ import "./assets/global.css";
 import App from "./App.vue";
 import { useAuthStore } from "./stores/authStore"; // Import the auth store
 
+// Import des composants globaux
+import WhatsAppTemplateSelector from "./components/whatsapp/WhatsAppTemplateSelector.vue";
+
 // Create Apollo client
 const httpLink = createHttpLink({
   uri: "/graphql.php",
@@ -48,6 +51,10 @@ const pinia = createPinia();
 
 // Create Vue app
 const app = createApp(App);
+
+// Enregistrer les composants globaux
+app.component('WhatsAppTemplateSelector', WhatsAppTemplateSelector);
+console.log('Composants globaux enregistrés:', Object.keys(app._context.components));
 
 // Use Pinia plugin first, so stores can be instantiated
 app.use(pinia);

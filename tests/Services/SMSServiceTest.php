@@ -50,13 +50,13 @@ class SMSServiceTest extends TestCase
         // Instantiate the actual SMSService with mocked dependencies
         $this->smsService = new SMSService(
             $this->apiClient->reveal(),
+            $this->logger->reveal(),
+            null, // PhoneNumberRepository
+            $this->customSegmentRepository->reveal(),
             $this->smsHistoryRepository->reveal(),
             $this->userRepository->reveal(),
-            $this->configRepository->reveal(),
             $this->contactRepository->reveal(),
-            $this->customSegmentRepository->reveal(),
-            $this->eventManager->reveal(),
-            $this->logger->reveal()
+            $this->eventManager->reveal()
         );
     }
 

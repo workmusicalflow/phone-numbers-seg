@@ -126,6 +126,8 @@ type Mutation {
   # WhatsApp mutations
   sendWhatsAppMessage(message: WhatsAppMessageInput!): WhatsAppMessageHistory!
   sendWhatsAppTemplate(template: WhatsAppMessageInput!): WhatsAppMessageHistory!
+  # Nouvelle mutation avec le type d'entrée SendTemplateInput
+  sendWhatsAppTemplateV2(input: SendTemplateInput!): SendTemplateResult!
   sendWhatsAppMediaMessage(
     recipient: String!
     type: String!
@@ -307,6 +309,12 @@ type WhatsAppMessagesResult {
   hasMore: Boolean!
 }
 
+type SendTemplateResult {
+  success: Boolean!
+  messageId: String
+  error: String
+}
+
 input WhatsAppMessageInput {
   recipient: String!
   type: String!
@@ -315,6 +323,16 @@ input WhatsAppMessageInput {
   templateName: String
   languageCode: String
   components: [TemplateComponent]
+}
+
+input SendTemplateInput {
+  recipientPhoneNumber: String!
+  templateName: String!
+  templateLanguage: String!
+  templateComponentsJsonString: String
+  headerMediaUrl: String
+  bodyVariables: [String]
+  buttonVariables: [String]
 }
 
 input TemplateComponent {

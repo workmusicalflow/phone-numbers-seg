@@ -20,10 +20,12 @@ use App\Services\Interfaces\WhatsApp\WebhookVerificationServiceInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppApiClientInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppMessageServiceInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppServiceInterface;
+use App\Services\Interfaces\WhatsApp\WhatsAppTemplateServiceInterface;
 use App\Services\WhatsApp\WebhookVerificationService;
 use App\Services\WhatsApp\WhatsAppApiClient;
 use App\Services\WhatsApp\WhatsAppMessageService;
 use App\Services\WhatsApp\WhatsAppService;
+use App\Services\WhatsApp\WhatsAppTemplateService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -91,11 +93,25 @@ return [
         );
     }),
     
+    // Services WhatsApp Template
+    WhatsAppTemplateServiceInterface::class => \DI\create(WhatsAppTemplateService::class)
+        ->constructor(
+            \DI\get(WhatsAppApiClientInterface::class),
+            \DI\get(WhatsAppTemplateRepositoryInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
+
     // Controllers
     'App\\GraphQL\\Controllers\\WhatsApp\\WebhookController' => \DI\create('App\\GraphQL\\Controllers\\WhatsApp\\WebhookController')
         ->constructor(
             \DI\get(WebhookVerificationServiceInterface::class),
             \DI\get(WhatsAppMessageServiceInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
+    
+    'App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppTemplateController' => \DI\create('App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppTemplateController')
+        ->constructor(
+            \DI\get(WhatsAppServiceInterface::class),
             \DI\get(LoggerInterface::class)
         ),
         
@@ -109,9 +125,23 @@ return [
     'App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppResolver' => \DI\factory(function(\Psr\Container\ContainerInterface $container) {
         return new \App\GraphQL\Resolvers\WhatsApp\WhatsAppResolver(
             $container->get(WhatsAppServiceInterface::class),
-            $container->get(WhatsAppMessageHistoryRepositoryInterface::class)
+            $container->get(WhatsAppMessageHistoryRepositoryInterface::class),
+            $container->get(LoggerInterface::class)
         );
     }),
+
+    'App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppTemplateResolver' => \DI\create('App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppTemplateResolver')
+        ->constructor(
+            \DI\get(WhatsAppTemplateServiceInterface::class),
+            \DI\get(WhatsAppServiceInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
+        
+    'App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppCompleteTemplateResolver' => \DI\create('App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppCompleteTemplateResolver')
+        ->constructor(
+            \DI\get(WhatsAppTemplateServiceInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
         
     // Alias pour faciliter l'injection
     'App\\GraphQL\\Controllers\\WebhookController' => \DI\get('App\\GraphQL\\Controllers\\WhatsApp\\WebhookController')

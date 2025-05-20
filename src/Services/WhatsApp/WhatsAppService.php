@@ -289,17 +289,7 @@ class WhatsAppService implements WhatsAppServiceInterface
         array $components = []
     ): array {
         try {
-            // Vérifier que le template existe et est approuvé
-            $template = $this->templateRepository->findOneBy([
-                'name' => $templateName,
-                'language' => $languageCode,
-                'isActive' => true
-            ]);
-
-            if ($template === null || $template->getStatus() !== 'APPROVED') {
-                throw new \Exception("Template non trouvé ou non approuvé : $templateName ($languageCode)");
-            }
-
+            // Utilisation de l'approche API directe - pas de vérification en base de données locale
             // Construire le payload
             $payload = [
                 'messaging_product' => 'whatsapp',
@@ -790,10 +780,16 @@ class WhatsAppService implements WhatsAppServiceInterface
      */
     public function getUserTemplates(User $user): array
     {
-        // TODO: Implement actual logic to fetch templates for the user
-        // This might involve calling $this->apiClient->getTemplates() or similar,
-        // or querying $this->templateRepository if templates are synced locally.
-        $this->logger->info('WhatsAppService::getUserTemplates called for user ' . $user->getId() . '. Placeholder implementation returns empty array.');
-        return [];
+        // Approche API directe : récupérer les templates directement depuis l'API Meta
+        try {
+            $templateService = new WhatsAppTemplateService($this->apiClient, $this->templateRepository, $this->logger);
+            return $templateService->fetchApprovedTemplatesFromMeta();
+        } catch (\Exception $e) {
+            $this->logger->error('Erreur récupération templates WhatsApp pour utilisateur', [
+                'user_id' => $user->getId(),
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
     }
 }
