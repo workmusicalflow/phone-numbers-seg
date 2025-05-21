@@ -1,4 +1,4 @@
-import { api } from './api';
+import { whatsappApi } from './whatsappApiClient';
 
 /**
  * Service client REST pour l'API WhatsApp
@@ -6,6 +6,8 @@ import { api } from './api';
  * Ce client fournit une interface robuste pour interagir avec le backend WhatsApp
  * via les endpoints REST qui ont été conçus pour être plus fiables que les requêtes GraphQL
  * directes à l'API Meta.
+ * 
+ * Utilise le client whatsappApi dédié pour gérer correctement les chemins relatifs et absolus.
  */
 export interface WhatsAppTemplate {
   id: string;
@@ -79,10 +81,10 @@ export class WhatsAppRestClient {
       }
       
       // Effectuer la requête - utiliser l'URL complète avec le chemin correct
-      const endpoint = `/api/whatsapp/templates/approved.php?${params.toString()}`;
+      const endpoint = `/whatsapp/templates/approved.php?${params.toString()}`;
       console.log(`WhatsApp Templates - Requête vers: ${endpoint}`);
       
-      const response = await api.get(endpoint);
+      const response = await whatsappApi.get(endpoint);
       
       if (process.env.NODE_ENV === 'development') {
         console.log("WhatsApp Templates - Statut de la réponse:", response.status, response.statusText);
@@ -161,20 +163,175 @@ export class WhatsAppRestClient {
    * @returns Promise contenant le résultat de l'envoi
    */
   async sendTemplateMessage(data: {
-    recipient: string;
+    recipientPhoneNumber: string;
     templateName: string;
+    templateId: string;
     languageCode: string;
-    components?: any[];
-    headerImageUrl?: string;
-    headerMediaId?: string;
-    bodyParams?: string[];
-  }): Promise<any> {
+    components: {
+      header?: {
+        type: string;
+        parameters: Array<{
+          type: string;
+          [key: string]: any;
+        }>;
+      };
+      body?: {
+        parameters: Array<{
+          type: string;
+          text: string;
+        }>;
+      };
+      buttons?: Array<{
+        type: string;
+        index: number;
+        parameters: Array<{
+          type: string;
+          [key: string]: any;
+        }>;
+      }>;
+    };
+  }): Promise<{
+    success: boolean;
+    messageId?: string;
+    timestamp?: string;
+    error?: string;
+  }> {
     try {
-      const response = await api.post('whatsapp/messages/template', data);
-      return response.data;
-    } catch (error) {
+      console.log('Envoi de message template:', data);
+      
+      // Préparer les données pour l'API
+      const apiData = {
+        to: data.recipientPhoneNumber,
+        template: {
+          name: data.templateName,
+          language: {
+            code: data.languageCode
+          },
+          components: []
+        }
+      };
+      
+      // Ajouter le composant d'en-tête si présent
+      if (data.components.header) {
+        apiData.template.components.push(data.components.header);
+      }
+      
+      // Ajouter le composant de corps si présent
+      if (data.components.body) {
+        apiData.template.components.push({
+          type: 'body',
+          parameters: data.components.body.parameters
+        });
+      }
+      
+      // Ajouter les composants de boutons si présents
+      if (data.components.buttons && data.components.buttons.length > 0) {
+        data.components.buttons.forEach(button => {
+          apiData.template.components.push(button);
+        });
+      }
+      
+      // Envoyer la requête à l'API
+      const response = await api.post('/api/whatsapp/send-template.php', apiData);
+      
+      // Analyser la réponse
+      if (response.data && response.data.success) {
+        return {
+          success: true,
+          messageId: response.data.messageId || response.data.id,
+          timestamp: response.data.timestamp || new Date().toISOString()
+        };
+      }
+      
+      throw new Error(response.data?.error || 'Échec de l\'envoi du message');
+    } catch (error: any) {
       console.error('Erreur lors de l\'envoi du message template:', error);
-      throw error;
+      return {
+        success: false,
+        error: error.message || 'Erreur inconnue lors de l\'envoi'
+      };
+    }
+  }
+  
+  /**
+   * Vérifie le statut de l'API REST WhatsApp
+   * 
+   * @returns Promise contenant l'état de l'API
+   */
+  async checkApiStatus(): Promise<{
+    success: boolean;
+    status?: string;
+    details?: any;
+    error?: string;
+  }> {
+    try {
+      console.log('Vérification du statut de l\'API REST WhatsApp');
+      
+      const response = await whatsappApi.get('/whatsapp/status.php');
+      
+      return {
+        success: true,
+        status: response.data.status || 'online',
+        details: response.data
+      };
+    } catch (error: any) {
+      console.error('Erreur lors de la vérification du statut de l\'API:', error);
+      return {
+        success: false,
+        error: error.message || 'Erreur inconnue'
+      };
+    }
+  }
+
+  /**
+   * Envoie un message template WhatsApp v2 (API REST simplifiée)
+   * 
+   * @param data Données du message à envoyer
+   * @returns Promise contenant le résultat de l'envoi
+   */
+  async sendTemplateMessageV2(data: {
+    recipientPhoneNumber: string;
+    templateName: string;
+    templateLanguage: string;
+    templateComponentsJsonString?: string;
+    headerMediaUrl?: string;
+    headerMediaId?: string;
+    bodyVariables?: string[];
+    buttonVariables?: string[];
+  }): Promise<{
+    success: boolean;
+    messageId?: string;
+    timestamp?: string;
+    error?: string;
+  }> {
+    try {
+      console.log('Envoi de message template v2 (REST):', data);
+      
+      // Vérifier d'abord le statut de l'API
+      const statusCheck = await this.checkApiStatus();
+      if (!statusCheck.success) {
+        throw new Error(`API REST non disponible: ${statusCheck.error}`);
+      }
+      
+      // Utiliser l'endpoint complet pour l'envoi réel
+      const response = await whatsappApi.post('/whatsapp/send-template-v2.php', data);
+      
+      // Analyser la réponse
+      if (response.data && response.data.success) {
+        return {
+          success: true,
+          messageId: response.data.messageId,
+          timestamp: response.data.timestamp || new Date().toISOString()
+        };
+      }
+      
+      throw new Error(response.data?.error || 'Échec de l\'envoi du message');
+    } catch (error: any) {
+      console.error('Erreur lors de l\'envoi du message template REST v2:', error);
+      return {
+        success: false,
+        error: error.message || 'Erreur inconnue lors de l\'envoi'
+      };
     }
   }
   

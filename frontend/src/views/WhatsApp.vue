@@ -31,9 +31,77 @@
         <!-- Onglet Envoi de message -->
         <q-tab-panel name="send">
           <div class="row q-col-gutter-md">
-            <div class="col-12 col-md-8">
-              <WhatsAppSendMessage />
+            <div class="col-12">
+              <!-- Étape 1: Sélection du destinataire -->
+              <div v-if="currentStep === 'recipient'">
+                <div class="text-h6 q-mb-md">Sélection du destinataire</div>
+                <WhatsAppSendMessage 
+                  @message-sent="onMessageSent" 
+                  @recipient-selected="onRecipientSelected"
+                />
+              </div>
+
+              <!-- Étape 2: Sélection du template -->
+              <div v-else-if="currentStep === 'template'" class="q-mt-md">
+                <div class="row items-center q-mb-md">
+                  <div class="text-h6 q-my-none">Sélection du template</div>
+                  <q-space />
+                  <q-btn outline color="primary" icon="arrow_back" label="Changer de destinataire" @click="currentStep = 'recipient'" />
+                </div>
+                
+                <q-banner class="bg-grey-2 q-mb-md">
+                  <template v-slot:avatar>
+                    <q-icon name="info" color="primary" />
+                  </template>
+                  <div class="text-body1">
+                    Destinataire: <strong>{{ selectedRecipient }}</strong>
+                  </div>
+                </q-banner>
+                
+                <WhatsAppTemplateSelector 
+                  :recipientPhoneNumber="selectedRecipient" 
+                  @template-selected="onTemplateSelected"
+                  @cancel="currentStep = 'recipient'"
+                />
+              </div>
+
+              <!-- Étape 3: Personnalisation du message -->
+              <div v-else-if="currentStep === 'customize'" class="q-mt-md">
+                <WhatsAppMessageComposer 
+                  :templateData="selectedTemplateData" 
+                  :recipientPhoneNumber="selectedRecipient"
+                  @change-template="currentStep = 'template'"
+                  @cancel="currentStep = 'recipient'"
+                  @message-sent="onTemplateSent"
+                />
+              </div>
+
+              <!-- Étape 4: Message envoyé avec succès -->
+              <div v-else-if="currentStep === 'success'" class="q-mt-md">
+                <q-card class="bg-green-1">
+                  <q-card-section>
+                    <div class="row items-center">
+                      <q-icon name="check_circle" color="positive" size="3rem" class="q-mr-md" />
+                      <div>
+                        <div class="text-h6 text-positive">Message envoyé avec succès</div>
+                        <div class="text-subtitle1 q-mt-sm">
+                          Le message a été envoyé à <strong>{{ selectedRecipient }}</strong> 
+                          via WhatsApp Business API.
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                  <q-card-actions align="right">
+                    <q-btn flat color="primary" label="Envoyer un autre message" @click="resetForm" />
+                    <q-btn color="primary" label="Voir l'historique des messages" @click="goToMessages" />
+                  </q-card-actions>
+                </q-card>
+              </div>
             </div>
+          </div>
+
+          <!-- Statistiques et infos récentes -->
+          <div class="row q-col-gutter-md q-mt-lg">
             <div class="col-12 col-md-4">
               <!-- Aperçu du dernier message envoyé -->
               <q-card v-if="lastSentMessage">
@@ -69,9 +137,11 @@
                   </div>
                 </q-card-section>
               </q-card>
+            </div>
 
+            <div class="col-12 col-md-4">
               <!-- Aperçu du dernier message reçu -->
-              <q-card v-if="lastReceivedMessage" class="q-mt-md">
+              <q-card v-if="lastReceivedMessage">
                 <q-card-section>
                   <div class="text-h6">Dernier message reçu</div>
                 </q-card-section>
@@ -95,9 +165,11 @@
                   </div>
                 </q-card-section>
               </q-card>
+            </div>
 
+            <div class="col-12 col-md-4">
               <!-- Statistiques rapides -->
-              <q-card class="q-mt-md">
+              <q-card>
                 <q-card-section>
                   <div class="text-h6">Statistiques du jour</div>
                 </q-card-section>
@@ -172,27 +244,34 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
 import { useContactStore } from '@/stores/contactStore';
 import { useWhatsAppStore } from '@/stores/whatsappStore';
+import { useQuasar } from 'quasar';
 import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 import WhatsAppSendMessage from '@/components/whatsapp/WhatsAppSendMessage.vue';
 import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServerPaginated.vue';
 import WhatsAppMediaUpload from '@/components/whatsapp/WhatsAppMediaUpload.vue';
 import WhatsAppTemplateHistoryList from '@/components/whatsapp/WhatsAppTemplateHistoryList.vue';
+import WhatsAppTemplateSelector from '@/components/whatsapp/WhatsAppTemplateSelector.vue';
+import WhatsAppMessageComposer from '@/components/whatsapp/WhatsAppMessageComposer.vue';
 
-// Stores
+// Stores and utilities
 const userStore = useUserStore();
 const contactStore = useContactStore();
 const whatsAppStore = useWhatsAppStore();
-
-// Router and route
 const route = useRoute();
+const router = useRouter();
+const $q = useQuasar();
 
 // État local
 const activeTab = ref('send');
 const contactsCount = ref(0);
+const currentStep = ref('recipient'); // 'recipient', 'template', 'customize', 'success'
+const selectedRecipient = ref('');
+const selectedTemplateData = ref(null);
+const lastSentTemplateMessage = ref(null);
 
 // Computed properties
 const lastSentMessage = computed(() => {
@@ -233,7 +312,7 @@ const stats = computed(() => {
 
 // Helper functions
 function getStatusColor(status: string) {
-  switch (status.toLowerCase()) {
+  switch (status?.toLowerCase()) {
     case 'sent':
       return 'blue';
     case 'delivered':
@@ -257,16 +336,77 @@ function formatDate(date: string | Date) {
   });
 }
 
+// Event handlers
+const onRecipientSelected = (recipientInfo: { phoneNumber: string }) => {
+  selectedRecipient.value = recipientInfo.phoneNumber;
+  currentStep.value = 'template';
+};
+
+const onTemplateSelected = (templateData: any) => {
+  selectedTemplateData.value = templateData;
+  currentStep.value = 'customize';
+};
+
+const onMessageSent = (messageData: any) => {
+  // Notification pour l'envoi réussi d'un message standard
+  $q.notify({
+    type: 'positive',
+    message: `Message envoyé à ${messageData.phoneNumber}`,
+    position: 'top'
+  });
+  
+  // Rafraîchir les statistiques et l'historique des messages
+  whatsAppStore.fetchMessages();
+};
+
+const onTemplateSent = (result: any) => {
+  if (result.success) {
+    lastSentTemplateMessage.value = {
+      messageId: result.messageId,
+      templateName: selectedTemplateData.value.template.name,
+      recipient: selectedRecipient.value,
+      timestamp: result.timestamp || new Date().toISOString()
+    };
+    
+    // Passer à l'étape de succès
+    currentStep.value = 'success';
+    
+    // Rafraîchir les statistiques et l'historique des messages
+    whatsAppStore.fetchMessages();
+  } else {
+    // Notification d'erreur
+    $q.notify({
+      type: 'negative',
+      message: `Erreur: ${result.error || 'Impossible d\'envoyer le message'}`,
+      position: 'top'
+    });
+  }
+};
+
+// Réinitialiser le formulaire pour un nouvel envoi
+const resetForm = () => {
+  selectedRecipient.value = '';
+  selectedTemplateData.value = null;
+  lastSentTemplateMessage.value = null;
+  currentStep.value = 'recipient';
+};
+
+// Aller à l'onglet des messages
+const goToMessages = () => {
+  activeTab.value = 'messages';
+};
+
 // Fonction pour rafraîchir le nombre de contacts
 const refreshContactsCount = async () => {
   contactsCount.value = await contactStore.fetchContactsCount();
 };
 
-// Process URL parameters (similar to SMS.vue)
+// Process URL parameters
 function processRouteParams() {
   if (route.query.recipient) {
-    // Si on a un destinataire dans l'URL, on pourrait le transmettre
-    // au composant WhatsAppSendMessage via des props ou un événement
+    // Si on a un destinataire dans l'URL, on le pré-remplit
+    selectedRecipient.value = route.query.recipient as string;
+    currentStep.value = 'template';
     activeTab.value = 'send';
   }
   

@@ -59,15 +59,32 @@
         </div>
 
         <div class="col-12 col-md-6">
-          <q-card v-if="showTemplateSelector" class="template-selector-card" flat bordered>
+          <q-card v-if="showTemplateSelector && !selectedTemplate" class="template-selector-card" flat bordered>
             <q-card-section>
               <EnhancedTemplateSelector
                 :title="'Sélection de Template WhatsApp'"
                 :show-advanced-filters="true"
                 :show-organized-sections="true"
                 :group-by-category="true"
-                @select="template => sendEnhancedTemplate(template, phoneNumber)"
+                @select="template => selectEnhancedTemplate(template, phoneNumber)"
                 @filter-change="handleFilterChange"
+              />
+            </q-card-section>
+          </q-card>
+          
+          <!-- Étape de personnalisation du template -->
+          <q-card v-else-if="showTemplateSelector && selectedTemplate" class="template-customization-card" flat bordered>
+            <q-card-section>
+              <div class="row justify-between items-center q-mb-md">
+                <div class="text-h6">Personnalisation du template</div>
+                <q-btn flat color="primary" icon="arrow_back" label="Changer de template" @click="selectedTemplate = null" />
+              </div>
+              
+              <WhatsAppMessageComposer
+                :template-data="templateData"
+                :recipient-phone-number="phoneNumber"
+                @message-sent="onTemplateMessageSent"
+                @cancel="showTemplateSelector = false"
               />
             </q-card-section>
           </q-card>
@@ -118,17 +135,22 @@
 <script>
 import { defineComponent, ref, onMounted, getCurrentInstance } from 'vue';
 import EnhancedTemplateSelector from '../components/whatsapp/EnhancedTemplateSelector.vue';
+import WhatsAppMessageComposer from '../components/whatsapp/WhatsAppMessageComposer.vue';
+import { whatsAppClient } from '@/services/whatsappRestClient';
 
 export default defineComponent({
   name: 'WhatsAppTemplatesView',
   components: {
-    EnhancedTemplateSelector
+    EnhancedTemplateSelector,
+    WhatsAppMessageComposer
   },
   setup() {
     console.log('[WhatsAppTemplatesView] Initialisation du composant');
     
     const phoneNumber = ref('');
     const showTemplateSelector = ref(false);
+    const selectedTemplate = ref(null);
+    const templateData = ref(null);
     const sentMessages = ref([]);
     const notification = ref({
       show: false,
@@ -148,11 +170,11 @@ export default defineComponent({
       return date.toLocaleString();
     };
 
-    // Envoyer un template
+    // Envoyer un template (utilisant le client REST)
     const sendTemplate = async (templateData) => {
       try {
         // Préparer les variables pour l'envoi
-        const input = {
+        const requestData = {
           recipientPhoneNumber: templateData.recipientPhoneNumber,
           templateName: templateData.template.name,
           templateLanguage: templateData.template.language,
@@ -163,49 +185,24 @@ export default defineComponent({
         
         // Gérer le média d'en-tête selon le type sélectionné
         if (templateData.headerMediaType === 'url' && templateData.headerMediaUrl) {
-          input.headerMediaUrl = templateData.headerMediaUrl;
+          requestData.headerMediaUrl = templateData.headerMediaUrl;
         } else if ((templateData.headerMediaType === 'id' || templateData.headerMediaType === 'upload') && templateData.headerMediaId) {
-          input.headerMediaId = templateData.headerMediaId;
+          requestData.headerMediaId = templateData.headerMediaId;
         }
         
-        console.log('[WhatsAppTemplates] Envoi du template avec les données:', input);
+        console.log('[WhatsAppTemplates] Envoi du template avec REST client:', requestData);
         
-        const response = await fetch('/graphql.php', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: `
-              mutation SendWhatsAppTemplate($input: SendTemplateInput!) {
-                sendWhatsAppTemplateV2(input: $input) {
-                  success
-                  messageId
-                  error
-                }
-              }
-            `,
-            variables: { input }
-          }),
-          credentials: 'include'
-        });
+        // Utiliser le client REST pour envoyer le template
+        const response = await whatsAppClient.sendTemplateMessageV2(requestData);
         
-        const result = await response.json();
-        
-        if (result.errors) {
-          throw new Error(result.errors[0].message);
-        }
-        
-        const sendResult = result.data.sendWhatsAppTemplateV2;
-        
-        if (sendResult.success) {
+        if (response.success) {
           // Ajouter le message à la liste des messages récents
           sentMessages.value.unshift({
             templateName: templateData.template.name,
             phoneNumber: templateData.recipientPhoneNumber,
-            timestamp: new Date().toISOString(),
+            timestamp: response.timestamp || new Date().toISOString(),
             success: true,
-            messageId: sendResult.messageId
+            messageId: response.messageId
           });
           
           // Afficher une notification de succès
@@ -218,7 +215,7 @@ export default defineComponent({
           // Fermer le sélecteur de template
           showTemplateSelector.value = false;
         } else {
-          throw new Error(sendResult.error || 'Échec de l\'envoi du message');
+          throw new Error(response.error || 'Échec de l\'envoi du message');
         }
       } catch (error) {
         console.error('Erreur lors de l\'envoi du template:', error);
@@ -247,76 +244,112 @@ export default defineComponent({
       // Ici, vous pourriez faire des actions supplémentaires basées sur les filtres
     };
 
-    // Adapter pour le nouveau format du composant EnhancedTemplateSelector
-    const sendEnhancedTemplate = async (template, recipientPhoneNumber) => {
+    // Sélectionner un template pour personnalisation 
+    const selectEnhancedTemplate = (template, recipientPhoneNumber) => {
+      console.log('Template sélectionné:', template.name);
+      
+      // Enregistrer le template sélectionné
+      selectedTemplate.value = template;
+      
+      // Obtenir les données du template depuis le composant
+      const bodyVariables = [];
+      const buttonVariables = {};
+      
+      // Extraire les informations des composants
       try {
-        // Obtenir les données du template depuis le composant
-        const bodyVariables = [];
-        const buttonVariables = {};
+        const componentsJson = template.componentsJson || '{}';
+        const components = JSON.parse(componentsJson);
         
-        // Extraire les informations des composants
-        try {
-          const componentsJson = template.componentsJson || '{}';
-          const components = JSON.parse(componentsJson);
-          
-          // Récupérer les informations du corps
-          const bodyComponent = Array.isArray(components) 
-            ? components.find(c => c.type === 'BODY')
-            : components.body;
-          
-          if (bodyComponent && bodyComponent.text) {
-            // Compter les variables dans le texte du corps
-            const regex = /{{(\d+)}}/g;
-            let match;
-            while ((match = regex.exec(bodyComponent.text)) !== null) {
-              const index = parseInt(match[1], 10) - 1;
-              if (index >= 0 && index >= bodyVariables.length) {
-                // Remplir avec des valeurs vides jusqu'à l'index
-                while (bodyVariables.length <= index) {
-                  bodyVariables.push('');
-                }
+        // Récupérer les informations du corps
+        const bodyComponent = Array.isArray(components) 
+          ? components.find(c => c.type === 'BODY')
+          : components.body;
+        
+        if (bodyComponent && bodyComponent.text) {
+          // Compter les variables dans le texte du corps
+          const regex = /{{(\d+)}}/g;
+          let match;
+          while ((match = regex.exec(bodyComponent.text)) !== null) {
+            const index = parseInt(match[1], 10) - 1;
+            if (index >= 0 && index >= bodyVariables.length) {
+              // Remplir avec des valeurs vides jusqu'à l'index
+              while (bodyVariables.length <= index) {
+                bodyVariables.push('');
               }
             }
           }
-          
-          // Récupérer les informations des boutons
-          const buttonsComponent = Array.isArray(components)
-            ? components.find(c => c.type === 'BUTTONS')
-            : components.buttons;
-          
-          if (buttonsComponent && buttonsComponent.buttons) {
-            buttonsComponent.buttons.forEach((button, index) => {
-              if (button.type === 'URL') {
-                buttonVariables[index] = '';
-              } else if (button.type === 'QUICK_REPLY') {
-                buttonVariables[index] = '';
-              }
-            });
-          }
-        } catch (e) {
-          console.error('Erreur lors de l\'analyse des composants:', e);
         }
         
-        // Créer l'objet templateData pour compatibilité
-        const templateData = {
-          recipientPhoneNumber,
-          template,
-          templateComponentsJsonString: template.componentsJson,
-          bodyVariables,
-          buttonVariables,
-          headerMediaType: 'url',
-          headerMediaUrl: '',
-          headerMediaId: ''
+        // Récupérer les informations des boutons
+        const buttonsComponent = Array.isArray(components)
+          ? components.find(c => c.type === 'BUTTONS')
+          : components.buttons;
+        
+        if (buttonsComponent && buttonsComponent.buttons) {
+          buttonsComponent.buttons.forEach((button, index) => {
+            if (button.type === 'URL') {
+              buttonVariables[index] = '';
+            } else if (button.type === 'QUICK_REPLY') {
+              buttonVariables[index] = '';
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Erreur lors de l\'analyse des composants:', e);
+      }
+      
+      // Créer l'objet templateData pour le WhatsAppMessageComposer
+      templateData.value = {
+        recipientPhoneNumber,
+        template,
+        templateComponentsJsonString: template.componentsJson,
+        bodyVariables,
+        buttonVariables,
+        headerMediaType: 'url',
+        headerMediaUrl: '',
+        headerMediaId: ''
+      };
+      
+      console.log('Template prêt pour personnalisation:', templateData.value);
+    };
+    
+    // Pour compatibilité, conserver sendEnhancedTemplate mais rediriger vers le nouveau processus
+    const sendEnhancedTemplate = async (template, recipientPhoneNumber) => {
+      // Plutôt que d'envoyer directement, passer par l'étape de personnalisation
+      selectEnhancedTemplate(template, recipientPhoneNumber);
+    };
+    
+    // Callback quand un message template a été envoyé
+    const onTemplateMessageSent = (result) => {
+      console.log('Message template envoyé:', result);
+      
+      if (result.success) {
+        // Ajouter le message à la liste des messages récents
+        sentMessages.value.unshift({
+          templateName: selectedTemplate.value.name,
+          phoneNumber: phoneNumber.value,
+          timestamp: result.timestamp || new Date().toISOString(),
+          success: true,
+          messageId: result.messageId
+        });
+        
+        // Afficher une notification de succès
+        notification.value = {
+          show: true,
+          success: true,
+          message: 'Le message WhatsApp a été envoyé avec succès !'
         };
         
-        // Utiliser la fonction existante pour envoyer le template
-        await sendTemplate(templateData);
-      } catch (error) {
-        console.error('Erreur lors de l\'envoi du template amélioré:', error);
+        // Réinitialiser l'interface
+        selectedTemplate.value = null;
+        templateData.value = null;
+        showTemplateSelector.value = false;
+      } else {
+        // Afficher une notification d'erreur
         notification.value = {
           show: true,
           success: false,
-          message: `Erreur: ${error.message}`
+          message: `Erreur: ${result.error}`
         };
       }
     };
@@ -324,11 +357,15 @@ export default defineComponent({
     return {
       phoneNumber,
       showTemplateSelector,
+      selectedTemplate,
+      templateData,
       sentMessages,
       notification,
       formatDate,
       sendTemplate,
       sendEnhancedTemplate,
+      selectEnhancedTemplate,
+      onTemplateMessageSent,
       handleFilterChange
     };
   }

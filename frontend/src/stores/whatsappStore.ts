@@ -791,6 +791,10 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     await fetchMessages();
   }
 
+  // La méthode sendTemplateV2 a été supprimée car nous utilisons
+  // maintenant une approche REST exclusive pour l'envoi des templates WhatsApp.
+  // Voir la méthode sendTemplateMessageV2 dans le fichier whatsappRestClient.ts.
+
   return {
     // State
     messages,

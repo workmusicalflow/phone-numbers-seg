@@ -4,29 +4,16 @@ declare(strict_types=1);
 
 namespace App\GraphQL\Types\WhatsApp;
 
-use TheCodingMachine\GraphQLite\Annotations\Field;
-use TheCodingMachine\GraphQLite\Annotations\Type;
-
 /**
- * Résultat d'envoi de template WhatsApp
+ * Cette classe a été conservée pour référence mais n'est plus utilisée activement.
+ * L'envoi de templates WhatsApp est maintenant géré exclusivement via l'API REST.
  * 
- * @Type(name="SendTemplateResult")
+ * @deprecated Utiliser l'API REST à la place (/api/whatsapp/send-template-v2.php)
  */
 class SendTemplateResult
 {
-    /**
-     * @var bool
-     */
     private $success;
-    
-    /**
-     * @var string|null
-     */
     private $messageId;
-    
-    /**
-     * @var string|null
-     */
     private $error;
 
     public function __construct(bool $success, ?string $messageId = null, ?string $error = null)
@@ -37,16 +24,15 @@ class SendTemplateResult
     }
 
     /**
-     * @Field(name="success")
+     * Indique si l'opération a réussi
      */
     public function getSuccess(): bool
     {
-        // Si pour une raison quelconque success est null, on retourne false
         return $this->success === null ? false : $this->success;
     }
 
     /**
-     * @Field(name="messageId")
+     * Retourne l'ID du message envoyé
      */
     public function getMessageId(): ?string
     {
@@ -54,7 +40,7 @@ class SendTemplateResult
     }
 
     /**
-     * @Field(name="error")
+     * Retourne le message d'erreur en cas d'échec
      */
     public function getError(): ?string
     {

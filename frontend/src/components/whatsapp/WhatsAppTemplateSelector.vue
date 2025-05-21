@@ -12,126 +12,225 @@
       />
     </div>
 
-    <div class="filters-container q-mb-md">
-      <div class="row q-col-gutter-md">
-        <div class="col-12 col-md-4">
-          <q-input
-            outlined
-            dense
-            v-model="filters.search"
-            label="Rechercher un template"
-            clearable
-            @update:model-value="filterTemplates"
-          >
-            <template v-slot:append>
-              <q-icon name="search" />
-            </template>
-          </q-input>
+    <q-card class="filters-container q-mb-md">
+      <q-card-section>
+        <div class="row items-center q-mb-sm">
+          <div class="col-grow">
+            <div class="text-subtitle1 text-weight-medium text-primary">Filtres</div>
+          </div>
+          <div class="col-auto">
+            <q-btn 
+              v-if="hasActiveFilters" 
+              flat 
+              dense 
+              color="grey-7" 
+              icon="close" 
+              size="sm" 
+              class="q-ml-sm" 
+              @click="resetFilters"
+              label="Réinitialiser"
+            />
+          </div>
         </div>
-        <div class="col-12 col-md-4">
-          <q-select
-            outlined
-            dense
-            v-model="filters.category"
-            :options="categoryOptions"
-            label="Catégorie"
-            emit-value
-            map-options
-            clearable
-            @update:model-value="filterTemplates"
+        
+        <div class="row q-col-gutter-md">
+          <div class="col-12 col-md-6 col-lg-4">
+            <q-input
+              outlined
+              dense
+              v-model="filters.search"
+              label="Rechercher un template"
+              clearable
+              @update:model-value="filterTemplates"
+              class="search-input"
+            >
+              <template v-slot:prepend>
+                <q-icon name="search" color="grey-7" />
+              </template>
+              <template v-slot:append v-if="filters.search">
+                <q-icon name="close" class="cursor-pointer" color="grey-7" @click="filters.search = ''; filterTemplates()" />
+              </template>
+            </q-input>
+          </div>
+          <div class="col-6 col-md-3 col-lg-4">
+            <q-select
+              outlined
+              dense
+              v-model="filters.category"
+              :options="categoryOptions"
+              label="Catégorie"
+              emit-value
+              map-options
+              clearable
+              @update:model-value="filterTemplates"
+              :display-value="filters.category || 'Toutes les catégories'"
+              options-dense
+            >
+              <template v-slot:prepend>
+                <q-icon name="category" color="grey-7" />
+              </template>
+            </q-select>
+          </div>
+          <div class="col-6 col-md-3 col-lg-4">
+            <q-select
+              outlined
+              dense
+              v-model="filters.language"
+              :options="languageOptions"
+              label="Langue"
+              emit-value
+              map-options
+              clearable
+              @update:model-value="filterTemplates"
+              :display-value="filters.language || 'Toutes les langues'"
+              options-dense
+            >
+              <template v-slot:prepend>
+                <q-icon name="language" color="grey-7" />
+              </template>
+            </q-select>
+          </div>
+        </div>
+        
+        <div v-if="showAdvancedFilters" class="row q-col-gutter-md q-mt-md">
+          <div class="col-12 col-sm-6 col-md-4">
+            <q-toggle 
+              v-model="filters.showMediaOnly" 
+              label="Templates avec média uniquement"
+              color="primary"
+              @update:model-value="filterTemplates"
+              dense
+            />
+          </div>
+          <div class="col-12 col-sm-6 col-md-4">
+            <q-toggle 
+              v-model="filters.showButtonsOnly" 
+              label="Templates avec boutons uniquement"
+              color="primary"
+              @update:model-value="filterTemplates"
+              dense
+            />
+          </div>
+        </div>
+        
+        <div class="q-mt-sm text-right">
+          <q-btn 
+            flat 
+            dense 
+            color="primary" 
+            :icon="showAdvancedFilters ? 'keyboard_arrow_up' : 'keyboard_arrow_down'" 
+            :label="showAdvancedFilters ? 'Moins de filtres' : 'Plus de filtres'" 
+            @click="showAdvancedFilters = !showAdvancedFilters"
           />
         </div>
-        <div class="col-12 col-md-4">
-          <q-select
-            outlined
-            dense
-            v-model="filters.language"
-            :options="languageOptions"
-            label="Langue"
-            emit-value
-            map-options
-            clearable
-            @update:model-value="filterTemplates"
-          />
+      </q-card-section>
+    </q-card>
+
+    <div v-if="!selectedTemplate" class="template-list-container">
+      <div v-if="loading" class="text-center q-pa-xl">
+        <q-spinner-dots color="primary" size="3em" />
+        <p class="text-grey-8 q-mt-md">Chargement des templates...</p>
+        <q-linear-progress indeterminate color="primary" class="q-mt-md" style="max-width: 250px; margin: 0 auto;" />
+      </div>
+
+      <div v-else-if="filteredTemplates.length === 0" class="text-center q-pa-xl empty-state">
+        <q-icon name="search_off" color="grey-6" size="4em" />
+        <h6 class="text-grey-8 q-my-md">Aucun template trouvé</h6>
+        <p class="text-grey-7 q-mb-lg" style="max-width: 400px; margin: 0 auto;">
+          Veuillez ajuster vos filtres ou vérifier que des templates sont disponibles dans votre compte WhatsApp Business.
+        </p>
+        <q-btn 
+          v-if="hasActiveFilters" 
+          outline 
+          color="primary" 
+          icon="filter_alt_off" 
+          label="Réinitialiser les filtres" 
+          @click="resetFilters"
+        />
+      </div>
+
+      <div v-else>
+        <!-- Templates groupés par catégorie -->
+        <div v-for="category in getUniqueCategories()" :key="category" class="template-category q-mb-lg">
+          <h5 class="q-ml-sm q-my-md text-weight-medium">{{ category }}</h5>
+          
+          <div class="row q-col-gutter-md">
+            <div 
+              v-for="template in getTemplatesByCategory(category)" 
+              :key="template.id"
+              class="col-12 col-sm-6 col-lg-4"
+            >
+              <q-card 
+                class="template-card cursor-pointer" 
+                clickable 
+                @click="selectTemplate(template)"
+              >
+                <q-card-section class="template-card-header">
+                  <div class="row items-center no-wrap full-width">
+                    <div class="col-grow">
+                      <div class="text-subtitle1 text-weight-medium text-primary ellipsis">{{ template.name }}</div>
+                      <div class="text-caption text-grey">{{ template.language }}</div>
+                    </div>
+                    <!-- Type d'en-tête indicator -->
+                    <div class="col-auto">
+                      <q-icon 
+                        v-if="template.hasMediaHeader && template.headerType === 'IMAGE'" 
+                        name="image" 
+                        size="24px" 
+                        color="purple" 
+                      />
+                      <q-icon 
+                        v-else-if="template.hasMediaHeader && template.headerType === 'VIDEO'"
+                        name="videocam" 
+                        size="24px" 
+                        color="purple" 
+                      />
+                      <q-icon 
+                        v-else-if="template.hasMediaHeader && template.headerType === 'DOCUMENT'"
+                        name="description" 
+                        size="24px" 
+                        color="purple" 
+                      />
+                      <q-icon 
+                        v-else
+                        name="text_format" 
+                        size="24px" 
+                        color="blue-grey" 
+                      />
+                    </div>
+                  </div>
+                </q-card-section>
+                
+                <q-separator />
+                
+                <q-card-section class="template-card-content">
+                  <div class="template-description text-grey-8 q-mb-sm">
+                    {{ template.description || `Template ${template.name}` }}
+                  </div>
+                  
+                  <div class="template-attributes">
+                    <div v-if="template.bodyVariablesCount > 0" class="attribute">
+                      <q-icon name="code" size="16px" color="blue" />
+                      <span class="q-ml-xs">{{ template.bodyVariablesCount }} variable(s)</span>
+                    </div>
+                    <div v-if="template.hasButtons" class="attribute">
+                      <q-icon name="smart_button" size="16px" color="orange" />
+                      <span class="q-ml-xs">{{ template.buttonsCount }} bouton(s)</span>
+                    </div>
+                  </div>
+                </q-card-section>
+                
+                <q-card-actions align="right">
+                  <q-btn flat color="primary" label="Sélectionner" :ripple="false">
+                    <q-tooltip>Sélectionner ce template</q-tooltip>
+                  </q-btn>
+                </q-card-actions>
+              </q-card>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-
-    <q-card
-      v-if="!selectedTemplate"
-      class="template-list-container"
-      flat
-      bordered
-    >
-      <q-card-section>
-        <div v-if="loading" class="text-center q-pa-md">
-          <q-spinner color="primary" size="3em" />
-          <p>Chargement des templates...</p>
-        </div>
-
-        <div v-else-if="filteredTemplates.length === 0" class="text-center q-pa-md">
-          <q-icon name="info" color="grey" size="3em" />
-          <p>Aucun template trouvé. Veuillez ajuster vos filtres ou vérifier que des templates sont disponibles dans votre compte WhatsApp Business.</p>
-        </div>
-
-        <q-list v-else separator>
-          <q-item
-            v-for="template in filteredTemplates"
-            :key="template.id"
-            clickable
-            v-ripple
-            @click="selectTemplate(template)"
-          >
-            <q-item-section>
-              <q-item-label>{{ template.name }}</q-item-label>
-              <q-item-label caption>
-                {{ template.description }}
-              </q-item-label>
-              <div class="template-details q-mt-xs">
-                <q-badge outline :color="getCategoryColor(template.category)">
-                  {{ template.category }}
-                </q-badge>
-                <q-badge outline color="grey" class="q-ml-sm">
-                  {{ template.language }}
-                </q-badge>
-                <q-badge
-                  v-if="template.hasMediaHeader"
-                  outline
-                  color="purple"
-                  class="q-ml-sm"
-                >
-                  {{ template.headerType }}
-                </q-badge>
-                <q-badge
-                  v-if="template.bodyVariablesCount > 0"
-                  outline
-                  color="blue"
-                  class="q-ml-sm"
-                >
-                  {{ template.bodyVariablesCount }} variable(s)
-                </q-badge>
-                <q-badge
-                  v-if="template.hasButtons"
-                  outline
-                  color="orange"
-                  class="q-ml-sm"
-                >
-                  {{ template.buttonsCount }} bouton(s)
-                </q-badge>
-              </div>
-            </q-item-section>
-            <q-item-section side>
-              <q-btn
-                color="primary"
-                flat
-                round
-                icon="arrow_forward"
-              />
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-card-section>
-    </q-card>
 
     <div v-else class="template-config-container">
       <div class="template-header q-mb-md">
@@ -554,21 +653,59 @@ export default defineComponent({
     const uploadedMediaId = ref('');
     const uploadError = ref('');
 
+    // Gestion des filtres avancés
+    const showAdvancedFilters = ref(false);
+    
     // Filtres
     const filters = ref({
       search: '',
       category: null,
-      language: null
+      language: null,
+      showMediaOnly: false,
+      showButtonsOnly: false
     });
+    
+    // Détermine si des filtres sont actifs
+    const hasActiveFilters = computed(() => {
+      return !!filters.value.search || 
+             !!filters.value.category || 
+             !!filters.value.language || 
+             filters.value.showMediaOnly || 
+             filters.value.showButtonsOnly;
+    });
+
+    // Réinitialiser tous les filtres
+    const resetFilters = () => {
+      filters.value = {
+        search: '',
+        category: null,
+        language: null,
+        showMediaOnly: false,
+        showButtonsOnly: false
+      };
+      filterTemplates();
+    };
 
     // Options pour les filtres
     const categoryOptions = computed(() => {
       const categories = [...new Set(templates.value.map(t => t.category))];
       return categories.map(category => ({
         label: category,
-        value: category
+        value: category,
+        icon: getCategoryIcon(category)
       }));
     });
+
+    // Retourne une icône selon la catégorie
+    const getCategoryIcon = (category) => {
+      const icons = {
+        'MARKETING': 'campaign',
+        'UTILITY': 'build',
+        'AUTHENTICATION': 'security',
+        'ISSUE_RESOLUTION': 'support'
+      };
+      return icons[category] || 'category';
+    };
 
     const languageOptions = computed(() => {
       const languages = [...new Set(templates.value.map(t => t.language))];
@@ -578,7 +715,7 @@ export default defineComponent({
       }));
     });
 
-    // Templates filtrés
+    // Templates filtrés avec options avancées
     const filteredTemplates = computed(() => {
       return templates.value.filter(template => {
         // Filtre par recherche
@@ -594,6 +731,15 @@ export default defineComponent({
         
         // Filtre par langue
         if (filters.value.language && template.language !== filters.value.language) {
+          return false;
+        }
+        
+        // Filtres avancés
+        if (filters.value.showMediaOnly && !template.hasMediaHeader) {
+          return false;
+        }
+        
+        if (filters.value.showButtonsOnly && !template.hasButtons) {
           return false;
         }
         
@@ -1119,7 +1265,18 @@ export default defineComponent({
       loadTemplates();
     });
 
-    return {
+    // Nouvelle méthode pour obtenir les catégories uniques
+  const getUniqueCategories = () => {
+    const categories = [...new Set(filteredTemplates.value.map(t => t.category))];
+    return categories;
+  };
+
+  // Nouvelle méthode pour obtenir les templates par catégorie
+  const getTemplatesByCategory = (category) => {
+    return filteredTemplates.value.filter(t => t.category === category);
+  };
+
+  return {
       loading,
       templates,
       filteredTemplates,
@@ -1145,6 +1302,10 @@ export default defineComponent({
       languageOptions,
       error,
       
+      // Nouvelles méthodes pour le groupement par catégorie
+      getUniqueCategories,
+      getTemplatesByCategory,
+      
       loadTemplates,
       selectTemplate,
       filterTemplates,
@@ -1167,20 +1328,155 @@ export default defineComponent({
 <style scoped>
 .whatsapp-template-selector {
   width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 .template-selector-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
+.template-selector-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.filters-container {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+}
+
+/* Conteneur principal des templates */
 .template-list-container {
-  max-height: 450px;
+  max-height: 75vh;
   overflow-y: auto;
+  padding: 8px 4px;
+  scrollbar-width: thin;
+  position: relative;
 }
 
+.empty-state {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.template-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.template-list-container::-webkit-scrollbar-thumb {
+  background-color: #ddd;
+  border-radius: 4px;
+}
+
+.template-list-container::-webkit-scrollbar-track {
+  background-color: #f8f8f8;
+}
+
+.template-category {
+  margin-bottom: 24px;
+}
+
+.template-category h5 {
+  color: #455a64;
+  padding-left: 12px;
+  border-left: 3px solid #1976d2;
+  margin-bottom: 16px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.template-category h5::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #1976d2;
+  margin-right: 8px;
+}
+
+/* Design des cartes de template */
+.template-card {
+  transition: all 0.25s ease-in-out;
+  border-radius: 8px;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.09);
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.template-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  border-color: #1976d2;
+}
+
+.template-card:active {
+  transform: translateY(-2px);
+  transition: all 0.1s ease;
+}
+
+.template-card-header {
+  padding: 12px 16px;
+  background-color: #f8fafc;
+}
+
+.template-card-content {
+  flex-grow: 1;
+  padding: 16px;
+}
+
+.template-description {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #546e7a;
+  min-height: 2.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-attributes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.attribute {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #546e7a;
+  background-color: #f5f5f5;
+  border-radius: 16px;
+  padding: 4px 12px;
+  transition: all 0.2s ease;
+}
+
+.attribute:hover {
+  background-color: #e0e0e0;
+  transform: scale(1.05);
+}
+
+/* Anciens styles pour la partie preview du template sélectionné */
 .template-details {
   display: flex;
   flex-wrap: wrap;
@@ -1197,9 +1493,10 @@ export default defineComponent({
   border: 1px solid #ddd;
   border-radius: 8px;
   background-color: #f8f8f8;
-  padding: 12px;
+  padding: 16px;
   max-width: 350px;
   margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
 }
 
 .preview-header-placeholder,
@@ -1208,7 +1505,7 @@ export default defineComponent({
 .document-placeholder,
 .media-placeholder {
   background-color: #e0e0e0;
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 12px;
   text-align: center;
   margin-bottom: 8px;
@@ -1221,19 +1518,22 @@ export default defineComponent({
 
 .preview-body {
   white-space: pre-line;
+  line-height: 1.5;
 }
 
 .preview-buttons {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .media-preview-container {
   max-width: 100%;
   overflow: hidden;
-  margin-top: 12px;
+  margin-top: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .media-preview {
@@ -1255,6 +1555,58 @@ export default defineComponent({
 }
 
 .upload-container {
-  padding-bottom: 8px;
+  padding-bottom: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .template-list-container {
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  .template-card {
+    margin-bottom: 16px;
+  }
+  
+  .template-selector-header h3 {
+    font-size: 1.25rem;
+  }
+  
+  .filters-container {
+    padding: 12px;
+  }
+  
+  .template-category h5 {
+    font-size: 1rem;
+  }
+  
+  .template-card-header {
+    padding: 10px 12px;
+  }
+  
+  .template-card-content {
+    padding: 12px;
+  }
+  
+  .attribute {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+  }
+}
+
+/* Special layout for very small screens */
+@media (max-width: 390px) {
+  .template-category h5::before {
+    display: none;
+  }
+  
+  .template-card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.09);
+  }
+  
+  .template-card:hover {
+    transform: translateY(-2px);
+  }
 }
 </style>

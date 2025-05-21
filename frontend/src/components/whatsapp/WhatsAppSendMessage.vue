@@ -54,9 +54,17 @@
                   {{ textMessage.length }}/1000 caractères
                 </div>
 
-                <div class="row justify-end q-mt-md">
+                <div class="row justify-between q-mt-md">
                   <q-btn
-                    label="Envoyer"
+                    outline
+                    color="secondary"
+                    label="Continuer avec les templates"
+                    icon-right="arrow_forward"
+                    :disable="!recipient"
+                    @click="selectRecipient"
+                  />
+                  <q-btn
+                    label="Envoyer message texte"
                     color="primary"
                     :loading="sending"
                     @click="sendTextMessage"
@@ -177,12 +185,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, defineEmits } from 'vue';
 import { useQuasar } from 'quasar';
 import { useWhatsAppStore } from '@/stores/whatsappStore';
 
 const $q = useQuasar();
 const whatsAppStore = useWhatsAppStore();
+
+// Définir les événements émis par le composant
+const emit = defineEmits(['message-sent', 'recipient-selected']);
 
 // Références
 const textForm = ref(null);
@@ -251,6 +262,31 @@ function normalizePhoneNumber(phoneNumber: string): string {
   return number;
 }
 
+// Fonction pour sélectionner le destinataire et passer à la sélection de template
+function selectRecipient() {
+  if (!recipient.value) {
+    $q.notify({
+      type: 'warning',
+      message: 'Veuillez entrer un numéro de téléphone valide'
+    });
+    return;
+  }
+  
+  const normalizedRecipient = normalizePhoneNumber(recipient.value);
+  
+  // Formater le numéro pour l'afficher avec le format international
+  let formattedNumber = normalizedRecipient;
+  if (!formattedNumber.startsWith('+')) {
+    formattedNumber = '+' + formattedNumber;
+  }
+  
+  // Emettre l'événement pour indiquer que le destinataire a été sélectionné
+  emit('recipient-selected', { 
+    phoneNumber: formattedNumber,
+    original: recipient.value
+  });
+}
+
 // Actions pour envoyer les messages
 async function sendTextMessage() {
   if (!recipient.value || !textMessage.value) {
@@ -271,6 +307,13 @@ async function sendTextMessage() {
     $q.notify({
       type: 'positive',
       message: 'Message envoyé avec succès'
+    });
+    
+    // Emettre l'événement pour indiquer que le message a été envoyé
+    emit('message-sent', {
+      phoneNumber: normalizedRecipient,
+      type: 'text',
+      content: textMessage.value
     });
     
     // Réinitialiser les champs après envoi réussi
@@ -343,6 +386,14 @@ async function sendTemplateMessage() {
     $q.notify({
       type: 'positive',
       message: 'Template envoyé avec succès'
+    });
+    
+    // Emettre l'événement pour indiquer que le message a été envoyé
+    emit('message-sent', {
+      phoneNumber: normalizedRecipient,
+      type: 'template',
+      templateName: selectedTemplate.value,
+      languageCode: templateLanguage.value
     });
     
     // Réinitialiser tous les champs après envoi réussi
