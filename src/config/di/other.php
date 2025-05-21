@@ -95,6 +95,15 @@ return [
             $container->get(\App\Services\ExportService::class)  // Use concrete service
         );
     }),
+    
+    \App\Controllers\WhatsAppController::class => factory(function (Container $container) {
+        return new \App\Controllers\WhatsAppController(
+            $container->get(\App\Services\Interfaces\WhatsApp\WhatsAppServiceInterface::class),
+            $container->get(\App\Repositories\Interfaces\WhatsApp\WhatsAppTemplateRepositoryInterface::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+            $container->get(\App\Services\Interfaces\WhatsApp\WhatsAppTemplateServiceInterface::class)
+        );
+    }),
 
     // --- Middleware ---
 

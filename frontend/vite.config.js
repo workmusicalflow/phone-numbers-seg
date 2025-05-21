@@ -6,7 +6,12 @@ import { resolve } from "path";
 export default defineConfig({
     plugins: [
         vue({
-            template: { transformAssetUrls: transformAssetUrls },
+            template: {
+                transformAssetUrls: transformAssetUrls,
+                compilerOptions: {
+                    isCustomElement: function (tag) { return tag.includes('whatsapp-'); }
+                }
+            },
         }),
         quasar({
             sassVariables: "@/quasar-variables.sass", // Use alias for quasar sass variable path
@@ -14,8 +19,26 @@ export default defineConfig({
     ],
     server: {
         proxy: {
-            "/api.php": "http://localhost:8000",
-            "/graphql.php": "http://localhost:8000",
+            "/api.php": {
+                target: "http://localhost:8000",
+                changeOrigin: true,
+                // secure: false, // uncomment if your backend is on http
+            },
+            "/graphql.php": {
+                target: "http://localhost:8000",
+                changeOrigin: true,
+                // secure: false, // uncomment if your backend is on http
+            },
+            "/api": {
+                target: "http://localhost:8000",
+                changeOrigin: true,
+                // secure: false, // uncomment if your backend is on http
+            },
+            "/whatsapp": {
+                target: "http://localhost:8000",
+                changeOrigin: true,
+                // secure: false, // uncomment if your backend is on http
+            },
         },
     },
     resolve: {

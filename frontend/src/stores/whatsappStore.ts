@@ -24,6 +24,27 @@ export interface WhatsAppMessageHistory {
   updatedAt: string;
 }
 
+// Type pour l'historique des templates WhatsApp
+export interface WhatsAppTemplateHistory {
+  id: string;
+  templateId: string;
+  templateName: string;
+  language: string;
+  category: string;
+  recipient: string;
+  parameters: any;
+  bodyVariables: string[];
+  headerMediaType: string | null;
+  headerMediaUrl: string | null;
+  headerMediaId: string | null;
+  status: string;
+  senderId: string;
+  senderName: string;
+  messageHistoryId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Input pour l'envoi de messages
 export interface WhatsAppMessageInput {
   phoneNumber: string;
@@ -49,15 +70,24 @@ export interface WhatsAppTemplateSendInput {
 export const useWhatsAppStore = defineStore('whatsapp', () => {
   // État
   const messages = ref<WhatsAppMessageHistory[]>([]);
+  const templateHistory = ref<WhatsAppTemplateHistory[]>([]);
+  const mostUsedTemplates = ref<{templateName: string, count: number, language: string}[]>([]);
+  const commonParameters = ref<{templateName: string, parameterValues: {[key: string]: string[]}}[]>([]);
   const isLoading = ref(false);
+  const isLoadingTemplateHistory = ref(false);
   const error = ref<string | null>(null);
   const totalCount = ref(0);
+  const templateHistoryTotalCount = ref(0);
   const currentPage = ref(1);
+  const templateHistoryCurrentPage = ref(1);
   const pageSize = ref(20);
+  const templateHistoryPageSize = ref(20);
   
   // Filtres
   const filterPhoneNumber = ref('');
   const filterStatus = ref('');
+  const filterTemplateName = ref('');
+  const filterTemplateLanguage = ref('');
   
   // Getters
   const sortedMessages = computed(() => {
@@ -92,6 +122,47 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
   
   const totalPages = computed(() => {
     return Math.ceil(filteredMessages.value.length / pageSize.value);
+  });
+  
+  // Template history getters
+  const sortedTemplateHistory = computed(() => {
+    return [...templateHistory.value].sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  });
+  
+  const filteredTemplateHistory = computed(() => {
+    let filtered = sortedTemplateHistory.value;
+    
+    if (filterTemplateName.value) {
+      filtered = filtered.filter(tpl => 
+        tpl.templateName.toLowerCase().includes(filterTemplateName.value.toLowerCase())
+      );
+    }
+    
+    if (filterTemplateLanguage.value) {
+      filtered = filtered.filter(tpl => 
+        tpl.language === filterTemplateLanguage.value
+      );
+    }
+    
+    if (filterPhoneNumber.value) {
+      filtered = filtered.filter(tpl => 
+        tpl.recipient.includes(filterPhoneNumber.value)
+      );
+    }
+    
+    return filtered;
+  });
+  
+  const paginatedTemplateHistory = computed(() => {
+    const start = (templateHistoryCurrentPage.value - 1) * templateHistoryPageSize.value;
+    const end = start + templateHistoryPageSize.value;
+    return filteredTemplateHistory.value.slice(start, end);
+  });
+  
+  const templateHistoryTotalPages = computed(() => {
+    return Math.ceil(filteredTemplateHistory.value.length / templateHistoryPageSize.value);
   });
   
   // Actions
@@ -277,6 +348,128 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
       return [];
     }
   }
+  
+  // Actions pour l'historique des templates
+  async function fetchTemplateHistory() {
+    isLoadingTemplateHistory.value = true;
+    error.value = null;
+    
+    try {
+      const result = await apolloClient.query({
+        query: gql`
+          query GetWhatsAppTemplateHistory($limit: Int, $offset: Int) {
+            getWhatsAppTemplateHistory(limit: $limit, offset: $offset) {
+              records {
+                id
+                templateId
+                templateName
+                language
+                category
+                recipient
+                parameters
+                bodyVariables
+                headerMediaType
+                headerMediaUrl
+                headerMediaId
+                status
+                senderId
+                senderName
+                messageHistoryId
+                createdAt
+                updatedAt
+              }
+              totalCount
+            }
+          }
+        `,
+        variables: {
+          limit: 100,
+          offset: 0
+        },
+        fetchPolicy: 'network-only'
+      });
+      
+      if (result && result.data && result.data.getWhatsAppTemplateHistory) {
+        templateHistory.value = result.data.getWhatsAppTemplateHistory.records || [];
+        templateHistoryTotalCount.value = result.data.getWhatsAppTemplateHistory.totalCount || 0;
+      } else {
+        console.warn('Aucun historique de templates WhatsApp reçu');
+        templateHistory.value = [];
+        templateHistoryTotalCount.value = 0;
+      }
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de la récupération de l\'historique des templates:', err);
+    } finally {
+      isLoadingTemplateHistory.value = false;
+    }
+  }
+  
+  async function fetchMostUsedTemplates() {
+    isLoadingTemplateHistory.value = true;
+    error.value = null;
+    
+    try {
+      const result = await apolloClient.query({
+        query: gql`
+          query GetMostUsedWhatsAppTemplates($limit: Int) {
+            getMostUsedWhatsAppTemplates(limit: $limit) {
+              templateName
+              count
+              language
+            }
+          }
+        `,
+        variables: {
+          limit: 10
+        },
+        fetchPolicy: 'network-only'
+      });
+      
+      if (result && result.data && result.data.getMostUsedWhatsAppTemplates) {
+        mostUsedTemplates.value = result.data.getMostUsedWhatsAppTemplates || [];
+      } else {
+        console.warn('Aucune statistique de templates WhatsApp reçue');
+        mostUsedTemplates.value = [];
+      }
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de la récupération des templates les plus utilisés:', err);
+    } finally {
+      isLoadingTemplateHistory.value = false;
+    }
+  }
+  
+  async function fetchCommonParameterValues() {
+    isLoadingTemplateHistory.value = true;
+    error.value = null;
+    
+    try {
+      const result = await apolloClient.query({
+        query: gql`
+          query GetCommonWhatsAppTemplateParameters {
+            getCommonWhatsAppTemplateParameters {
+              templateName
+              parameterValues
+            }
+          }
+        `,
+        fetchPolicy: 'network-only'
+      });
+      
+      if (result && result.data && result.data.getCommonWhatsAppTemplateParameters) {
+        commonParameters.value = result.data.getCommonWhatsAppTemplateParameters || [];
+      } else {
+        console.warn('Aucun paramètre commun de templates WhatsApp reçu');
+        commonParameters.value = [];
+      }
+    } catch (err: any) {
+      error.value = err.message || 'Une erreur est survenue';
+      console.error('Erreur lors de la récupération des paramètres communs:', err);
+    } finally {
+      isLoadingTemplateHistory.value = false;
+    }
+  }
 
   // Actions de pagination et filtrage
   function setCurrentPage(page: number) {
@@ -292,6 +485,25 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     filterPhoneNumber.value = phoneNumber;
     filterStatus.value = status;
     currentPage.value = 1;
+  }
+  
+  // Actions de pagination et filtrage pour l'historique des templates
+  function setTemplateHistoryCurrentPage(page: number) {
+    templateHistoryCurrentPage.value = page;
+  }
+
+  function setTemplateHistoryPageSize(size: number) {
+    templateHistoryPageSize.value = size;
+    templateHistoryCurrentPage.value = 1;
+  }
+
+  function setTemplateHistoryFilters(templateName: string = '', language: string = '', phoneNumber: string = '') {
+    filterTemplateName.value = templateName;
+    filterTemplateLanguage.value = language;
+    if (phoneNumber) {
+      filterPhoneNumber.value = phoneNumber;
+    }
+    templateHistoryCurrentPage.value = 1;
   }
   
   // Nouvelle action pour la pagination serveur
@@ -582,19 +794,32 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
   return {
     // State
     messages,
+    templateHistory,
+    mostUsedTemplates,
+    commonParameters,
     isLoading,
+    isLoadingTemplateHistory,
     error,
     totalCount,
+    templateHistoryTotalCount,
     currentPage,
+    templateHistoryCurrentPage,
     pageSize,
+    templateHistoryPageSize,
     filterPhoneNumber,
     filterStatus,
+    filterTemplateName,
+    filterTemplateLanguage,
     
     // Getters
     sortedMessages,
     filteredMessages,
     paginatedMessages,
     totalPages,
+    sortedTemplateHistory,
+    filteredTemplateHistory,
+    paginatedTemplateHistory,
+    templateHistoryTotalPages,
     
     // Actions
     fetchMessages,
@@ -606,9 +831,15 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
     sendTemplate,
     sendMediaMessage,
     loadUserTemplates,
+    fetchTemplateHistory,
+    fetchMostUsedTemplates,
+    fetchCommonParameterValues,
     setCurrentPage,
     setPageSize,
     setFilters,
+    setTemplateHistoryCurrentPage,
+    setTemplateHistoryPageSize,
+    setTemplateHistoryFilters,
     clearFilters,
     refreshMessages
   };

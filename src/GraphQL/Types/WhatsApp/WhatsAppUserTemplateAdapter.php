@@ -67,8 +67,18 @@ class WhatsAppUserTemplateAdapter
     /**
      * @Field
      */
+    public function getCategory(WhatsAppTemplate $template): string
+    {
+        // Retourne la catégorie du template ou 'STANDARD' par défaut
+        return $template->getCategory() ?? 'STANDARD';
+    }
+
+    /**
+     * @Field
+     */
     public function isSpecialTemplate(WhatsAppTemplate $template): bool
     {
+        // Pour compatibilité avec l'ancien code - sera déprécié
         // Les templates globaux sont considérés comme spéciaux
         return $template->isGlobal();
     }

@@ -21,13 +21,21 @@ import "./assets/global.css";
 
 import App from "./App.vue";
 import { useAuthStore } from "./stores/authStore"; // Import the auth store
+import { useWhatsAppTemplateStore } from "./stores/whatsappTemplateStore"; // Import WhatsApp template store
 
 // Import des composants globaux
 import WhatsAppTemplateSelector from "./components/whatsapp/WhatsAppTemplateSelector.vue";
+import EnhancedTemplateSelector from "./components/whatsapp/EnhancedTemplateSelector.vue";
+import TemplateCard from "./components/whatsapp/TemplateCard.vue";
+
+// Configuration du client GraphQL
+// Dans la future architecture, nous allons utiliser un client mixte REST/GraphQL
+// Mais pour l'instant, nous restaurons la configuration standard
 
 // Create Apollo client
 const httpLink = createHttpLink({
-  uri: "/graphql.php",
+  uri: "/graphql.php", // Endpoint GraphQL standard
+  credentials: 'include'
 });
 
 const apolloClient = new ApolloClient({
@@ -54,6 +62,8 @@ const app = createApp(App);
 
 // Enregistrer les composants globaux
 app.component('WhatsAppTemplateSelector', WhatsAppTemplateSelector);
+app.component('EnhancedTemplateSelector', EnhancedTemplateSelector);
+app.component('TemplateCard', TemplateCard);
 console.log('Composants globaux enregistrés:', Object.keys(app._context.components));
 
 // Use Pinia plugin first, so stores can be instantiated
@@ -61,6 +71,8 @@ app.use(pinia);
 
 // Get AuthStore instance
 const authStore = useAuthStore(); // No need to pass pinia if app.use(pinia) is called before
+// Get WhatsAppTemplateStore instance
+const whatsAppTemplateStore = useWhatsAppTemplateStore();
 
 // Asynchronous function to initialize critical services and then mount the app
 async function initializeAndMountApp() {
@@ -68,6 +80,12 @@ async function initializeAndMountApp() {
     // Initialize authentication: this will call checkAuth and update isAuthenticated
     await authStore.init();
     console.log('Auth store initialized from main.ts. isAuthenticated:', authStore.isAuthenticated);
+    
+    // Initialize WhatsApp template store after auth
+    if (authStore.isAuthenticated) {
+      console.log('Initializing WhatsApp template store...');
+      await whatsAppTemplateStore.initialize();
+    }
   } catch (error) {
     console.error("Error during auth initialization in main.ts:", error);
     // App will still mount, router guards will handle redirection if auth failed

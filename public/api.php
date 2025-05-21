@@ -62,6 +62,42 @@ function logDebug($message, $data = null)
     file_put_contents($logFile, $logMessage . PHP_EOL, FILE_APPEND);
 }
 
+/**
+ * Récupère l'utilisateur actuel à partir de l'authentification
+ * 
+ * @return \App\Entities\User|null L'utilisateur authentifié ou null si aucun utilisateur n'est authentifié
+ */
+function getCurrentUser()
+{
+    // Récupérer le token des headers
+    $headers = getallheaders();
+    $authHeader = $headers['Authorization'] ?? '';
+    
+    // Vérifier si le header est au format "Bearer <token>"
+    if (!preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
+        return null;
+    }
+    
+    $token = $matches[1];
+    
+    // Obtenir une instance du conteneur
+    $container = new \App\GraphQL\DIContainer();
+    
+    try {
+        // Obtenir le service d'authentification du conteneur
+        $authService = $container->get(\App\Services\Interfaces\Auth\AuthServiceInterface::class);
+        
+        // Vérifier le token et obtenir l'utilisateur correspondant
+        return $authService->getUserFromToken($token);
+    } catch (\Exception $e) {
+        logDebug('Erreur lors de la récupération de l\'utilisateur', [
+            'error' => $e->getMessage(),
+            'token' => $token
+        ]);
+        return null;
+    }
+}
+
 // Ensure proper JSON encoding
 function jsonEncode($data)
 {
@@ -93,6 +129,7 @@ try {
     $phoneController = $container->get(\App\Controllers\PhoneController::class);
     $smsController = $container->get(\App\Controllers\SMSController::class);
     $importExportController = $container->get(\App\Controllers\ImportExportController::class);
+    $whatsAppController = $container->get(\App\Controllers\WhatsAppController::class);
 } catch (Exception $e) {
     http_response_code(500);
     echo jsonEncode(['error' => 'Container initialization failed: ' . $e->getMessage()]);
@@ -414,6 +451,201 @@ try {
         } else {
             http_response_code(204);
         }
+    }
+    // === WhatsApp endpoints ===
+    
+    // Verify WhatsApp webhook
+    elseif ($method === 'GET' && $endpoint === 'whatsapp/webhook') {
+        $challenge = $whatsAppController->verifyWebhook($_GET);
+        if ($challenge !== null) {
+            echo $challenge;
+        } else {
+            http_response_code(403);
+            echo jsonEncode(['error' => 'Vérification du webhook échouée']);
+        }
+    }
+    // Process WhatsApp webhook data
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/webhook') {
+        $webhookData = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->processWebhook($webhookData);
+        echo jsonEncode($result);
+    }
+    // Get message history
+    elseif ($method === 'GET' && $endpoint === 'whatsapp/messages') {
+        // Récupérer l'utilisateur actuel (à implémenter selon votre système d'authentification)
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $result = $whatsAppController->getMessageHistory($user, $_GET);
+        echo jsonEncode($result);
+    }
+    // Send text message
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/messages/text') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->sendTextMessage($user, $requestBody);
+        echo jsonEncode($result);
+    }
+    // Send media message
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/messages/media') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->sendMediaMessage($user, $requestBody);
+        echo jsonEncode($result);
+    }
+    // Send template message
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/messages/template') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->sendTemplateMessage($user, $requestBody);
+        echo jsonEncode($result);
+    }
+    // Send template message with components
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/messages/template/advanced') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->sendTemplateMessageWithComponents($user, $requestBody);
+        echo jsonEncode($result);
+    }
+    // Send interactive message
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/messages/interactive') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->sendInteractiveMessage($user, $requestBody);
+        echo jsonEncode($result);
+    }
+    // Mark message as read
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/messages/read') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->markMessageAsRead($user, $requestBody);
+        echo jsonEncode($result);
+    }
+    // Upload media
+    elseif ($method === 'POST' && $endpoint === 'whatsapp/media/upload') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $requestBody = json_decode(file_get_contents('php://input'), true);
+        $result = $whatsAppController->uploadMedia($user, $requestBody);
+        echo jsonEncode($result);
+    }
+    // Download media
+    elseif ($method === 'GET' && $endpoint === 'whatsapp/media/download') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $result = $whatsAppController->downloadMedia($user, $_GET);
+        echo jsonEncode($result);
+    }
+    // Get media URL
+    elseif ($method === 'GET' && $endpoint === 'whatsapp/media/url') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $result = $whatsAppController->getMediaUrl($user, $_GET);
+        echo jsonEncode($result);
+    }
+    // Get user templates
+    elseif ($method === 'GET' && $endpoint === 'whatsapp/templates') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $result = $whatsAppController->getUserTemplates($user);
+        echo jsonEncode($result);
+    }
+    // Get approved templates with robust error handling
+    elseif ($method === 'GET' && $endpoint === 'whatsapp/templates/approved') {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $result = $whatsAppController->getApprovedTemplates($user, $_GET);
+        echo jsonEncode($result);
+    }
+    // Get template by ID
+    elseif ($method === 'GET' && preg_match('/^whatsapp\/templates\/(\w+)$/', $endpoint, $matches)) {
+        // Récupérer l'utilisateur actuel
+        $user = getCurrentUser();
+        if (!$user) {
+            http_response_code(401);
+            echo jsonEncode(['error' => 'Utilisateur non authentifié']);
+            exit;
+        }
+        
+        $_GET['template_id'] = $matches[1];
+        $result = $whatsAppController->getTemplateById($user, $_GET);
+        echo jsonEncode($result);
     }
     // Invalid endpoint
     else {

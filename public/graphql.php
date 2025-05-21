@@ -126,6 +126,8 @@ use App\GraphQL\Resolvers\AuthResolver;
 use App\GraphQL\Resolvers\ContactGroupResolver;
 use App\GraphQL\Resolvers\ContactSMSResolver;
 use App\GraphQL\Resolvers\WhatsApp\WhatsAppResolver;
+use App\GraphQL\Types\DateTimeType;
+use App\GraphQL\SchemaSetup;
 use Psr\Log\LoggerInterface;
 use GraphQL\Error\DebugFlag;
 
@@ -181,12 +183,17 @@ try {
     $graphQLContext = $contextFactory->create();
     $logger->info('GraphQL context created.');
 
-    // Load schema from file
+    // Charger uniquement le schéma principal pour le moment
     $schemaString = file_get_contents(__DIR__ . '/../src/GraphQL/schema.graphql');
     if ($schemaString === false) {
         throw new \RuntimeException("Failed to load GraphQL schema file.");
     }
+    
+    // Construire le schéma
     $schema = BuildSchema::build($schemaString);
+    
+    // Ajouter manuellement les types nécessaires
+    $schema->getTypeMap()['DateTime'] = new DateTimeType();
 
     // Get Resolver instances from container
     $userResolver = $container->get(UserResolver::class);

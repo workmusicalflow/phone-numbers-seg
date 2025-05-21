@@ -11,7 +11,7 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, watch, PropType } from 'vue';
 import Chart from 'chart.js/auto';
-import { UsageDataPoint } from 'src/stores/userDashboardStore';
+import { UsageDataPoint } from '../stores/userDashboardStore';
 
 export default defineComponent({
   name: 'UsageChart',

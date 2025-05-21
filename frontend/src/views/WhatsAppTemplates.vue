@@ -61,10 +61,13 @@
         <div class="col-12 col-md-6">
           <q-card v-if="showTemplateSelector" class="template-selector-card" flat bordered>
             <q-card-section>
-              <WhatsAppTemplateSelector
-                :recipient-phone-number="phoneNumber"
-                @template-selected="sendTemplate"
-                @cancel="showTemplateSelector = false"
+              <EnhancedTemplateSelector
+                :title="'Sélection de Template WhatsApp'"
+                :show-advanced-filters="true"
+                :show-organized-sections="true"
+                :group-by-category="true"
+                @select="template => sendEnhancedTemplate(template, phoneNumber)"
+                @filter-change="handleFilterChange"
               />
             </q-card-section>
           </q-card>
@@ -114,12 +117,12 @@
 
 <script>
 import { defineComponent, ref, onMounted, getCurrentInstance } from 'vue';
-import WhatsAppTemplateSelector from '../components/whatsapp/WhatsAppTemplateSelector.vue';
+import EnhancedTemplateSelector from '../components/whatsapp/EnhancedTemplateSelector.vue';
 
 export default defineComponent({
   name: 'WhatsAppTemplatesView',
   components: {
-    WhatsAppTemplateSelector
+    EnhancedTemplateSelector
   },
   setup() {
     console.log('[WhatsAppTemplatesView] Initialisation du composant');
@@ -148,6 +151,25 @@ export default defineComponent({
     // Envoyer un template
     const sendTemplate = async (templateData) => {
       try {
+        // Préparer les variables pour l'envoi
+        const input = {
+          recipientPhoneNumber: templateData.recipientPhoneNumber,
+          templateName: templateData.template.name,
+          templateLanguage: templateData.template.language,
+          templateComponentsJsonString: templateData.templateComponentsJsonString,
+          bodyVariables: templateData.bodyVariables,
+          buttonVariables: Object.values(templateData.buttonVariables)
+        };
+        
+        // Gérer le média d'en-tête selon le type sélectionné
+        if (templateData.headerMediaType === 'url' && templateData.headerMediaUrl) {
+          input.headerMediaUrl = templateData.headerMediaUrl;
+        } else if ((templateData.headerMediaType === 'id' || templateData.headerMediaType === 'upload') && templateData.headerMediaId) {
+          input.headerMediaId = templateData.headerMediaId;
+        }
+        
+        console.log('[WhatsAppTemplates] Envoi du template avec les données:', input);
+        
         const response = await fetch('/graphql.php', {
           method: 'POST',
           headers: {
@@ -163,17 +185,7 @@ export default defineComponent({
                 }
               }
             `,
-            variables: {
-              input: {
-                recipientPhoneNumber: templateData.recipientPhoneNumber,
-                templateName: templateData.template.name,
-                templateLanguage: templateData.template.language,
-                templateComponentsJsonString: templateData.templateComponentsJsonString,
-                headerMediaUrl: templateData.headerMediaUrl,
-                bodyVariables: templateData.bodyVariables,
-                buttonVariables: Object.values(templateData.buttonVariables)
-              }
-            }
+            variables: { input }
           }),
           credentials: 'include'
         });
@@ -229,13 +241,95 @@ export default defineComponent({
       }
     };
 
+    // Gérer les changements de filtres
+    const handleFilterChange = (filters) => {
+      console.log('[WhatsAppTemplates] Filtre changé:', filters);
+      // Ici, vous pourriez faire des actions supplémentaires basées sur les filtres
+    };
+
+    // Adapter pour le nouveau format du composant EnhancedTemplateSelector
+    const sendEnhancedTemplate = async (template, recipientPhoneNumber) => {
+      try {
+        // Obtenir les données du template depuis le composant
+        const bodyVariables = [];
+        const buttonVariables = {};
+        
+        // Extraire les informations des composants
+        try {
+          const componentsJson = template.componentsJson || '{}';
+          const components = JSON.parse(componentsJson);
+          
+          // Récupérer les informations du corps
+          const bodyComponent = Array.isArray(components) 
+            ? components.find(c => c.type === 'BODY')
+            : components.body;
+          
+          if (bodyComponent && bodyComponent.text) {
+            // Compter les variables dans le texte du corps
+            const regex = /{{(\d+)}}/g;
+            let match;
+            while ((match = regex.exec(bodyComponent.text)) !== null) {
+              const index = parseInt(match[1], 10) - 1;
+              if (index >= 0 && index >= bodyVariables.length) {
+                // Remplir avec des valeurs vides jusqu'à l'index
+                while (bodyVariables.length <= index) {
+                  bodyVariables.push('');
+                }
+              }
+            }
+          }
+          
+          // Récupérer les informations des boutons
+          const buttonsComponent = Array.isArray(components)
+            ? components.find(c => c.type === 'BUTTONS')
+            : components.buttons;
+          
+          if (buttonsComponent && buttonsComponent.buttons) {
+            buttonsComponent.buttons.forEach((button, index) => {
+              if (button.type === 'URL') {
+                buttonVariables[index] = '';
+              } else if (button.type === 'QUICK_REPLY') {
+                buttonVariables[index] = '';
+              }
+            });
+          }
+        } catch (e) {
+          console.error('Erreur lors de l\'analyse des composants:', e);
+        }
+        
+        // Créer l'objet templateData pour compatibilité
+        const templateData = {
+          recipientPhoneNumber,
+          template,
+          templateComponentsJsonString: template.componentsJson,
+          bodyVariables,
+          buttonVariables,
+          headerMediaType: 'url',
+          headerMediaUrl: '',
+          headerMediaId: ''
+        };
+        
+        // Utiliser la fonction existante pour envoyer le template
+        await sendTemplate(templateData);
+      } catch (error) {
+        console.error('Erreur lors de l\'envoi du template amélioré:', error);
+        notification.value = {
+          show: true,
+          success: false,
+          message: `Erreur: ${error.message}`
+        };
+      }
+    };
+
     return {
       phoneNumber,
       showTemplateSelector,
       sentMessages,
       notification,
       formatDate,
-      sendTemplate
+      sendTemplate,
+      sendEnhancedTemplate,
+      handleFilterChange
     };
   }
 });
@@ -246,5 +340,46 @@ export default defineComponent({
 .template-selector-card,
 .message-info-card {
   height: 100%;
+}
+
+.template-selector-card {
+  overflow-y: auto;
+  max-height: 90vh;
+}
+
+/* Style pour les sections de templates */
+:deep(.section-header) {
+  background-color: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* Style pour les cartes de templates */
+:deep(.template-card) {
+  transition: transform 0.2s ease-in-out;
+}
+
+:deep(.template-card:hover) {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Style pour les badges par catégorie */
+:deep(.q-badge.MARKETING) {
+  background-color: #4caf50;
+}
+
+:deep(.q-badge.UTILITY) {
+  background-color: #2196f3;
+}
+
+:deep(.q-badge.AUTHENTICATION) {
+  background-color: #ff9800;
+}
+
+/* Style pour la page */
+.q-page {
+  max-width: 1400px;
+  margin: 0 auto;
 }
 </style>

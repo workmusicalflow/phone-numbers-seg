@@ -20,6 +20,16 @@ class WhatsAppTemplateType
     private string $language;
     private string $status;
     private array $components;
+    private ?float $qualityScore;
+    private ?string $headerFormat;
+    private ?string $bodyText;
+    private ?string $footerText;
+    private ?int $bodyVariablesCount;
+    private ?int $buttonsCount;
+    private ?array $buttonsDetails;
+    private ?string $rejectionReason;
+    private int $usageCount;
+    private ?string $lastUsedAt;
 
     public function __construct(array $metaTemplate)
     {
@@ -29,6 +39,18 @@ class WhatsAppTemplateType
         $this->language = $metaTemplate['language'] ?? '';
         $this->status = $metaTemplate['status'] ?? '';
         $this->components = $metaTemplate['components'] ?? [];
+        $this->qualityScore = $metaTemplate['quality_score'] ?? null;
+        $this->headerFormat = $metaTemplate['header_format'] ?? null;
+        $this->bodyText = $metaTemplate['body_text'] ?? null;
+        $this->footerText = $metaTemplate['footer_text'] ?? null;
+        $this->bodyVariablesCount = $metaTemplate['body_variables_count'] ?? null;
+        $this->buttonsCount = $metaTemplate['buttons_count'] ?? null;
+        $this->buttonsDetails = isset($metaTemplate['buttons_details']) ? 
+            json_decode($metaTemplate['buttons_details'], true) : null;
+        $this->rejectionReason = $metaTemplate['rejection_reason'] ?? null;
+        $this->usageCount = $metaTemplate['usage_count'] ?? 0;
+        $this->lastUsedAt = isset($metaTemplate['last_used_at']) ? 
+            $metaTemplate['last_used_at']->format('Y-m-d H:i:s') : null;
     }
 
     /**
@@ -206,6 +228,87 @@ class WhatsAppTemplateType
         
         return false;
     }
+    
+    /**
+     * Score de qualité du template (si disponible)
+     */
+    #[Field]
+    public function getQualityScore(): ?float
+    {
+        return $this->qualityScore;
+    }
+    
+    /**
+     * Format d'en-tête spécifique (TEXT, IMAGE, VIDEO, DOCUMENT)
+     */
+    #[Field]
+    public function getHeaderFormat(): ?string
+    {
+        return $this->headerFormat;
+    }
+    
+    /**
+     * Texte complet du corps du message
+     */
+    #[Field]
+    public function getFullBodyText(): ?string
+    {
+        return $this->bodyText;
+    }
+    
+    /**
+     * Texte du pied de page
+     */
+    #[Field]
+    public function getFooterText(): ?string
+    {
+        return $this->footerText;
+    }
+    
+    /**
+     * Détails des boutons au format JSON
+     */
+    #[Field]
+    public function getButtonsDetailsJson(): ?string
+    {
+        return $this->buttonsDetails ? json_encode($this->buttonsDetails) : null;
+    }
+    
+    /**
+     * Raison du rejet (pour les templates rejetés)
+     */
+    #[Field]
+    public function getRejectionReason(): ?string
+    {
+        return $this->rejectionReason;
+    }
+    
+    /**
+     * Nombre d'utilisations du template
+     */
+    #[Field]
+    public function getUsageCount(): int
+    {
+        return $this->usageCount;
+    }
+    
+    /**
+     * Date de dernière utilisation au format ISO
+     */
+    #[Field]
+    public function getLastUsedAt(): ?string
+    {
+        return $this->lastUsedAt;
+    }
+    
+    /**
+     * Indique si ce template est populaire (utilisé plus de 10 fois)
+     */
+    #[Field]
+    public function isPopular(): bool
+    {
+        return $this->usageCount > 10;
+    }
 }
 
 /**
@@ -222,6 +325,42 @@ class TemplateFilterInput
     
     #[Field]
     public ?string $category = null;
+    
+    #[Field]
+    public ?string $status = null;
+    
+    #[Field]
+    public ?string $headerFormat = null;
+    
+    #[Field]
+    public ?bool $hasHeaderMedia = null;
+    
+    #[Field]
+    public ?int $minVariables = null;
+    
+    #[Field]
+    public ?int $maxVariables = null;
+    
+    #[Field]
+    public ?bool $hasButtons = null;
+    
+    #[Field]
+    public ?int $buttonCount = null;
+    
+    #[Field]
+    public ?bool $hasFooter = null;
+    
+    #[Field]
+    public ?string $bodyText = null;
+    
+    #[Field]
+    public ?int $minUsageCount = null;
+    
+    #[Field]
+    public ?string $orderBy = null;
+    
+    #[Field]
+    public ?string $orderDirection = null;
 }
 
 /**
@@ -244,6 +383,9 @@ class SendTemplateInput
     
     #[Field]
     public ?string $headerMediaUrl = null;
+    
+    #[Field]
+    public ?string $headerMediaId = null;
     
     #[Field]
     public array $bodyVariables = [];

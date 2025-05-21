@@ -43,48 +43,95 @@ class WhatsAppTemplateService implements WhatsAppTemplateServiceInterface
      * 1. Fait un appel à l'API Cloud de Meta pour obtenir tous les templates
      * 2. Filtre pour ne conserver que les templates approuvés
      * 3. Applique des filtres supplémentaires si demandé (nom, langue, catégorie)
+     * 4. Met à jour le cache local si la récupération réussit
      * 
      * @param array $filters Filtres optionnels (name, language, category)
      * @return array Templates approuvés
+     * @throws \Exception Si l'API Meta retourne une erreur
      */
     public function fetchApprovedTemplatesFromMeta(array $filters = []): array
     {
-        try {
-            // Récupérer tous les templates depuis l'API Meta
-            $allTemplates = $this->apiClient->getTemplates();
+        // Log avant d'appeler l'API
+        $this->logger->info('[WhatsAppTemplateService] Appel à l\'API Meta pour récupérer les templates', [
+            'time' => date('Y-m-d H:i:s'),
+            'filters' => $filters
+        ]);
+        
+        // Configuration de debug
+        $debug = isset($filters['debug']) && $filters['debug'];
+        
+        // Récupérer tous les templates depuis l'API Meta
+        // Permettre à l'erreur de remonter pour une meilleure gestion
+        $allTemplates = $this->apiClient->getTemplates();
+        
+        // Log après l'appel API
+        $this->logger->info('[WhatsAppTemplateService] Réponse reçue de l\'API Meta', [
+            'type' => gettype($allTemplates),
+            'is_array' => is_array($allTemplates),
+            'count' => is_array($allTemplates) ? count($allTemplates) : 'N/A'
+        ]);
+        
+        // S'assurer que l'API a bien retourné un tableau
+        if (!is_array($allTemplates)) {
+            $errorMessage = 'L\'API Meta n\'a pas retourné un tableau de templates (type: ' . gettype($allTemplates) . ')';
+            $this->logger->warning($errorMessage);
+            throw new \Exception($errorMessage);
+        }
+        
+        // Si l'API retourne un tableau vide, c'est suspect, mais pas nécessairement une erreur
+        if (empty($allTemplates)) {
+            $this->logger->warning('L\'API Meta a retourné un tableau vide de templates');
             
-            // Filtrer pour ne garder que les templates avec statut "APPROVED"
-            $approvedTemplates = array_filter($allTemplates, function($template) {
-                return isset($template['status']) && $template['status'] === 'APPROVED';
+            // Si le debug est activé, montrer un message plus détaillé
+            if ($debug) {
+                $this->logger->debug('Détails de la configuration API', [
+                    'apiClient' => get_class($this->apiClient),
+                    'filters' => $filters
+                ]);
+            }
+        }
+        
+        // Filtrer pour ne garder que les templates avec statut "APPROVED"
+        $approvedTemplates = array_filter($allTemplates, function($template) {
+            return isset($template['status']) && $template['status'] === 'APPROVED';
+        });
+        
+        // Appliquer des filtres supplémentaires si fournis
+        if (!empty($filters)) {
+            $approvedTemplates = array_filter($approvedTemplates, function($template) use ($filters) {
+                $match = true;
+                
+                // Filtre par nom
+                if (isset($filters['name']) && !empty($filters['name'])) {
+                    $match = $match && (stripos($template['name'] ?? '', $filters['name']) !== false);
+                }
+                
+                // Filtre par langue
+                if (isset($filters['language']) && !empty($filters['language'])) {
+                    $match = $match && (($template['language'] ?? '') === $filters['language']);
+                }
+                
+                // Filtre par catégorie
+                if (isset($filters['category']) && !empty($filters['category'])) {
+                    $match = $match && (($template['category'] ?? '') === $filters['category']);
+                }
+                
+                return $match;
             });
-            
-            // Appliquer des filtres supplémentaires si fournis
-            if (!empty($filters)) {
-                $approvedTemplates = array_filter($approvedTemplates, function($template) use ($filters) {
-                    $match = true;
-                    
-                    // Filtre par nom
-                    if (isset($filters['name']) && !empty($filters['name'])) {
-                        $match = $match && (stripos($template['name'] ?? '', $filters['name']) !== false);
-                    }
-                    
-                    // Filtre par langue
-                    if (isset($filters['language']) && !empty($filters['language'])) {
-                        $match = $match && (($template['language'] ?? '') === $filters['language']);
-                    }
-                    
-                    // Filtre par catégorie
-                    if (isset($filters['category']) && !empty($filters['category'])) {
-                        $match = $match && (($template['category'] ?? '') === $filters['category']);
-                    }
-                    
-                    return $match;
-                });
+        }
+        
+        // Transformer les templates pour s'assurer que tous les champs requis sont présents
+        $formattedTemplates = [];
+        foreach ($approvedTemplates as $template) {
+            // Vérification supplémentaire que $template est bien un tableau
+            if (!is_array($template)) {
+                $this->logger->warning('Template non valide ignoré', [
+                    'template_type' => gettype($template) 
+                ]);
+                continue;
             }
             
-            // Transformer les templates pour s'assurer que tous les champs requis sont présents
-            $formattedTemplates = [];
-            foreach ($approvedTemplates as $template) {
+            try {
                 // S'assurer que template_id existe et est une string
                 if (!isset($template['id'])) {
                     $template['id'] = isset($template['name']) ? md5($template['name'] . ($template['language'] ?? '')) : uniqid();
@@ -93,19 +140,178 @@ class WhatsAppTemplateService implements WhatsAppTemplateServiceInterface
                 // Convertir id en template_id (qui est requis comme non-nullable dans le schéma)
                 $template['template_id'] = (string)$template['id'];
                 
+                // Analyser les composants pour enrichir le template avec des méta-informations
+                $this->enrichTemplateWithMetadata($template);
+                
                 $formattedTemplates[] = $template;
+            } catch (\Throwable $e) {
+                $this->logger->warning('Erreur lors du formatage d\'un template', [
+                    'error' => $e->getMessage(),
+                    'template' => isset($template['name']) ? $template['name'] : 'unknown'
+                ]);
+                // Continuer avec le prochain template
+                continue;
             }
-            
-            // Retourner les templates approuvés, filtrés et correctement formatés
-            return array_values($formattedTemplates);
-        } catch (\Exception $e) {
-            $this->logger->error('Erreur récupération templates WhatsApp depuis Meta', [
-                'error' => $e->getMessage(),
-                'filters' => $filters
-            ]);
-            
-            return [];
         }
+        
+        // Mettre à jour le cache local si disponible et que nous avons des templates
+        if ($this->templateRepository !== null && !empty($formattedTemplates) && (!isset($filters['skipCache']) || !$filters['skipCache'])) {
+            $this->updateLocalCache($formattedTemplates);
+        }
+        
+        // Retourner les templates approuvés, filtrés et correctement formatés
+        // Garantir que nous retournons TOUJOURS un tableau
+        return empty($formattedTemplates) ? [] : array_values($formattedTemplates);
+    }
+    
+    /**
+     * Enrichit un template avec des méta-informations dérivées de ses composants
+     * 
+     * @param array &$template Le template à enrichir (par référence)
+     */
+    private function enrichTemplateWithMetadata(array &$template): void
+    {
+        // S'assurer que les composants sont présents sous forme d'un tableau
+        if (!isset($template['components']) || !is_array($template['components'])) {
+            $template['components'] = [];
+        }
+        
+        // Extraire le format des composants en JSON pour la persistance
+        $template['componentsJson'] = json_encode($template['components']);
+        
+        // Valeurs par défaut
+        $template['hasMediaHeader'] = false;
+        $template['headerType'] = 'TEXT';
+        $template['bodyVariablesCount'] = 0;
+        $template['hasButtons'] = false;
+        $template['buttonsCount'] = 0;
+        $template['hasFooter'] = false;
+        
+        // Parcourir les composants pour extraire les méta-informations
+        foreach ($template['components'] as $component) {
+            if (!is_array($component)) continue;
+            
+            $type = $component['type'] ?? '';
+            
+            if ($type === 'HEADER' || $type === 'header') {
+                $format = $component['format'] ?? 'TEXT';
+                $template['headerType'] = $format;
+                $template['hasMediaHeader'] = in_array($format, ['IMAGE', 'VIDEO', 'DOCUMENT']);
+            } 
+            else if ($type === 'BODY' || $type === 'body') {
+                // Compter les variables dans le corps
+                $text = $component['text'] ?? '';
+                if ($text) {
+                    $template['bodyText'] = $text;
+                    // Compter les occurrences de {{N}}
+                    preg_match_all('/{{(\d+)}}/', $text, $matches);
+                    $template['bodyVariablesCount'] = count(array_unique($matches[1] ?? []));
+                }
+            } 
+            else if ($type === 'FOOTER' || $type === 'footer') {
+                $template['hasFooter'] = true;
+            } 
+            else if ($type === 'BUTTONS' || $type === 'buttons') {
+                $buttons = $component['buttons'] ?? [];
+                $template['hasButtons'] = !empty($buttons);
+                $template['buttonsCount'] = count($buttons);
+            }
+        }
+        
+        // Assurer que la description est présente
+        if (!isset($template['description']) || empty($template['description'])) {
+            $template['description'] = 'Template ' . ($template['name'] ?? 'WhatsApp');
+        }
+    }
+    
+    /**
+     * Met à jour le cache local avec les templates récupérés depuis l'API Meta
+     * 
+     * @param array $templates Les templates à mettre en cache
+     */
+    private function updateLocalCache(array $templates): void
+    {
+        if (empty($templates) || $this->templateRepository === null) {
+            return;
+        }
+        
+        $this->logger->info('Mise à jour du cache local avec ' . count($templates) . ' templates');
+        
+        $updatedCount = 0;
+        $createdCount = 0;
+        $errorCount = 0;
+        
+        foreach ($templates as $templateData) {
+            try {
+                // Vérifier si le template existe déjà
+                $existingTemplate = $this->templateRepository->findByMetaNameAndLanguage(
+                    $templateData['name'] ?? '',
+                    $templateData['language'] ?? ''
+                );
+                
+                if ($existingTemplate) {
+                    // Mettre à jour le template existant
+                    $existingTemplate->setStatus($templateData['status'] ?? 'APPROVED');
+                    $existingTemplate->setCategory($templateData['category'] ?? 'UTILITY');
+                    
+                    // Mettre à jour les composants si présents
+                    if (isset($templateData['components']) && is_array($templateData['components'])) {
+                        $existingTemplate->setComponents($templateData['components']);
+                        $existingTemplate->setComponentsJson(json_encode($templateData['components']));
+                    }
+                    
+                    // Mettre à jour les propriétés dérivées
+                    $existingTemplate->setBodyVariablesCount($templateData['bodyVariablesCount'] ?? 0);
+                    $existingTemplate->setHasMediaHeader($templateData['hasMediaHeader'] ?? false);
+                    $existingTemplate->setHasButtons($templateData['hasButtons'] ?? false);
+                    $existingTemplate->setButtonsCount($templateData['buttonsCount'] ?? 0);
+                    $existingTemplate->setHasFooter($templateData['hasFooter'] ?? false);
+                    
+                    // Sauvegarder les modifications
+                    $this->templateRepository->save($existingTemplate);
+                    $updatedCount++;
+                } else {
+                    // Créer un nouveau template
+                    $template = new WhatsAppTemplate();
+                    $template->setTemplateId($templateData['template_id'] ?? $templateData['id'] ?? '');
+                    $template->setName($templateData['name'] ?? '');
+                    $template->setMetaTemplateName($templateData['name'] ?? '');
+                    $template->setLanguageCode($templateData['language'] ?? '');
+                    $template->setStatus($templateData['status'] ?? 'APPROVED');
+                    $template->setCategory($templateData['category'] ?? 'UTILITY');
+                    $template->setDescription($templateData['description'] ?? '');
+                    
+                    // Enregistrer les composants
+                    if (isset($templateData['components']) && is_array($templateData['components'])) {
+                        $template->setComponents($templateData['components']);
+                        $template->setComponentsJson(json_encode($templateData['components']));
+                    }
+                    
+                    // Enregistrer les propriétés dérivées
+                    $template->setBodyVariablesCount($templateData['bodyVariablesCount'] ?? 0);
+                    $template->setHasMediaHeader($templateData['hasMediaHeader'] ?? false);
+                    $template->setHasButtons($templateData['hasButtons'] ?? false);
+                    $template->setButtonsCount($templateData['buttonsCount'] ?? 0);
+                    $template->setHasFooter($templateData['hasFooter'] ?? false);
+                    
+                    // Sauvegarder le nouveau template
+                    $this->templateRepository->save($template);
+                    $createdCount++;
+                }
+            } catch (\Exception $e) {
+                $this->logger->error('Erreur lors de la mise en cache du template', [
+                    'error' => $e->getMessage(),
+                    'template' => $templateData['name'] ?? 'Unknown'
+                ]);
+                $errorCount++;
+            }
+        }
+        
+        $this->logger->info('Cache mis à jour', [
+            'created' => $createdCount,
+            'updated' => $updatedCount,
+            'errors' => $errorCount
+        ]);
     }
 
     /**

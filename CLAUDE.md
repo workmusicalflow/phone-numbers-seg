@@ -55,10 +55,13 @@ Oracle is a modern PHP 8.3 and Vue.js 3 SMS management platform with phone numbe
 
 ## Testing Requirements
 
-- Run unit tests before committing changes
+- Run unit tests before committing changes: `vendor/bin/phpunit` 
 - Maintain test coverage >80%
+- Tests are essential and must be fixed regardless of difficulty as they are crucial for TDD and quality
+- Implement tests according to Clean Code, Clean Architecture and SOLID principles
 - Frontend tests: `npm run test` or `npm run test:unit`
-- Backend tests: `phpunit`
+- Backend tests: `vendor/bin/phpunit`
+- Write tests for repositories, services, and controllers
 
 ## Security Practices
 
@@ -92,6 +95,19 @@ Oracle is a modern PHP 8.3 and Vue.js 3 SMS management platform with phone numbe
 - Finalizing Doctrine ORM migration
 - Implementing URL constants system
 - Enhancing the ContactCountBadge component
+- Fixing WhatsApp template issues related to API connectivity
+
+## Meta API Credentials
+
+These credentials are used for WhatsApp Business Cloud API:
+
+- App ID: Check in .env file (WHATSAPP_APP_ID)
+- Phone Number ID: Check in .env file (WHATSAPP_PHONE_NUMBER_ID)
+- WhatsApp Business Account ID: Check in .env file (WHATSAPP_WABA_ID)
+- API Version: v22.0 (WHATSAPP_API_VERSION)
+- Access Token: Check in .env file (WHATSAPP_ACCESS_TOKEN or WHATSAPP_API_TOKEN)
+- Webhook Verify Token: "oracle_whatsapp_webhook_verification_token" (WHATSAPP_WEBHOOK_VERIFY_TOKEN)
+- Webhook Callback URL: Check in .env file (WHATSAPP_WEBHOOK_CALLBACK_URL)
 
 ## Before Submitting Code
 

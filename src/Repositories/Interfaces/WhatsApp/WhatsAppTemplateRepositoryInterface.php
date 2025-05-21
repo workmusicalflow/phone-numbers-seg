@@ -74,4 +74,65 @@ interface WhatsAppTemplateRepositoryInterface
      * @return array
      */
     public function countByStatus(): array;
+    
+    /**
+     * Recherche avancée de templates avec filtrage multiple
+     * 
+     * @param array $criteria Critères de recherche (status, category, language, hasHeaderMedia, etc.)
+     * @param array $orderBy Tri des résultats (ex: ['name' => 'ASC'])
+     * @param int|null $limit Nombre maximum de résultats
+     * @param int|null $offset Position de départ
+     * @return array
+     */
+    public function findByAdvancedCriteria(array $criteria, array $orderBy = [], ?int $limit = null, ?int $offset = null): array;
+    
+    /**
+     * Trouver tous les templates approuvés avec options de filtrage
+     * 
+     * @param array $filters Filtres à appliquer (name, language, category, etc.)
+     * @return array Liste des templates approuvés filtrés
+     */
+    public function findApprovedTemplates(array $filters = []): array;
+    
+    /**
+     * Recherche les templates par format d'en-tête
+     * 
+     * @param string $headerFormat Format d'en-tête (TEXT, IMAGE, VIDEO, DOCUMENT)
+     * @param string|null $status Statut du template (optionnel)
+     * @return array
+     */
+    public function findByHeaderFormat(string $headerFormat, ?string $status = null): array;
+    
+    /**
+     * Recherche les templates avec un nombre spécifique de variables
+     * 
+     * @param int $minVariables Nombre minimum de variables
+     * @param int|null $maxVariables Nombre maximum de variables (optionnel)
+     * @return array
+     */
+    public function findByVariableCount(int $minVariables, ?int $maxVariables = null): array;
+    
+    /**
+     * Recherche les templates avec boutons
+     * 
+     * @param int|null $buttonCount Nombre de boutons (optionnel, si null retourne tous les templates avec des boutons)
+     * @return array
+     */
+    public function findWithButtons(?int $buttonCount = null): array;
+    
+    /**
+     * Recherche textuelle dans le corps des templates
+     * 
+     * @param string $searchText Texte à rechercher
+     * @return array
+     */
+    public function searchInBodyText(string $searchText): array;
+    
+    /**
+     * Récupère les templates les plus utilisés
+     * 
+     * @param int $limit Nombre de templates à récupérer
+     * @return array
+     */
+    public function findMostUsed(int $limit = 10): array;
 }

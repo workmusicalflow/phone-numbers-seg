@@ -24,6 +24,7 @@
         <q-tab name="send" label="Envoyer" icon="send" />
         <q-tab name="media" label="Médias" icon="attachment" />
         <q-tab name="messages" label="Messages" icon="chat" />
+        <q-tab name="templates" label="Templates" icon="history" />
       </q-tabs>
 
       <q-tab-panels v-model="activeTab" animated>
@@ -159,6 +160,11 @@
         <q-tab-panel name="messages">
           <WhatsAppMessageList />
         </q-tab-panel>
+        
+        <!-- Onglet Templates -->
+        <q-tab-panel name="templates">
+          <WhatsAppTemplateHistoryList />
+        </q-tab-panel>
       </q-tab-panels>
     </div>
   </q-page>
@@ -174,6 +180,7 @@ import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 import WhatsAppSendMessage from '@/components/whatsapp/WhatsAppSendMessage.vue';
 import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServerPaginated.vue';
 import WhatsAppMediaUpload from '@/components/whatsapp/WhatsAppMediaUpload.vue';
+import WhatsAppTemplateHistoryList from '@/components/whatsapp/WhatsAppTemplateHistoryList.vue';
 
 // Stores
 const userStore = useUserStore();
@@ -273,6 +280,17 @@ watch(() => route.query, () => {
   processRouteParams();
 }, { deep: true });
 
+// Watch for tab changes to load appropriate data
+watch(activeTab, async (newTab) => {
+  if (newTab === 'templates') {
+    await Promise.all([
+      whatsAppStore.fetchTemplateHistory(),
+      whatsAppStore.fetchMostUsedTemplates(),
+      whatsAppStore.fetchCommonParameterValues()
+    ]);
+  }
+});
+
 // Watch for successful message send
 whatsAppStore.$subscribe((mutation) => {
   // Refresh stats when messages change
@@ -287,12 +305,26 @@ onMounted(async () => {
   await refreshContactsCount();
   await whatsAppStore.fetchMessages();
   
+  // Charger les données d'historique des templates si on est sur l'onglet templates
+  if (activeTab.value === 'templates') {
+    await Promise.all([
+      whatsAppStore.fetchTemplateHistory(),
+      whatsAppStore.fetchMostUsedTemplates(),
+      whatsAppStore.fetchCommonParameterValues()
+    ]);
+  }
+  
   // Process URL parameters
   processRouteParams();
   
   // Refresh data periodically for real-time feel
   const interval = setInterval(() => {
     whatsAppStore.fetchMessages();
+    
+    // Si on est sur l'onglet templates, actualiser aussi l'historique
+    if (activeTab.value === 'templates') {
+      whatsAppStore.fetchTemplateHistory();
+    }
   }, 30000); // Every 30 seconds
   
   // Clean up interval on unmount

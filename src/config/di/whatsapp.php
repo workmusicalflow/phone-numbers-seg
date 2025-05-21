@@ -21,11 +21,17 @@ use App\Services\Interfaces\WhatsApp\WhatsAppApiClientInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppMessageServiceInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppServiceInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppTemplateServiceInterface;
+use App\Services\Interfaces\WhatsApp\WhatsAppTemplateSyncServiceInterface;
+use App\Services\Interfaces\WhatsApp\WhatsAppMonitoringServiceInterface;
+use App\Repositories\Interfaces\WhatsApp\WhatsAppApiMetricRepositoryInterface;
+use App\Repositories\Doctrine\WhatsApp\WhatsAppApiMetricRepository;
 use App\Services\WhatsApp\WebhookVerificationService;
 use App\Services\WhatsApp\WhatsAppApiClient;
 use App\Services\WhatsApp\WhatsAppMessageService;
 use App\Services\WhatsApp\WhatsAppService;
 use App\Services\WhatsApp\WhatsAppTemplateService;
+use App\Services\WhatsApp\WhatsAppTemplateSyncService;
+use App\Services\WhatsApp\WhatsAppMonitoringService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -79,7 +85,8 @@ return [
             $container->get(WhatsAppMessageHistoryRepositoryInterface::class),
             $container->get(WhatsAppTemplateRepositoryInterface::class),
             $container->get(LoggerInterface::class),
-            $container->get('whatsapp.config')
+            $container->get('whatsapp.config'),
+            $container->get(WhatsAppTemplateServiceInterface::class)
         );
     }),
     
@@ -100,6 +107,17 @@ return [
             \DI\get(WhatsAppTemplateRepositoryInterface::class),
             \DI\get(LoggerInterface::class)
         ),
+        
+    // Service de synchronisation des templates WhatsApp
+    WhatsAppTemplateSyncServiceInterface::class => \DI\create(WhatsAppTemplateSyncService::class)
+        ->constructor(
+            \DI\get(WhatsAppApiClientInterface::class),
+            \DI\get(WhatsAppTemplateRepositoryInterface::class),
+            \DI\get('App\\Repositories\\Interfaces\\WhatsApp\\WhatsAppUserTemplateRepositoryInterface'),
+            \DI\get('App\\Repositories\\Interfaces\\UserRepositoryInterface'),
+            \DI\get(EntityManagerInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
 
     // Controllers
     'App\\GraphQL\\Controllers\\WhatsApp\\WebhookController' => \DI\create('App\\GraphQL\\Controllers\\WhatsApp\\WebhookController')
@@ -112,6 +130,22 @@ return [
     'App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppTemplateController' => \DI\create('App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppTemplateController')
         ->constructor(
             \DI\get(WhatsAppServiceInterface::class),
+            \DI\get(WhatsAppTemplateServiceInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
+        
+    // Contrôleur local avec templates de secours qui ne dépend pas de l'API
+    'App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppTemplateLocalController' => \DI\create('App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppTemplateLocalController')
+        ->constructor(
+            \DI\get(WhatsAppServiceInterface::class),
+            \DI\get(WhatsAppTemplateServiceInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
+        
+    // Contrôleur de monitoring WhatsApp
+    'App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppMonitoringController' => \DI\create('App\\GraphQL\\Controllers\\WhatsApp\\WhatsAppMonitoringController')
+        ->constructor(
+            \DI\get(WhatsAppMonitoringServiceInterface::class),
             \DI\get(LoggerInterface::class)
         ),
         
@@ -130,16 +164,41 @@ return [
         );
     }),
 
+    // Ajouter le client REST WhatsApp
+    'App\\Services\\Interfaces\\WhatsApp\\WhatsAppRestClientInterface' => \DI\factory(function(
+        LoggerInterface $logger,
+        WhatsAppMonitoringServiceInterface $monitoringService
+    ) {
+        $baseUrl = isset($_SERVER['HTTP_HOST']) ? 'http://' . $_SERVER['HTTP_HOST'] : 'http://localhost:8000';
+        return new \App\Services\WhatsApp\WhatsAppRestClient($logger, $baseUrl, $monitoringService);
+    }),
+    
     'App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppTemplateResolver' => \DI\create('App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppTemplateResolver')
         ->constructor(
             \DI\get(WhatsAppTemplateServiceInterface::class),
             \DI\get(WhatsAppServiceInterface::class),
+            \DI\get(WhatsAppTemplateRepositoryInterface::class),
+            \DI\get('App\\Services\\Interfaces\\WhatsApp\\WhatsAppRestClientInterface'),
             \DI\get(LoggerInterface::class)
         ),
         
     'App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppCompleteTemplateResolver' => \DI\create('App\\GraphQL\\Resolvers\\WhatsApp\\WhatsAppCompleteTemplateResolver')
         ->constructor(
             \DI\get(WhatsAppTemplateServiceInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
+        
+    // Repository des métriques WhatsApp API
+    WhatsAppApiMetricRepositoryInterface::class => \DI\factory(function(EntityManagerInterface $entityManager) {
+        return new WhatsAppApiMetricRepository($entityManager);
+    }),
+    
+    // Service de monitoring WhatsApp
+    WhatsAppMonitoringServiceInterface::class => \DI\create(WhatsAppMonitoringService::class)
+        ->constructor(
+            \DI\get('App\\Repositories\\Interfaces\\WhatsApp\\WhatsAppTemplateHistoryRepositoryInterface'),
+            \DI\get(WhatsAppMessageHistoryRepositoryInterface::class),
+            \DI\get(WhatsAppApiMetricRepositoryInterface::class),
             \DI\get(LoggerInterface::class)
         ),
         

@@ -14,6 +14,7 @@ $configDir = __DIR__ . '/di/';
 
 // Liste des fichiers de configuration à charger
 $configFiles = [
+    // emergency.php a été retiré (solution temporaire),
     $configDir . 'repositories.php',
     $configDir . 'services.php',
     $configDir . 'graphql.php',

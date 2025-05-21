@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import notification from '../services/NotificationService';
+import notification from '../services/notification';
 import { OrangeAPIConfig } from './userStore';
 
 // Type definition for the config parameter

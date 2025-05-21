@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp;
 use App\Services\Interfaces\WhatsApp\WhatsAppApiClientInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -61,12 +62,20 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
             return $result;
             
         } catch (GuzzleException $e) {
-            $this->logger->error('Erreur API WhatsApp', [
+            $logData = [
                 'endpoint' => $endpoint,
                 'payload' => $payload,
                 'error' => $e->getMessage(),
-                'response' => $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : null
-            ]);
+            ];
+            
+            // Vérifier si l'exception est une RequestException qui possède la méthode hasResponse()
+            if ($e instanceof RequestException) {
+                $logData['response'] = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : null;
+            } else {
+                $logData['response'] = null;
+            }
+            
+            $this->logger->error('Erreur API WhatsApp', $logData);
             
             throw new \Exception('Erreur API WhatsApp : ' . $e->getMessage(), $e->getCode(), $e);
         }
@@ -179,25 +188,276 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
      */
     public function getTemplates(): array
     {
+        // Vérifier que les configurations requises sont présentes
+        if (empty($this->config['whatsapp_business_account_id'])) {
+            $this->logger->error('Configuration WhatsApp incomplète: whatsapp_business_account_id manquant');
+            // Afficher les valeurs actuelles pour diagnostiquer le problème
+            $this->logger->info('Configuration actuelle', [
+                'waba_id' => $this->config['whatsapp_business_account_id'] ?? 'Non défini',
+                'api_version' => $this->config['api_version'] ?? 'Non défini',
+                'access_token_length' => isset($this->config['access_token']) ? strlen($this->config['access_token']) : 0
+            ]);
+            throw new \Exception('Configuration WhatsApp incomplète: whatsapp_business_account_id manquant');
+        }
+        
+        if (empty($this->config['api_version'])) {
+            $this->logger->error('Configuration WhatsApp incomplète: api_version manquante');
+            throw new \Exception('Configuration WhatsApp incomplète: api_version manquante');
+        }
+        
+        if (empty($this->config['access_token'])) {
+            $this->logger->error('Configuration WhatsApp incomplète: access_token manquant');
+            throw new \Exception('Configuration WhatsApp incomplète: access_token manquant');
+        }
+
+        // Construire l'endpoint pour l'API
         $endpoint = $this->config['api_version'] . '/' . $this->config['whatsapp_business_account_id'] . '/message_templates';
         
+        // Log des tentatives pour traçage et débogage
+        $this->logger->info('Récupération des templates WhatsApp', [
+            'endpoint' => $endpoint,
+            'waba_id' => $this->config['whatsapp_business_account_id'],
+            'api_version' => $this->config['api_version'],
+            'token_length' => strlen($this->config['access_token'])
+        ]);
+        
+        // 1. Première tentative: utilisation de la méthode Guzzle HTTP client
         try {
+            // Faire la requête avec gestion des timeouts
             $response = $this->httpClient->get($endpoint, [
                 'query' => [
                     'limit' => 100
-                ]
+                ],
+                'timeout' => 30, // Timeout assez élevé pour récupérer une réponse complète
+                'connect_timeout' => 10, // Timeout de connexion initial
+                'verify' => false // Désactiver la vérification SSL pour contourner les problèmes potentiels
             ]);
             
-            $result = json_decode($response->getBody()->getContents(), true);
-            
-            return $result['data'] ?? [];
-            
-        } catch (GuzzleException $e) {
-            $this->logger->error('Erreur récupération templates WhatsApp', [
-                'error' => $e->getMessage()
+            // Obtenir et décoder le contenu
+            $content = $response->getBody()->getContents();
+            $this->logger->debug('Réponse API brute via Guzzle', [
+                'status_code' => $response->getStatusCode(),
+                'content_length' => strlen($content),
+                'content_preview' => substr($content, 0, 100) . (strlen($content) > 100 ? '...' : '')
             ]);
             
-            throw new \Exception('Erreur récupération templates : ' . $e->getMessage(), $e->getCode(), $e);
+            // Décoder le JSON
+            $result = json_decode($content, true);
+            
+            // Vérifier si le décodage a échoué
+            if ($result === null && json_last_error() !== JSON_ERROR_NONE) {
+                $this->logger->error('Erreur décodage JSON', [
+                    'error' => json_last_error_msg(),
+                    'content_preview' => substr($content, 0, 100) . '...'
+                ]);
+                throw new \Exception('Erreur décodage JSON: ' . json_last_error_msg());
+            }
+            
+            // Vérifier que $result est un tableau
+            if (!is_array($result)) {
+                $this->logger->error('Réponse API invalide: pas un tableau', [
+                    'type' => gettype($result)
+                ]);
+                throw new \Exception('Réponse API invalide: pas un tableau, type=' . gettype($result));
+            }
+            
+            // Vérifier la présence de la clé 'data'
+            if (!isset($result['data']) || !is_array($result['data'])) {
+                // Vérifier s'il y a un message d'erreur dans la réponse
+                if (isset($result['error'])) {
+                    $errorMessage = isset($result['error']['message']) ? 
+                        $result['error']['message'] : 
+                        (is_string($result['error']) ? $result['error'] : json_encode($result['error']));
+                    
+                    $errorCode = isset($result['error']['code']) ? $result['error']['code'] : 'UNKNOWN';
+                    
+                    $this->logger->error('API Meta a retourné une erreur', [
+                        'error_code' => $errorCode,
+                        'error_message' => $errorMessage,
+                        'full_error' => $result['error']
+                    ]);
+                    
+                    throw new \Exception('Erreur API Meta [' . $errorCode . ']: ' . $errorMessage);
+                }
+                
+                $this->logger->warning('Clé "data" manquante ou non-array dans la réponse API', [
+                    'keys' => is_array($result) ? array_keys($result) : 'N/A',
+                    'data_type' => isset($result['data']) ? gettype($result['data']) : 'N/A'
+                ]);
+                throw new \Exception('Clé "data" manquante ou non-array dans la réponse API');
+            }
+            
+            // Log du succès
+            $this->logger->info('Templates WhatsApp récupérés avec succès via Guzzle', [
+                'count' => count($result['data'])
+            ]);
+            
+            return $result['data'];
+        } 
+        catch (GuzzleException $e) {
+            // Log détaillé de l'erreur Guzzle
+            $logData = [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ];
+            
+            // Vérifier si l'exception est une RequestException qui possède la méthode hasResponse()
+            if ($e instanceof RequestException) {
+                $logData['has_response'] = $e->hasResponse() ? 'Oui' : 'Non';
+                
+                if ($e->hasResponse()) {
+                    $errorResponse = $e->getResponse()->getBody()->getContents();
+                    $logData['response'] = $errorResponse;
+                    
+                    // Essayer de décoder la réponse d'erreur JSON
+                    $decodedError = json_decode($errorResponse, true);
+                    if (is_array($decodedError) && isset($decodedError['error'])) {
+                        $logData['error_details'] = $decodedError['error'];
+                    }
+                }
+            }
+            
+            $this->logger->error('Erreur réseau Guzzle lors de la récupération des templates WhatsApp', $logData);
+            
+            // Si Guzzle échoue, essayer la méthode cURL directe avant de propager l'exception
+            $this->logger->info('Tentative de fallback avec cURL direct après échec Guzzle');
+        } 
+        catch (\Exception $e) {
+            // Log détaillé des autres exceptions
+            $this->logger->error('Exception lors de la récupération des templates WhatsApp via Guzzle', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Si nous avons une exception générique, essayer cURL avant de propager
+            $this->logger->info('Tentative de fallback avec cURL direct après exception');
+        }
+        
+        // 2. Deuxième tentative: utilisation de cURL directement
+        try {
+            $this->logger->info('Tentative de récupération des templates avec cURL direct');
+            $result = $this->testDirectApiCall();
+            
+            if ($result !== null && isset($result['data']) && is_array($result['data'])) {
+                $this->logger->info('Templates récupérés avec succès via cURL direct', [
+                    'count' => count($result['data'])
+                ]);
+                return $result['data'];
+            } else {
+                $errorInfo = [];
+                
+                if (is_array($result)) {
+                    if (isset($result['error'])) {
+                        $errorInfo = [
+                            'error' => $result['error'],
+                            'message' => isset($result['error']['message']) ? $result['error']['message'] : 'Erreur inconnue'
+                        ];
+                    } else {
+                        $errorInfo = ['keys' => array_keys($result)];
+                    }
+                } else {
+                    $errorInfo = ['result_type' => gettype($result)];
+                }
+                
+                $this->logger->error('cURL direct a échoué ou a retourné un format invalide', $errorInfo);
+                throw new \Exception('cURL direct a échoué ou a retourné un format invalide: ' . json_encode($errorInfo));
+            }
+        } catch (\Throwable $e) {
+            // Log final de l'erreur
+            $this->logger->error('Échec complet de la récupération des templates WhatsApp', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Propager l'exception en dernière instance
+            throw new \Exception('Impossible de récupérer les templates WhatsApp après plusieurs tentatives: ' . $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+    
+    /**
+     * Méthode de test direct utilisant cURL pour valider la connectivité API
+     * 
+     * @return array|null Données JSON décodées ou null en cas d'erreur
+     */
+    private function testDirectApiCall(): ?array
+    {
+        $this->logger->info('Test direct avec cURL', [
+            'waba_id' => $this->config['whatsapp_business_account_id'],
+            'api_version' => $this->config['api_version']
+        ]);
+        
+        try {
+            // Construire l'URL
+            $url = 'https://graph.facebook.com/' . 
+                $this->config['api_version'] . '/' . 
+                $this->config['whatsapp_business_account_id'] . 
+                '/message_templates?limit=100';
+            
+            // Initialiser cURL
+            $ch = curl_init();
+            
+            // Configurer la requête
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $this->config['access_token'],
+                'Content-Type: application/json'
+            ]);
+            
+            // Exécuter la requête
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            
+            // Fermer la ressource cURL
+            curl_close($ch);
+            
+            // Vérifier les erreurs
+            if ($error) {
+                $this->logger->error('Erreur cURL lors du test direct', [
+                    'error' => $error,
+                    'http_code' => $httpCode
+                ]);
+                return null;
+            }
+            
+            // Vérifier le code HTTP
+            if ($httpCode < 200 || $httpCode >= 300) {
+                $this->logger->error('Réponse HTTP non valide lors du test direct', [
+                    'http_code' => $httpCode,
+                    'response' => $response
+                ]);
+                return null;
+            }
+            
+            // Décoder la réponse JSON
+            $decodedResponse = json_decode($response, true);
+            
+            // Vérifier que la réponse est bien un tableau avec une clé 'data'
+            if (!is_array($decodedResponse) || !isset($decodedResponse['data']) || !is_array($decodedResponse['data'])) {
+                $this->logger->error('Réponse JSON invalide lors du test direct', [
+                    'response' => substr($response, 0, 500) . '...'
+                ]);
+                return null;
+            }
+            
+            // Log du succès
+            $this->logger->info('Test direct cURL réussi', [
+                'count' => count($decodedResponse['data'])
+            ]);
+            
+            return $decodedResponse;
+        } catch (\Throwable $e) {
+            $this->logger->error('Exception lors du test direct avec cURL', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return null;
         }
     }
     

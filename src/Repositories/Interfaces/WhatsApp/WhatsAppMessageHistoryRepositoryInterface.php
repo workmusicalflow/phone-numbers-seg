@@ -179,4 +179,15 @@ interface WhatsAppMessageHistoryRepositoryInterface
      * @return int
      */
     public function countWithFilters(array $criteria, array $dateFilters = [], ?string $phoneFilter = null): int;
+    
+    /**
+     * Compter les messages par statut pour un utilisateur
+     * 
+     * @param int $userId ID de l'utilisateur
+     * @param array $statuses Liste des statuts à compter
+     * @param \DateTime|null $startDate Date de début optionnelle
+     * @param \DateTime|null $endDate Date de fin optionnelle
+     * @return int Nombre de messages
+     */
+    public function countByStatus(int $userId, array $statuses, ?\DateTime $startDate = null, ?\DateTime $endDate = null): int;
 }

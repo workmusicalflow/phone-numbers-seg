@@ -1,0 +1,10 @@
+RewriteEngine On
+
+# Rediriger les requêtes API vers le fichier correspondant
+RewriteRule ^api/(.*)$ public/api.php?endpoint=$1 [QSA,L]
+RewriteRule ^graphql$ public/graphql.php [QSA,L]
+
+# Tous les autres chemins sont servis par le frontend (ou 404 si nécessaire)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ public/index.php [QSA,L]

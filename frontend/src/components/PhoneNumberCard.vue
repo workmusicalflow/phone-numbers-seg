@@ -1,7 +1,17 @@
 <template>
   <q-card class="phone-card">
     <q-card-section>
-      <div class="text-h6">{{ phoneNumber.number }}</div>
+      <div class="row justify-between items-center">
+        <div class="text-h6">{{ phoneNumber.number }}</div>
+        <contact-count-badge 
+          v-if="phoneNumber.contactCount !== undefined"
+          :count="phoneNumber.contactCount" 
+          color="primary" 
+          icon="contacts"
+          :tooltip-text="`${phoneNumber.contactCount} contact${phoneNumber.contactCount !== 1 ? 's' : ''} associé${phoneNumber.contactCount !== 1 ? 's' : ''}`"
+          :compact="$q.screen.lt.md"
+        />
+      </div>
       <div class="text-subtitle2" v-if="hasContactInfo">
         {{ formatContactInfo }}
       </div>
@@ -34,6 +44,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { PhoneNumber } from "../stores/phoneStore";
+import ContactCountBadge from "./common/ContactCountBadge.vue";
+import { useQuasar } from "quasar";
+
+const $q = useQuasar();
 
 const props = defineProps<{
   phoneNumber: PhoneNumber;

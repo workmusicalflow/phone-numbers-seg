@@ -6,6 +6,7 @@ namespace App\Services\Interfaces\WhatsApp;
 
 use App\Entities\User;
 use App\Entities\WhatsApp\WhatsAppMessageHistory;
+use App\Entities\WhatsApp\WhatsAppTemplateHistory;
 
 /**
  * Interface pour le service WhatsApp
@@ -74,6 +75,7 @@ interface WhatsAppServiceInterface
      * @param string $templateName
      * @param string $languageCode
      * @param array $components
+     * @param string|null $headerMediaId
      * @return array
      */
     public function sendTemplateMessageWithComponents(
@@ -81,7 +83,8 @@ interface WhatsAppServiceInterface
         string $recipient,
         string $templateName,
         string $languageCode,
-        array $components = []
+        array $components = [],
+        ?string $headerMediaId = null
     ): array;
 
     /**
@@ -205,4 +208,45 @@ interface WhatsAppServiceInterface
      *               Chaque template pourrait être un tableau associatif ou un objet.
      */
     public function getUserTemplates(User $user): array;
+    
+    /**
+     * Récupère les templates WhatsApp approuvés avec des options de filtrage.
+     *
+     * @param User $user L'utilisateur pour lequel récupérer les templates.
+     * @param array $filters Options de filtrage (name, language, category, status, useCache, forceRefresh).
+     * @return array La liste des templates, potentiellement vide.
+     */
+    public function getApprovedTemplates(User $user, array $filters = []): array;
+
+    /**
+     * Enregistre l'utilisation d'un template dans l'historique
+     * 
+     * @param User $user L'utilisateur qui utilise le template
+     * @param string $templateId L'ID du template
+     * @param string $recipient Le numéro de téléphone du destinataire
+     * @param string $templateName Le nom du template
+     * @param string $language Le code de langue du template
+     * @param string $category La catégorie du template
+     * @param array|null $parameters Les valeurs des paramètres du corps
+     * @param string|null $headerMediaType Le type de média d'en-tête (url, id)
+     * @param string|null $headerMediaUrl L'URL du média d'en-tête
+     * @param string|null $headerMediaId L'ID du média d'en-tête
+     * @param array|null $buttonValues Les valeurs des boutons
+     * @param WhatsAppMessageHistory|null $messageHistory Le message associé à cette utilisation
+     * @return WhatsAppTemplateHistory L'entrée d'historique créée
+     */
+    public function recordTemplateUsage(
+        User $user,
+        string $templateId,
+        string $recipient,
+        string $templateName,
+        string $language,
+        string $category,
+        ?array $parameters = null,
+        ?string $headerMediaType = null,
+        ?string $headerMediaUrl = null,
+        ?string $headerMediaId = null,
+        ?array $buttonValues = null,
+        ?WhatsAppMessageHistory $messageHistory = null
+    ): WhatsAppTemplateHistory;
 }

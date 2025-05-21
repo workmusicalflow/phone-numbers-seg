@@ -69,9 +69,18 @@ class WhatsAppUserTemplateType
     /**
      * @Field
      */
-    public function getIsSpecialTemplate(WhatsAppUserTemplate $template): bool
+    public function getCategory(WhatsAppUserTemplate $template): string
     {
-        return $template->isSpecialTemplate();
+        // Récupérer la catégorie depuis l'entité WhatsAppTemplate associée 
+        $entityManager = \App\GraphQL\DIContainer::getInstance()->get('\Doctrine\ORM\EntityManagerInterface');
+        $templateEntity = $entityManager->getRepository('\App\Entities\WhatsApp\WhatsAppTemplate')
+            ->findOneBy([
+                'name' => $template->getTemplateName(), 
+                'language' => $template->getLanguageCode()
+            ]);
+        
+        // Si on trouve le template, on retourne sa catégorie, sinon 'UTILITY' par défaut
+        return $templateEntity ? $templateEntity->getCategory() ?? 'UTILITY' : 'UTILITY';
     }
 
     /**
@@ -121,5 +130,23 @@ class WhatsAppUserTemplateType
     {
         // Statut par défaut pour les templates utilisateur
         return 'APPROVED';
+    }
+    
+    /**
+     * @Field
+     */
+    public function componentsJson(WhatsAppUserTemplate $template): string
+    {
+        // Récupérer les composants depuis l'entité WhatsAppTemplate associée 
+        // via le repository ou l'entity manager
+        $entityManager = \App\GraphQL\DIContainer::getInstance()->get('\Doctrine\ORM\EntityManagerInterface');
+        $templateEntity = $entityManager->getRepository('\App\Entities\WhatsApp\WhatsAppTemplate')
+            ->findOneBy([
+                'name' => $template->getTemplateName(), 
+                'language' => $template->getLanguageCode()
+            ]);
+        
+        // Si on trouve le template, on retourne ses composants, sinon on retourne un objet vide
+        return $templateEntity ? $templateEntity->getComponents() ?? '{}' : '{}';
     }
 }

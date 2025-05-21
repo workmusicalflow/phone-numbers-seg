@@ -1,145 +1,153 @@
 <?php
 
-declare(strict_types=1);
+/**
+ * Script de test pour les resolvers GraphQL WhatsApp Templates
+ * 
+ * Ce script permet de tester les nouvelles implémentations des resolvers GraphQL
+ * qui utilisent maintenant le client REST WhatsApp avec mécanismes de fallback.
+ */
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-// Test GraphQL pour les templates WhatsApp
+// Initialiser le conteneur DI
+$containerBuilder = new \DI\ContainerBuilder();
+$containerBuilder->addDefinitions(__DIR__ . '/../src/config/di.php');
+$container = $containerBuilder->build();
 
-$endpoint = 'http://localhost:8000/graphql.php';
+// Obtenir les services nécessaires
+$logger = $container->get(\Psr\Log\LoggerInterface::class);
+$userRepository = $container->get(\App\Repositories\Interfaces\UserRepositoryInterface::class);
+$templateResolver = $container->get(\App\GraphQL\Resolvers\WhatsApp\WhatsAppTemplateResolver::class);
 
-// Faire un login d'abord
-$loginQuery = [
-    'query' => 'mutation Login($username: String!, $password: String!) {
-        login(username: $username, password: $password)
-    }',
-    'variables' => [
-        'username' => 'admin@example.com',
-        'password' => 'admin123'
-    ]
-];
-
-// Login
-$ch = curl_init($endpoint);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Content-Type: application/json',
-    'Accept: application/json'
-]);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($loginQuery));
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-$loginResponse = curl_exec($ch);
-if ($loginResponse === false) {
-    echo "Erreur cURL: " . curl_error($ch) . "\n";
+// Obtenir un utilisateur pour les tests
+$user = $userRepository->findOneBy(['id' => 1]);
+if (!$user) {
+    echo "Erreur: Utilisateur avec ID=1 non trouvé.\n";
     exit(1);
 }
 
-$loginData = json_decode($loginResponse, true);
-if (json_last_error() !== JSON_ERROR_NONE) {
-    echo "Erreur JSON: " . json_last_error_msg() . "\n";
-    echo "Réponse brute:\n" . $loginResponse . "\n";
-    exit(1);
-}
+echo "=== Test des resolvers GraphQL WhatsApp Templates ===\n\n";
 
-// Après le login, on doit récupérer le token via une autre query
-if ($loginData['data']['login'] !== true) {
-    echo "Erreur de connexion:\n";
-    print_r($loginData);
-    echo "\nRéponse complète:\n" . $loginResponse . "\n";
-    exit(1);
-}
-
-echo "Login successful\n";
-
-// Maintenant on doit récupérer le token de l'utilisateur actuel
-$meQuery = [
-    'query' => 'query Me {
-        me {
-            id
-            email
-            firstname
-            isAdmin
-            token
-        }
-    }'
-];
-
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($meQuery));
-$meResponse = curl_exec($ch);
-$meData = json_decode($meResponse, true);
-
-if (!isset($meData['data']['me']['token'])) {
-    echo "Erreur récupération utilisateur:\n";
-    print_r($meData);
-    exit(1);
-}
-
-$token = $meData['data']['me']['token'];
-echo "Connecté avec succès. Token: " . substr($token, 0, 20) . "...\n\n";
-
-// Récupérer les templates
-$templatesQuery = [
-    'query' => 'query GetUserWhatsAppTemplates {
-        getUserWhatsAppTemplates {
-            id
-            name
-            language
-            category
-            status
-            bodyText
-            headerFormat
-            headerText
-            footerText
-            bodyVariablesCount
-            hasHeaderMedia
-            isActive
-            isGlobal
-            metaTemplateId
-        }
-    }'
-];
-
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Content-Type: application/json',
-    'Accept: application/json',
-    'Authorization: Bearer ' . $token
-]);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($templatesQuery));
-
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
-
-echo "Code HTTP: $httpCode\n";
-echo "Réponse:\n";
-
-$data = json_decode($response, true);
-if (json_last_error() === JSON_ERROR_NONE) {
-    if (isset($data['errors'])) {
-        echo "Erreurs GraphQL:\n";
-        foreach ($data['errors'] as $error) {
-            echo "- " . $error['message'] . "\n";
-            if (isset($error['trace'])) {
-                echo "  Trace: " . json_encode($error['trace']) . "\n";
-            }
+// Test 1: fetchApprovedWhatsAppTemplates
+echo "[TEST 1] fetchApprovedWhatsAppTemplates - Sans filtre\n";
+try {
+    $startTime = microtime(true);
+    $templates = $templateResolver->fetchApprovedWhatsAppTemplates(null, $user);
+    $endTime = microtime(true);
+    $duration = round(($endTime - $startTime) * 1000, 2);
+    
+    echo "  Succès! " . count($templates) . " templates trouvés en $duration ms\n";
+    
+    // Afficher quelques exemples
+    if (count($templates) > 0) {
+        echo "  Exemples:\n";
+        $samples = array_slice($templates, 0, 3);
+        foreach ($samples as $index => $template) {
+            echo "  - Template " . ($index + 1) . ": " . $template->getName() . " (" . $template->getLanguage() . ")\n";
         }
     }
+} catch (\Exception $e) {
+    echo "  Erreur: " . $e->getMessage() . "\n";
+}
+echo "\n";
+
+// Test 2: fetchApprovedWhatsAppTemplates - Avec filtre
+echo "[TEST 2] fetchApprovedWhatsAppTemplates - Avec filtre de langue\n";
+try {
+    $filter = new \App\GraphQL\Types\WhatsApp\TemplateFilterInput();
+    $filter->language = 'fr';
     
-    if (isset($data['data']['getUserWhatsAppTemplates'])) {
-        echo "\nTemplates WhatsApp:\n";
-        foreach ($data['data']['getUserWhatsAppTemplates'] as $template) {
-            echo "\n- " . $template['name'] . " (" . $template['language'] . ")\n";
-            echo "  Catégorie: " . $template['category'] . "\n";
-            echo "  Statut: " . $template['status'] . "\n";
-            echo "  Global: " . ($template['isGlobal'] ? 'Oui' : 'Non') . "\n";
-            echo "  Body: " . substr($template['bodyText'], 0, 60) . "...\n";
+    $startTime = microtime(true);
+    $templates = $templateResolver->fetchApprovedWhatsAppTemplates($filter, $user);
+    $endTime = microtime(true);
+    $duration = round(($endTime - $startTime) * 1000, 2);
+    
+    echo "  Succès! " . count($templates) . " templates en français trouvés en $duration ms\n";
+    
+    // Afficher quelques exemples
+    if (count($templates) > 0) {
+        echo "  Exemples:\n";
+        $samples = array_slice($templates, 0, 3);
+        foreach ($samples as $index => $template) {
+            echo "  - Template " . ($index + 1) . ": " . $template->getName() . " (" . $template->getLanguage() . ")\n";
+        }
+    }
+} catch (\Exception $e) {
+    echo "  Erreur: " . $e->getMessage() . "\n";
+}
+echo "\n";
+
+// Test 3: searchWhatsAppTemplates - Recherche avancée
+echo "[TEST 3] searchWhatsAppTemplates - Recherche avancée\n";
+try {
+    $filter = new \App\GraphQL\Types\WhatsApp\TemplateFilterInput();
+    $filter->hasMediaHeader = true; // Templates avec en-tête média
+    
+    $startTime = microtime(true);
+    $templates = $templateResolver->searchWhatsAppTemplates($filter, 10, 0, $user);
+    $endTime = microtime(true);
+    $duration = round(($endTime - $startTime) * 1000, 2);
+    
+    echo "  Succès! " . count($templates) . " templates avec média trouvés en $duration ms\n";
+    
+    // Afficher quelques exemples
+    if (count($templates) > 0) {
+        echo "  Exemples:\n";
+        $samples = array_slice($templates, 0, 3);
+        foreach ($samples as $index => $template) {
+            echo "  - Template " . ($index + 1) . ": " . $template->getName() . " (" . $template->getHeaderFormat() . ")\n";
+        }
+    }
+} catch (\Exception $e) {
+    echo "  Erreur: " . $e->getMessage() . "\n";
+}
+echo "\n";
+
+// Test 4: whatsAppTemplatesByHeaderFormat
+echo "[TEST 4] whatsAppTemplatesByHeaderFormat - Templates avec image\n";
+try {
+    $startTime = microtime(true);
+    $templates = $templateResolver->getTemplatesByHeaderFormat('IMAGE', 'APPROVED', $user);
+    $endTime = microtime(true);
+    $duration = round(($endTime - $startTime) * 1000, 2);
+    
+    echo "  Succès! " . count($templates) . " templates avec en-tête IMAGE trouvés en $duration ms\n";
+    
+    // Afficher quelques exemples
+    if (count($templates) > 0) {
+        echo "  Exemples:\n";
+        $samples = array_slice($templates, 0, 3);
+        foreach ($samples as $index => $template) {
+            echo "  - Template " . ($index + 1) . ": " . $template->getName() . " (" . $template->getLanguage() . ")\n";
+        }
+    }
+} catch (\Exception $e) {
+    echo "  Erreur: " . $e->getMessage() . "\n";
+}
+echo "\n";
+
+// Test 5: mostUsedWhatsAppTemplates
+echo "[TEST 5] mostUsedWhatsAppTemplates - Templates les plus utilisés\n";
+try {
+    $startTime = microtime(true);
+    $templates = $templateResolver->getMostUsedTemplates(5, $user);
+    $endTime = microtime(true);
+    $duration = round(($endTime - $startTime) * 1000, 2);
+    
+    echo "  Succès! " . count($templates) . " templates populaires trouvés en $duration ms\n";
+    
+    // Afficher tous les templates populaires avec leur nombre d'utilisations
+    if (count($templates) > 0) {
+        echo "  Templates les plus utilisés:\n";
+        foreach ($templates as $index => $template) {
+            echo "  - " . ($index + 1) . ". " . $template->getName() . " (" . $template->getUsageCount() . " utilisations)\n";
         }
     } else {
-        echo "Aucun template trouvé ou erreur de structure.\n";
-        print_r($data);
+        echo "  Aucun template utilisé trouvé.\n";
     }
-} else {
-    echo "Erreur JSON:\n";
-    echo $response . "\n";
+} catch (\Exception $e) {
+    echo "  Erreur: " . $e->getMessage() . "\n";
 }
+echo "\n";
+
+echo "=== Tests terminés ===\n";

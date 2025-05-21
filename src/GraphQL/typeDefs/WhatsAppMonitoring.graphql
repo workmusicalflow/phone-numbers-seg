@@ -1,0 +1,123 @@
+"""
+Types pour les metriques de monitoring du service WhatsApp
+"""
+
+"""
+Metrique de performance API WhatsApp
+"""
+type WhatsAppApiPerformanceMetric {
+  operation: String!
+  count: Int!
+  avgDuration: Float!
+  successful: Int!
+  failed: Int!
+  successRate: Float!
+}
+
+"""
+Metriques de performance API WhatsApp
+"""
+type WhatsAppApiPerformanceMetrics {
+  totalOperations: Int!
+  overallSuccessRate: Float!
+  avgDuration: Float!
+  p95Duration: Float!
+  p99Duration: Float!
+  byOperation: [WhatsAppApiPerformanceMetric!]!
+  byDay: [String!]!
+  avgDurationByDay: [Float!]!
+  error: String
+}
+
+"""
+Metrique d'utilisation de template WhatsApp
+"""
+type WhatsAppTemplateUsageMetric {
+  templateId: String!
+  templateName: String!
+  count: Int!
+  successRate: Float!
+  successful: Int!
+  failed: Int!
+}
+
+"""
+Metriques d'utilisation des templates WhatsApp
+"""
+type WhatsAppTemplateUsageMetrics {
+  totalUsage: Int!
+  templateUsage: [WhatsAppTemplateUsageMetric!]!
+  byLanguage: [String!]!
+  byCategory: [String!]!
+  byDay: [String!]!
+  byHour: [String!]!
+  uniqueTemplates: Int!
+  error: String
+}
+
+"""
+Metrique d'erreur API WhatsApp
+"""
+type WhatsAppApiErrorMetric {
+  type: String!
+  count: Int!
+  operations: [String!]!
+}
+
+"""
+Metriques d'erreur API WhatsApp
+"""
+type WhatsAppApiErrorMetrics {
+  totalErrors: Int!
+  errorRate: Float!
+  criticalErrors: Int!
+  byType: [WhatsAppApiErrorMetric!]!
+  byOperation: [String!]!
+  byDay: [String!]!
+  recentErrors: [String!]!
+  error: String
+}
+
+"""
+Metriques cles pour le dashboard WhatsApp
+"""
+type WhatsAppKeyMetrics {
+  messageSuccessRate: Float!
+  apiSuccessRate: Float!
+  totalMessages: Int!
+  totalTemplatesUsed: Int!
+  avgApiDuration: Float!
+  p95ApiDuration: Float!
+  criticalErrors: Int!
+  templateCount: Int!
+}
+
+"""
+Alerte pour le monitoring WhatsApp
+"""
+type WhatsAppAlert {
+  type: String!
+  level: String!
+  message: String!
+  details: [String!]!
+}
+
+"""
+Dashboard de monitoring WhatsApp
+"""
+type WhatsAppMonitoringDashboard {
+  period: String!
+  startDate: String!
+  endDate: String!
+  alerts: [WhatsAppAlert!]!
+  keyMetrics: WhatsAppKeyMetrics!
+  topTemplates: [WhatsAppTemplateUsageMetric!]!
+  templatesByCategory: [String!]!
+  templatesByLanguage: [String!]!
+  apiErrorsByType: [WhatsAppApiErrorMetric!]!
+  messagesByDay: [String!]!
+  apiPerformanceByDay: [String!]!
+  apiAvgDurationByDay: [String!]!
+  recentErrors: [String!]!
+  error: String
+}

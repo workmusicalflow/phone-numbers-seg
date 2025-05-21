@@ -421,16 +421,56 @@ class WhatsAppResolver
             $bodyVariables = $input['bodyVariables'] ?? [];
             $buttonVariables = $input['buttonVariables'] ?? [];
             $headerMediaUrl = $input['headerMediaUrl'] ?? null;
+            $headerMediaId = $input['headerMediaId'] ?? null;
+            $components = [];
             
-            // Envoyer le template via le service
-            $messageHistory = $this->whatsappService->sendTemplateMessage(
-                $user,
-                $input['recipientPhoneNumber'],
-                $input['templateName'],
-                $input['templateLanguage'],
-                $headerMediaUrl,
-                $bodyVariables
-            );
+            // Préparer les composants du template si un JSON est fourni
+            if (!empty($input['templateComponentsJsonString'])) {
+                $components = json_decode($input['templateComponentsJsonString'], true) ?: [];
+            }
+
+            // Si nous avons un headerMediaId, utiliser la méthode avec composants
+            if ($headerMediaId) {
+                $this->logger->info("Envoi de template WhatsApp avec Media ID", [
+                    'mediaId' => $headerMediaId
+                ]);
+                
+                // Envoyer via le service avec composants et Media ID
+                $response = $this->whatsappService->sendTemplateMessageWithComponents(
+                    $user,
+                    $input['recipientPhoneNumber'],
+                    $input['templateName'],
+                    $input['templateLanguage'],
+                    $components,
+                    $headerMediaId
+                );
+                
+                // Récupérer l'ID du message WhatsApp
+                $wabaMessageId = $response['messages'][0]['id'] ?? null;
+                
+                // Créer un objet message d'historique
+                $messageHistory = new \App\Entities\WhatsApp\WhatsAppMessageHistory();
+                $messageHistory->setOracleUser($user);
+                $messageHistory->setWabaMessageId($wabaMessageId);
+                $messageHistory->setPhoneNumber($input['recipientPhoneNumber']);
+                $messageHistory->setDirection('OUTGOING');
+                $messageHistory->setType('template');
+                $messageHistory->setStatus('sent');
+                $messageHistory->setTemplateName($input['templateName']);
+                $messageHistory->setTemplateLanguage($input['templateLanguage']);
+                $messageHistory->setMediaId($headerMediaId);
+                $messageHistory->setTimestamp(new \DateTime());
+            } else {
+                // Utiliser la méthode standard avec URL
+                $messageHistory = $this->whatsappService->sendTemplateMessage(
+                    $user,
+                    $input['recipientPhoneNumber'],
+                    $input['templateName'],
+                    $input['templateLanguage'],
+                    $headerMediaUrl,
+                    $bodyVariables
+                );
+            }
             
             // Construire le résultat
             return new SendTemplateResult(

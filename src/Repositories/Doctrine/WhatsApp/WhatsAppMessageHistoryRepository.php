@@ -11,6 +11,11 @@ use Doctrine\ORM\QueryBuilder;
 
 /**
  * Repository Doctrine pour l'historique des messages WhatsApp
+ * 
+ * @method WhatsAppMessageHistory|null find($id, $lockMode = null, $lockVersion = null)
+ * @method WhatsAppMessageHistory|null findOneBy(array $criteria, array $orderBy = null)
+ * @method WhatsAppMessageHistory[] findAll()
+ * @method WhatsAppMessageHistory[] findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
 class WhatsAppMessageHistoryRepository extends BaseRepository implements WhatsAppMessageHistoryRepositoryInterface
 {
@@ -454,5 +459,41 @@ class WhatsAppMessageHistoryRepository extends BaseRepository implements WhatsAp
         }
         
         return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function countByStatus(int $userId, array $statuses, ?\DateTime $startDate = null, ?\DateTime $endDate = null): int
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('COUNT(m.id)')
+           ->from(WhatsAppMessageHistory::class, 'm')
+           ->where('m.oracleUser = :userId')
+           ->andWhere('m.status IN (:statuses)')
+           ->setParameter('userId', $userId)
+           ->setParameter('statuses', $statuses);
+        
+        // Ajouter le filtre de date de début si fourni
+        if ($startDate !== null) {
+            $qb->andWhere('m.timestamp >= :startDate')
+               ->setParameter('startDate', $startDate);
+        }
+        
+        // Ajouter le filtre de date de fin si fourni
+        if ($endDate !== null) {
+            $qb->andWhere('m.timestamp <= :endDate')
+               ->setParameter('endDate', $endDate);
+        }
+        
+        try {
+            return (int) $qb->getQuery()->getSingleScalarResult();
+        } catch (\Doctrine\ORM\NoResultException $e) {
+            // Si aucun résultat trouvé, retourner 0
+            return 0;
+        } catch (\Exception $e) {
+            // En cas d'erreur inattendue, logger l'erreur et retourner 0
+            return 0;
+        }
     }
 }
