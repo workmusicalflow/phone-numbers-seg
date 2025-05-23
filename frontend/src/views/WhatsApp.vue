@@ -101,120 +101,227 @@
           </div>
 
           <!-- Statistiques et infos récentes -->
-          <div class="row q-col-gutter-md q-mt-lg">
-            <div class="col-12 col-md-4">
-              <!-- Aperçu du dernier message envoyé -->
-              <q-card v-if="lastSentMessage">
-                <q-card-section>
-                  <div class="text-h6">Dernier message envoyé</div>
-                </q-card-section>
-                <q-separator />
-                <q-card-section>
-                  <div class="row q-mb-sm">
-                    <div class="col-5 text-weight-bold">Destinataire :</div>
-                    <div class="col-7">{{ lastSentMessage.phoneNumber }}</div>
-                  </div>
-                  <div class="row q-mb-sm">
-                    <div class="col-5 text-weight-bold">Type :</div>
-                    <div class="col-7">{{ lastSentMessage.type }}</div>
-                  </div>
-                  <div class="row q-mb-sm">
-                    <div class="col-5 text-weight-bold">Statut :</div>
-                    <div class="col-7">
-                      <q-badge 
-                        :color="getStatusColor(lastSentMessage.status)"
-                        :label="lastSentMessage.status"
-                      />
+          <div class="stats-section q-mt-xl">
+            <div class="section-header q-mb-lg">
+              <h2 class="section-title">
+                <q-icon name="analytics" class="q-mr-sm" />
+                Statistiques et infos récentes
+              </h2>
+              <p class="section-subtitle">
+                Aperçu de votre activité WhatsApp en temps réel
+              </p>
+            </div>
+
+            <div class="row q-col-gutter-lg">
+              <!-- Carte du dernier message envoyé -->
+              <div class="col-12 col-lg-4">
+                <q-card class="modern-stats-card last-sent-card" v-if="lastSentMessage">
+                  <div class="card-gradient-header sent-header">
+                    <q-icon name="send" size="md" class="header-icon" />
+                    <div class="header-content">
+                      <h3 class="card-title">Dernier message envoyé</h3>
+                      <p class="card-subtitle">{{ formatRelativeTime(lastSentMessage.createdAt) }}</p>
                     </div>
                   </div>
-                  <div class="row q-mb-sm" v-if="lastSentMessage.content">
-                    <div class="col-5 text-weight-bold">Message :</div>
-                    <div class="col-7">{{ lastSentMessage.content }}</div>
-                  </div>
-                  <div class="row">
-                    <div class="col-5 text-weight-bold">Date :</div>
-                    <div class="col-7">{{ formatDate(lastSentMessage.createdAt) }}</div>
-                  </div>
-                </q-card-section>
-              </q-card>
-            </div>
+                  
+                  <q-card-section class="card-content">
+                    <div class="message-info">
+                      <div class="info-item">
+                        <q-icon name="person" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Destinataire</span>
+                          <span class="info-value">{{ formatPhoneNumber(lastSentMessage.phoneNumber) }}</span>
+                        </div>
+                      </div>
+                      
+                      <div class="info-item">
+                        <q-icon name="label" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Type</span>
+                          <q-chip 
+                            :color="getTypeColor(lastSentMessage.type)" 
+                            text-color="white" 
+                            size="sm"
+                            class="type-chip"
+                          >
+                            {{ getTypeLabel(lastSentMessage.type) }}
+                          </q-chip>
+                        </div>
+                      </div>
+                      
+                      <div class="info-item">
+                        <q-icon name="check_circle" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Statut</span>
+                          <q-badge 
+                            :color="getStatusColor(lastSentMessage.status)"
+                            :label="getStatusLabel(lastSentMessage.status)"
+                            class="status-badge"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div class="info-item" v-if="lastSentMessage.content">
+                        <q-icon name="message" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Message</span>
+                          <span class="info-value message-preview">{{ truncateMessage(lastSentMessage.content) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+                
+                <!-- Carte vide si aucun message envoyé -->
+                <q-card class="modern-stats-card empty-state-card" v-else>
+                  <q-card-section class="text-center q-pa-xl">
+                    <q-icon name="send" size="4rem" color="grey-4" class="q-mb-md" />
+                    <h4 class="text-grey-6 q-ma-none">Aucun message envoyé</h4>
+                    <p class="text-grey-5 q-mt-sm q-mb-none">
+                      Vos messages envoyés apparaîtront ici
+                    </p>
+                  </q-card-section>
+                </q-card>
+              </div>
 
-            <div class="col-12 col-md-4">
-              <!-- Aperçu du dernier message reçu -->
-              <q-card v-if="lastReceivedMessage">
-                <q-card-section>
-                  <div class="text-h6">Dernier message reçu</div>
-                </q-card-section>
-                <q-separator />
-                <q-card-section>
-                  <div class="row q-mb-sm">
-                    <div class="col-5 text-weight-bold">De :</div>
-                    <div class="col-7">{{ lastReceivedMessage.phoneNumber }}</div>
+              <!-- Carte du dernier message reçu -->
+              <div class="col-12 col-lg-4">
+                <q-card class="modern-stats-card last-received-card" v-if="lastReceivedMessage">
+                  <div class="card-gradient-header received-header">
+                    <q-icon name="mail" size="md" class="header-icon" />
+                    <div class="header-content">
+                      <h3 class="card-title">Dernier message reçu</h3>
+                      <p class="card-subtitle">{{ formatRelativeTime(lastReceivedMessage.createdAt) }}</p>
+                    </div>
                   </div>
-                  <div class="row q-mb-sm">
-                    <div class="col-5 text-weight-bold">Type :</div>
-                    <div class="col-7">{{ lastReceivedMessage.type }}</div>
-                  </div>
-                  <div class="row q-mb-sm" v-if="lastReceivedMessage.content">
-                    <div class="col-5 text-weight-bold">Message :</div>
-                    <div class="col-7">{{ lastReceivedMessage.content }}</div>
-                  </div>
-                  <div class="row">
-                    <div class="col-5 text-weight-bold">Date :</div>
-                    <div class="col-7">{{ formatDate(lastReceivedMessage.createdAt) }}</div>
-                  </div>
-                </q-card-section>
-              </q-card>
-            </div>
+                  
+                  <q-card-section class="card-content">
+                    <div class="message-info">
+                      <div class="info-item">
+                        <q-icon name="person" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Expéditeur</span>
+                          <span class="info-value">{{ formatPhoneNumber(lastReceivedMessage.phoneNumber) }}</span>
+                        </div>
+                      </div>
+                      
+                      <div class="info-item">
+                        <q-icon name="label" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Type</span>
+                          <q-chip 
+                            :color="getTypeColor(lastReceivedMessage.type)" 
+                            text-color="white" 
+                            size="sm"
+                            class="type-chip"
+                          >
+                            {{ getTypeLabel(lastReceivedMessage.type) }}
+                          </q-chip>
+                        </div>
+                      </div>
+                      
+                      <div class="info-item" v-if="lastReceivedMessage.content">
+                        <q-icon name="message" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Message</span>
+                          <span class="info-value message-preview">{{ truncateMessage(lastReceivedMessage.content) }}</span>
+                        </div>
+                      </div>
+                      
+                      <div class="info-item">
+                        <q-icon name="schedule" class="info-icon" />
+                        <div class="info-content">
+                          <span class="info-label">Date</span>
+                          <span class="info-value">{{ formatDate(lastReceivedMessage.createdAt) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+                
+                <!-- Carte vide si aucun message reçu -->
+                <q-card class="modern-stats-card empty-state-card" v-else>
+                  <q-card-section class="text-center q-pa-xl">
+                    <q-icon name="mail" size="4rem" color="grey-4" class="q-mb-md" />
+                    <h4 class="text-grey-6 q-ma-none">Aucun message reçu</h4>
+                    <p class="text-grey-5 q-mt-sm q-mb-none">
+                      Les messages reçus apparaîtront ici
+                    </p>
+                  </q-card-section>
+                </q-card>
+              </div>
 
-            <div class="col-12 col-md-4">
-              <!-- Statistiques rapides -->
-              <q-card>
-                <q-card-section>
-                  <div class="text-h6">Statistiques du jour</div>
-                </q-card-section>
-                <q-separator />
-                <q-card-section>
-                  <q-list>
-                    <q-item>
-                      <q-item-section avatar>
-                        <q-icon name="send" color="primary" />
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label>Messages envoyés</q-item-label>
-                        <q-item-label caption>{{ stats.totalMessages }}</q-item-label>
-                      </q-item-section>
-                    </q-item>
-                    <q-item>
-                      <q-item-section avatar>
-                        <q-icon name="done" color="positive" />
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label>Messages délivrés</q-item-label>
-                        <q-item-label caption>{{ stats.deliveredMessages }}</q-item-label>
-                      </q-item-section>
-                    </q-item>
-                    <q-item>
-                      <q-item-section avatar>
-                        <q-icon name="visibility" color="info" />
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label>Messages lus</q-item-label>
-                        <q-item-label caption>{{ stats.readMessages }}</q-item-label>
-                      </q-item-section>
-                    </q-item>
-                    <q-item>
-                      <q-item-section avatar>
-                        <q-icon name="mail" color="green" />
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label>Messages reçus</q-item-label>
-                        <q-item-label caption>{{ stats.receivedMessages }}</q-item-label>
-                      </q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-card-section>
-              </q-card>
+              <!-- Carte des statistiques du jour -->
+              <div class="col-12 col-lg-4">
+                <q-card class="modern-stats-card stats-overview-card">
+                  <div class="card-gradient-header stats-header">
+                    <q-icon name="analytics" size="md" class="header-icon" />
+                    <div class="header-content">
+                      <h3 class="card-title">Statistiques du jour</h3>
+                      <p class="card-subtitle">{{ formatToday() }}</p>
+                    </div>
+                  </div>
+                  
+                  <q-card-section class="card-content stats-content">
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <div class="stat-icon-wrapper sent-stat">
+                          <q-icon name="send" class="stat-icon" />
+                        </div>
+                        <div class="stat-details">
+                          <span class="stat-value">{{ stats.totalMessages }}</span>
+                          <span class="stat-label">Envoyés</span>
+                        </div>
+                      </div>
+                      
+                      <div class="stat-item">
+                        <div class="stat-icon-wrapper delivered-stat">
+                          <q-icon name="done_all" class="stat-icon" />
+                        </div>
+                        <div class="stat-details">
+                          <span class="stat-value">{{ stats.deliveredMessages }}</span>
+                          <span class="stat-label">Délivrés</span>
+                        </div>
+                      </div>
+                      
+                      <div class="stat-item">
+                        <div class="stat-icon-wrapper read-stat">
+                          <q-icon name="visibility" class="stat-icon" />
+                        </div>
+                        <div class="stat-details">
+                          <span class="stat-value">{{ stats.readMessages }}</span>
+                          <span class="stat-label">Lus</span>
+                        </div>
+                      </div>
+                      
+                      <div class="stat-item">
+                        <div class="stat-icon-wrapper received-stat">
+                          <q-icon name="inbox" class="stat-icon" />
+                        </div>
+                        <div class="stat-details">
+                          <span class="stat-value">{{ stats.receivedMessages }}</span>
+                          <span class="stat-label">Reçus</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Indicateur de performance -->
+                    <div class="performance-indicator q-mt-md">
+                      <div class="performance-header">
+                        <span class="performance-label">Taux de livraison</span>
+                        <span class="performance-value">{{ deliveryRate }}%</span>
+                      </div>
+                      <q-linear-progress 
+                        :value="deliveryRate / 100" 
+                        color="positive" 
+                        size="8px" 
+                        rounded 
+                        class="q-mt-xs"
+                      />
+                    </div>
+                  </q-card-section>
+                </q-card>
+              </div>
             </div>
           </div>
         </q-tab-panel>
@@ -310,6 +417,12 @@ const stats = computed(() => {
   };
 });
 
+// Computed pour le taux de livraison
+const deliveryRate = computed(() => {
+  if (stats.value.totalMessages === 0) return 0;
+  return Math.round((stats.value.deliveredMessages / stats.value.totalMessages) * 100);
+});
+
 // Helper functions
 function getStatusColor(status: string) {
   switch (status?.toLowerCase()) {
@@ -333,6 +446,87 @@ function formatDate(date: string | Date) {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
+  });
+}
+
+// Nouvelles fonctions helper pour l'interface modernisée
+function formatRelativeTime(date: string | Date) {
+  const now = new Date();
+  const messageDate = new Date(date);
+  const diffInMinutes = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60));
+  
+  if (diffInMinutes < 1) return 'À l\'instant';
+  if (diffInMinutes < 60) return `Il y a ${diffInMinutes} min`;
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `Il y a ${diffInHours}h`;
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays === 1) return 'Hier';
+  if (diffInDays < 7) return `Il y a ${diffInDays} jours`;
+  
+  return formatDate(date);
+}
+
+function formatPhoneNumber(phoneNumber: string) {
+  // Formatter le numéro pour l'affichage (+XXX XX XX XX XX)
+  if (!phoneNumber) return '';
+  
+  let cleaned = phoneNumber.replace(/\D/g, '');
+  if (cleaned.startsWith('225')) {
+    // Format Côte d'Ivoire: +225 XX XX XX XX
+    return `+225 ${cleaned.slice(3, 5)} ${cleaned.slice(5, 7)} ${cleaned.slice(7, 9)} ${cleaned.slice(9)}`;
+  }
+  
+  // Format générique: +XXX XXXX XXXX
+  return `+${cleaned.slice(0, 3)} ${cleaned.slice(3, 7)} ${cleaned.slice(7)}`;
+}
+
+function getTypeColor(type: string) {
+  switch (type?.toLowerCase()) {
+    case 'text': return 'blue';
+    case 'template': return 'purple';
+    case 'image': return 'pink';
+    case 'video': return 'orange';
+    case 'document': return 'teal';
+    case 'audio': return 'green';
+    default: return 'grey';
+  }
+}
+
+function getTypeLabel(type: string) {
+  switch (type?.toLowerCase()) {
+    case 'text': return 'Texte';
+    case 'template': return 'Template';
+    case 'image': return 'Image';
+    case 'video': return 'Vidéo';
+    case 'document': return 'Document';
+    case 'audio': return 'Audio';
+    default: return type || 'Inconnu';
+  }
+}
+
+function getStatusLabel(status: string) {
+  switch (status?.toLowerCase()) {
+    case 'sent': return 'Envoyé';
+    case 'delivered': return 'Délivré';
+    case 'read': return 'Lu';
+    case 'failed': return 'Échoué';
+    default: return status || 'Inconnu';
+  }
+}
+
+function truncateMessage(message: string, maxLength: number = 80) {
+  if (!message) return '';
+  return message.length > maxLength ? message.slice(0, maxLength) + '...' : message;
+}
+
+function formatToday() {
+  return new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
 }
 
@@ -481,6 +675,351 @@ onMounted(async () => {
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.12);
+  }
+}
+
+// Section des statistiques modernisées
+.stats-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border-radius: 20px;
+  padding: 32px;
+  margin-top: 40px;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+}
+
+.section-header {
+  text-align: center;
+  
+  .section-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    .q-icon {
+      color: #25d366;
+    }
+  }
+  
+  .section-subtitle {
+    font-size: 1.1rem;
+    color: #6b7280;
+    margin: 0;
+    font-weight: 400;
+  }
+}
+
+// Cartes de statistiques modernes
+.modern-stats-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  height: 100%;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+}
+
+// Headers avec gradients
+.card-gradient-header {
+  padding: 20px 24px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  
+  .header-icon {
+    font-size: 2rem;
+    opacity: 0.9;
+  }
+  
+  .header-content {
+    flex: 1;
+    
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin: 0;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card-subtitle {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      margin: 4px 0 0 0;
+    }
+  }
+}
+
+.sent-header {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.received-header {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.stats-header {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+// Contenu des cartes
+.card-content {
+  padding: 24px;
+}
+
+.message-info {
+  .info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    .info-icon {
+      color: #6b7280;
+      font-size: 1.2rem;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    
+    .info-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      
+      .info-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .info-value {
+        font-size: 0.95rem;
+        color: #1f2937;
+        font-weight: 500;
+        
+        &.message-preview {
+          line-height: 1.4;
+          color: #4b5563;
+        }
+      }
+    }
+  }
+}
+
+.type-chip {
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.status-badge {
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+// États vides
+.empty-state-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  
+  h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  p {
+    font-size: 0.9rem;
+  }
+}
+
+// Grille des statistiques
+.stats-content {
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      
+      .stat-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        
+        .stat-icon {
+          font-size: 1.5rem;
+          color: white;
+        }
+        
+        &.sent-stat {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+        
+        &.delivered-stat {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        &.read-stat {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        &.received-stat {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+      }
+      
+      .stat-details {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        
+        .stat-value {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #1f2937;
+          line-height: 1;
+        }
+        
+        .stat-label {
+          font-size: 0.8rem;
+          color: #6b7280;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 2px;
+        }
+      }
+    }
+  }
+}
+
+// Indicateur de performance
+.performance-indicator {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  
+  .performance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    
+    .performance-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #374151;
+    }
+    
+    .performance-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #059669;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 1024px) {
+  .stats-section {
+    padding: 24px 16px;
+  }
+  
+  .section-header .section-title {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-section {
+    margin-top: 32px;
+    padding: 20px 12px;
+  }
+  
+  .section-header {
+    .section-title {
+      font-size: 1.5rem;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .section-subtitle {
+      font-size: 1rem;
+    }
+  }
+  
+  .card-gradient-header {
+    padding: 16px 20px;
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+    
+    .header-icon {
+      font-size: 1.75rem;
+    }
+    
+    .card-title {
+      font-size: 1.1rem;
+    }
+  }
+  
+  .card-content {
+    padding: 20px;
+  }
+  
+  .stats-content .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-section {
+    padding: 16px 8px;
+  }
+  
+  .section-header .section-title {
+    font-size: 1.3rem;
+  }
+  
+  .card-gradient-header {
+    padding: 14px 16px;
+  }
+  
+  .card-content {
+    padding: 16px;
+  }
+  
+  .message-info .info-item {
+    margin-bottom: 14px;
   }
 }
 </style>
