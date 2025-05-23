@@ -194,7 +194,7 @@ class WhatsAppTemplateHistoryResolver
                 ->setUsedAt(new \DateTime());
             
             // Rechercher le template associé
-            $template = $this->templateRepository->findOneBy(['template_id' => $templateId]);
+            $template = $this->templateRepository->findOneBy(['name' => $templateId]);
             if ($template) {
                 $history->setTemplate($template);
             }

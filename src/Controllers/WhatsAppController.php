@@ -1043,7 +1043,7 @@ class WhatsAppController
             }
 
             $templateId = $params['template_id'];
-            $template = $this->templateRepository->findOneBy(['template_id' => $templateId]);
+            $template = $this->templateRepository->findOneBy(['name' => $templateId]);
 
             if (!$template) {
                 return [

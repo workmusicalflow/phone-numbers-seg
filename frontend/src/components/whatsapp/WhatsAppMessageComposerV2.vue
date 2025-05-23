@@ -8,6 +8,10 @@
             <p class="q-my-sm text-grey-7 text-caption">
               Template: <strong>{{ templateData.template.name }}</strong> - {{ templateData.template.category }}
             </p>
+            <div v-if="analysisResult && analysisResult.warnings && analysisResult.warnings.length > 0" class="text-warning text-caption">
+              <q-icon name="warning" size="xs" /> {{ analysisResult.warnings[0] }}
+              <span v-if="analysisResult.warnings.length > 1">+{{ analysisResult.warnings.length - 1 }} autres</span>
+            </div>
           </div>
           <div class="col-auto">
             <q-btn 
@@ -55,8 +59,8 @@
                     label="URL du média"
                     hint="URL HTTPS vers le média"
                     :rules="[
-                      (val: string) => val.length > 0 || 'L\'URL est requise',
-                      (val: string) => val.startsWith('https://') || 'L\'URL doit commencer par https://'
+                      val => val.length > 0 || 'L\'URL est requise',
+                      val => val.startsWith('https://') || 'L\'URL doit commencer par https://'
                     ]"
                   >
                     <template v-slot:append>
@@ -110,7 +114,7 @@
                     outlined
                     label="ID du média"
                     hint="ID fourni par WhatsApp/Meta"
-                    :rules="[(val: string) => val.length > 0 || 'L\'ID est requis']"
+                    :rules="[val => val.length > 0 || 'L\'ID est requis']"
                   >
                     <template v-slot:append>
                       <q-icon name="numbers" color="primary" />
@@ -122,71 +126,40 @@
 
             <!-- Variables du corps -->
             <div v-if="bodyVariables.length > 0" class="q-mb-md">
-              <div class="text-subtitle1 text-weight-medium q-mb-sm">Variables du message</div>
+              <div class="text-subtitle1 text-weight-medium q-mb-sm">
+                Variables du message 
+                <q-badge color="primary" :label="`${bodyVariables.length}`" />
+              </div>
               
-              <div v-for="(variable, index) in bodyVariables" :key="`var-${index}`" class="q-mb-sm">
+              <div 
+                v-for="(variable, index) in bodyVariables" 
+                :key="`var-${index}`" 
+                class="q-mb-md q-pa-sm rounded-borders"
+                :class="{'bg-blue-1': variable.type === 'text', 'bg-amber-1': variable.type === 'currency', 'bg-green-1': variable.type === 'date'}"
+              >
+                <div class="text-caption q-mb-xs">
+                  <q-icon :name="getVariableIcon(variable.type)" color="blue-6" />
+                  Variable #{{ index + 1 }}
+                  <q-badge :color="getBadgeColor(variable.type)" :label="getVariableTypeName(variable.type)" />
+                </div>
+                
                 <q-input
                   v-model="bodyVariables[index].value"
                   outlined
+                  dense
                   :label="`Variable {{${index + 1}}}`"
                   :hint="getVariableHint(index)"
                   counter
                   :rules="[
-                    (val: string) => val.length > 0 || 'Cette variable est requise',
-                    (val: string) => val.length <= (variableLimits[index] || 60) || `Maximum ${variableLimits[index] || 60} caractères`
+                    val => val.length > 0 || 'Cette variable est requise',
+                    val => val.length <= (variable.maxLength || 60) || `Maximum ${variable.maxLength || 60} caractères`
                   ]"
                 >
-                  <template v-slot:prepend>
-                    <q-icon :name="getVariableIcon(variable.type)" color="blue-6" />
-                  </template>
                   <template v-slot:append>
-                    <q-badge color="primary" :label="`${variable.value.length}/${variableLimits[index] || 60}`" />
+                    <q-badge color="primary" :label="`${variable.value.length}/${variable.maxLength || 60}`" />
                   </template>
                 </q-input>
               </div>
-            </div>
-
-            <!-- Variables de boutons - Support pour les formats array et object -->
-            <div v-if="isButtonVariablesObject || isButtonVariablesArray" class="q-mb-md">
-              <div class="text-subtitle1 text-weight-medium q-mb-sm">Variables des boutons</div>
-              
-              <!-- Cas où buttonVariables est un tableau -->
-              <template v-if="isButtonVariablesArray">
-                <div v-for="(button, index) in buttonVariables" :key="`btn-array-${index}`" class="q-mb-sm">
-                  <q-input
-                    v-model="buttonVariables[index].value"
-                    outlined
-                    :label="`Variable pour ${button.type === 'URL' ? 'lien' : 'réponse rapide'} #${index + 1}`"
-                    :hint="button.type === 'URL' ? 'Paramètre d\'URL' : 'Texte pour la réponse rapide'"
-                    counter
-                    :rules="[
-                      (val: string) => button.type === 'URL' ? (val.startsWith('https://') || 'L\'URL doit commencer par https://') : true
-                    ]"
-                  >
-                    <template v-slot:prepend>
-                      <q-icon :name="button.type === 'URL' ? 'link' : 'chat'" color="orange-8" />
-                    </template>
-                  </q-input>
-                </div>
-              </template>
-              
-              <!-- Cas où buttonVariables est un objet -->
-              <template v-else-if="isButtonVariablesObject">
-                <div v-for="(value, key) in buttonVariables" :key="`btn-obj-${key}`" class="q-mb-sm">
-                  <q-input
-                    :model-value="getButtonValue(key)"
-                    @update:model-value="(newVal: string) => setButtonValue(key, newVal)"
-                    outlined
-                    :label="`URL du bouton #${Number(key) + 1}`"
-                    hint="Paramètre d'URL (laissez vide pour utiliser l'URL par défaut)"
-                    counter
-                  >
-                    <template v-slot:prepend>
-                      <q-icon name="link" color="orange-8" />
-                    </template>
-                  </q-input>
-                </div>
-              </template>
             </div>
 
             <!-- Contrôles d'envoi -->
@@ -278,19 +251,28 @@
                   {{ footerText }}
                 </div>
                 
-                <!-- Buttons preview -->
-                <div v-if="hasButtons" class="message-preview-buttons">
-                  <div v-for="(button, index) in buttons" :key="`preview-btn-${index}`">
-                    <q-btn
-                      :outline="button.type === 'URL'"
-                      :color="button.type === 'URL' ? 'primary' : 'grey-7'"
-                      :label="button.text"
-                      :icon-right="button.type === 'URL' ? 'open_in_new' : undefined"
-                      size="sm"
-                      class="full-width q-mb-xs"
-                      no-caps
-                    />
-                  </div>
+                <!-- API Preview -->
+                <div v-if="showApiPreview" class="message-preview-api q-mt-md">
+                  <div class="text-subtitle2 text-weight-medium">Aperçu API</div>
+                  <q-btn 
+                    outline 
+                    dense 
+                    color="grey" 
+                    label="Afficher/Masquer" 
+                    @click="toggleApiPreview" 
+                    icon-right="code"
+                    size="sm"
+                    class="q-mb-sm" 
+                  />
+                  <q-slide-transition>
+                    <div v-show="apiPreviewExpanded">
+                      <q-card flat bordered class="bg-grey-1">
+                        <q-card-section class="q-pa-sm">
+                          <pre class="text-caption">{{ apiPreviewJson }}</pre>
+                        </q-card-section>
+                      </q-card>
+                    </div>
+                  </q-slide-transition>
                 </div>
               </div>
               <div class="message-preview-time text-caption text-grey-7">
@@ -306,29 +288,47 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
-import { useQuasar } from 'quasar';
+import { useQuasar, QRejectedEntry } from 'quasar';
 import { api } from '../../services/api';
-import { whatsAppClient } from '../../services/whatsappRestClient';
-import { templateParser, templateDataNormalizer } from '../../services/whatsapp';
+import { whatsAppClientV2 } from '../../services/whatsappRestClientV2';
+import { templateParserV2, templateDataNormalizerV2, whatsAppTemplateServiceV2 } from '../../services/whatsapp/index-v2';
 import {
-  WhatsAppTemplateData,
+  WhatsAppTemplateMessage,
+  ParameterType,
+  ComponentType as ParameterComponentType,
+  createTextParameter,
+  createImageParameter,
+  createVideoParameter,
+  createDocumentParameter
+} from '../../types/whatsapp-parameters';
+
+import {
+  WhatsAppTemplate,
   WhatsAppBodyVariable,
-  WhatsAppButtonVariable,
-  WhatsAppHeaderMedia,
   HeaderFormat,
-  ButtonType,
-  VariableType,
-  TemplateAnalysisResult,
-  ComponentType,
-  WhatsAppTemplateSendRequest
+  VariableType
 } from '../../types/whatsapp-templates';
-import { QRejectedEntry } from 'quasar';
+
+// Interface locale pour le résultat d'analyse d'un template
+interface TemplateAnalysisResult {
+  bodyVariables: WhatsAppBodyVariable[];
+  buttonVariables: any[];
+  headerMedia: {
+    type: HeaderFormat | string;
+    url?: string;
+    id?: string;
+  };
+  hasFooter: boolean;
+  footerText?: string;
+  errors: string[];
+  warnings: string[];
+}
 
 export default defineComponent({
-  name: 'WhatsAppMessageComposer',
+  name: 'WhatsAppMessageComposerV2',
   props: {
     templateData: {
-      type: Object as () => WhatsAppTemplateData,
+      type: Object,
       required: true
     },
     recipientPhoneNumber: {
@@ -350,11 +350,14 @@ export default defineComponent({
     const uploadedMediaId = ref('');
     const mediaError = ref(false);
     const bodyVariables = ref<WhatsAppBodyVariable[]>([]);
-    const buttonVariables = ref<WhatsAppButtonVariable[]>([]);
     const variableLimits = ref<number[]>([]);
     const mediaAcceptTypes = ref('');
     const currentTime = ref('');
     const analysisResult = ref<TemplateAnalysisResult | null>(null);
+    
+    // État pour l'aperçu API
+    const showApiPreview = ref(true);
+    const apiPreviewExpanded = ref(false);
     
     // Options pour la source du média
     const mediaSourceOptions = [
@@ -363,22 +366,19 @@ export default defineComponent({
       { label: 'Media ID', value: 'id' }
     ];
     
-    // Extraire et analyser les composants du template avec le service templateParser
-    const parseTemplate = () => {
-      console.log('Analyzing template data:', props.templateData);
+    // Analyser le template avec le nouveau parser
+    const analyzeTemplate = () => {
+      console.log('Analyzing template data with v2 parser:', props.templateData);
       
       try {
         // Utiliser le service templateParser pour analyser le template
-        const result = templateParser.analyzeTemplate(props.templateData.template);
+        const result = templateParserV2.analyzeTemplate(props.templateData.template);
         analysisResult.value = result;
         
         console.log('Template analysis result:', result);
         
         // Mettre à jour les variables du corps
         bodyVariables.value = [...result.bodyVariables];
-        
-        // Mettre à jour les variables des boutons
-        buttonVariables.value = [...result.buttonVariables];
         
         // Initialiser les limites de caractères pour chaque variable
         variableLimits.value = bodyVariables.value.map(v => v.maxLength || getVariableLimitByType(v.type));
@@ -414,14 +414,28 @@ export default defineComponent({
         // Vérifier s'il y a des erreurs ou avertissements
         if (result.errors && result.errors.length > 0) {
           console.error('Errors in template analysis:', result.errors);
-        }
-        
-        if (result.warnings && result.warnings.length > 0) {
-          console.warn('Warnings in template analysis:', result.warnings);
+          $q.notify({
+            type: 'negative',
+            message: `Erreur d'analyse du template: ${result.errors[0]}`,
+            position: 'bottom-right',
+            timeout: 3000
+          });
         }
         
       } catch (error: unknown) {
         console.error('Error analyzing template:', error);
+        let errorMessage = 'Erreur d\'analyse du template';
+        
+        if (error instanceof Error) {
+          errorMessage = `${errorMessage}: ${error.message}`;
+        }
+        
+        $q.notify({
+          type: 'negative',
+          message: errorMessage,
+          position: 'bottom-right',
+          timeout: 3000
+        });
       }
       
       // Initialiser l'heure actuelle pour l'aperçu
@@ -432,19 +446,6 @@ export default defineComponent({
     const updateCurrentTime = () => {
       const now = new Date();
       currentTime.value = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
-    
-    // Déterminer le type de variable à partir du contexte
-    // Cette fonction est maintenant gérée par le service templateParser
-    // mais est conservée à titre de compatibilité et pour les cas spéciaux
-    const getVariableTypeFromContext = (index: number, providedBodyText: string | null = null): string => {
-      // Si le résultat d'analyse est disponible, l'utiliser en priorité
-      if (analysisResult.value && analysisResult.value.bodyVariables[index]) {
-        return analysisResult.value.bodyVariables[index].type;
-      }
-      
-      // Logique de secours si le service ne fournit pas le type
-      return VariableType.TEXT; // Défaut à 'text'
     };
     
     // Obtenir la limite de caractères selon le type
@@ -477,6 +478,42 @@ export default defineComponent({
       }
     };
     
+    // Obtenir une couleur de badge selon le type
+    const getBadgeColor = (type: string): string => {
+      switch (type) {
+        case VariableType.DATE: 
+        case VariableType.TIME: 
+          return 'green';
+        case VariableType.CURRENCY: 
+          return 'amber-8';
+        case VariableType.EMAIL: 
+        case VariableType.LINK: 
+          return 'blue';
+        case VariableType.PHONE: 
+          return 'purple';
+        case VariableType.REFERENCE: 
+        case VariableType.NUMBER: 
+          return 'deep-orange';
+        default: 
+          return 'primary';
+      }
+    };
+    
+    // Obtenir le nom lisible du type de variable
+    const getVariableTypeName = (type: string): string => {
+      switch (type) {
+        case VariableType.DATE: return 'Date';
+        case VariableType.TIME: return 'Heure';
+        case VariableType.CURRENCY: return 'Montant';
+        case VariableType.EMAIL: return 'Email';
+        case VariableType.PHONE: return 'Téléphone';
+        case VariableType.REFERENCE: return 'Référence';
+        case VariableType.NUMBER: return 'Nombre';
+        case VariableType.LINK: return 'Lien';
+        default: return 'Texte';
+      }
+    };
+    
     // Obtenir un indice pour la variable
     const getVariableHint = (index: number): string => {
       const type = bodyVariables.value[index]?.type;
@@ -496,7 +533,10 @@ export default defineComponent({
     
     // Gérer le rejet de fichier
     const onFileRejected = (rejectedEntries: QRejectedEntry[]) => {
-      const failedPropValidation = rejectedEntries.length > 0 ? rejectedEntries[0].failedPropValidation : 'format invalide';
+      const failedPropValidation = rejectedEntries.length > 0 
+        ? rejectedEntries[0].failedPropValidation 
+        : 'format invalide';
+        
       $q.notify({
         type: 'negative',
         message: `Fichier rejeté: ${failedPropValidation}`,
@@ -513,21 +553,19 @@ export default defineComponent({
       
       try {
         const formData = new FormData();
-        if (mediaFile.value) { // Ensure mediaFile is not null
-          formData.append('file', mediaFile.value);
-        }
-        // Get header component format using the helper method
-        const headerComponent = getHeaderComponent();
-        if (headerComponent && headerComponent.format) {
-          const format = headerComponent.format.toString().toLowerCase();
-          formData.append('type', format);
-        } else {
-          // Default to image if format is missing
-          console.warn('Header format is missing for media upload.');
-          formData.append('type', 'image');
+        formData.append('file', mediaFile.value);
+        
+        // Déterminer le type de média
+        let mediaType = 'image';
+        if (headerFormat.value === 'VIDEO') {
+          mediaType = 'video';
+        } else if (headerFormat.value === 'DOCUMENT') {
+          mediaType = 'document';
         }
         
-        const response = await api.post('/whatsapp/upload.php', formData, {
+        formData.append('type', mediaType);
+        
+        const response = await api.post('/whatsapp/upload-media.php', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
@@ -549,8 +587,6 @@ export default defineComponent({
         let errorMessage = 'Erreur lors de l\'upload';
         if (error instanceof Error) {
           errorMessage = `${errorMessage}: ${error.message}`;
-        } else if (typeof error === 'string') {
-          errorMessage = `${errorMessage}: ${error}`;
         }
         
         $q.notify({
@@ -563,38 +599,109 @@ export default defineComponent({
       }
     };
     
-    // Utilisation de l'interface WhatsAppTemplateSendRequest importée depuis les types
+    /**
+     * Fonction utilitaire pour convertir les valeurs des variables en tableau compatible
+     * @param stringValues Tableau de valeurs à convertir
+     * @returns Tableau de chaînes de caractères avec le bon type
+     */
+    const convertToCompatibleArray = (stringValues: any[]): any => {
+      // Cette fonction existe uniquement pour éviter les problèmes de typage
+      // Elle ne modifie pas les données, mais change simplement leur "vue"
+      return stringValues;
+    };
+    
+    // Préparer les données pour l'API Meta
+    const prepareApiData = () => {
+      // Extraire les valeurs des variables du corps
+      const bodyValues = bodyVariables.value.map(v => v.value || '');
+      
+      // Préparer les données du média d'en-tête
+      let headerMedia: { 
+        type: string; 
+        value: string; 
+        isId: boolean 
+      } | undefined;
+      
+      if (hasHeaderMedia.value) {
+        if (mediaSource.value === 'url' && mediaUrl.value) {
+          headerMedia = {
+            type: headerFormat.value || 'IMAGE',
+            value: mediaUrl.value,
+            isId: false
+          };
+        } else if (mediaSource.value === 'id' && mediaId.value) {
+          headerMedia = {
+            type: headerFormat.value || 'IMAGE',
+            value: mediaId.value,
+            isId: true
+          };
+        } else if (mediaSource.value === 'upload' && uploadedMediaId.value) {
+          headerMedia = {
+            type: headerFormat.value || 'IMAGE',
+            value: uploadedMediaId.value,
+            isId: true
+          };
+        }
+      }
+      
+      return {
+        bodyValues: convertToCompatibleArray(bodyValues),
+        headerMedia
+      };
+    };
+    
+    // Générer l'aperçu API
+    const generateApiPreview = () => {
+      try {
+        // Préparer les données pour l'API
+        const { bodyValues, headerMedia } = prepareApiData();
+        
+        // Utiliser directement le tableau compatible
+        return whatsAppTemplateServiceV2.prepareApiMessage(
+          props.recipientPhoneNumber,
+          props.templateData.template,
+          bodyValues,
+          headerMedia
+        );
+      } catch (error: unknown) {
+        console.error('Error generating API preview:', error);
+        let errorMessage = 'Erreur lors de la génération de l\'aperçu API';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        return {
+          error: errorMessage
+        };
+      }
+    };
+    
+    // Afficher/masquer l'aperçu API
+    const toggleApiPreview = () => {
+      apiPreviewExpanded.value = !apiPreviewExpanded.value;
+    };
     
     // Envoyer le message
     const sendMessage = async () => {
       sending.value = true;
       
       try {
-        // Préparer les données pour l'API REST
-        const requestData: WhatsAppTemplateSendRequest = {
-          recipientPhoneNumber: props.recipientPhoneNumber,
-          templateName: props.templateData.template.name,
-          templateLanguage: props.templateData.template.language,
-          bodyVariables: bodyVariables.value.map(v => v.value || ''),
-          templateComponentsJsonString: props.templateData.templateComponentsJsonString || undefined,
-          buttonVariables: [] // Ajout du champ obligatoire
-        };
+        // Préparer les données pour l'API
+        const { bodyValues, headerMedia } = prepareApiData();
         
-        // Ajouter le média d'en-tête si nécessaire
-        if (hasHeaderMedia.value) {
-          if (mediaSource.value === 'url' && mediaUrl.value) {
-            requestData.headerMediaUrl = mediaUrl.value;
-          } else if (mediaSource.value === 'id' && mediaId.value) {
-            requestData.headerMediaId = mediaId.value;
-          } else if (mediaSource.value === 'upload' && uploadedMediaId.value) {
-            requestData.headerMediaId = uploadedMediaId.value;
-          }
-        }
+        console.log('Envoi de template avec paramètres (v2):', {
+          recipient: props.recipientPhoneNumber,
+          template: props.templateData.template.name,
+          bodyValues,
+          headerMedia
+        });
         
-        console.log('Envoi de template avec paramètres (REST):', requestData);
-        
-        // Appeler la méthode REST directement avec le client
-        const response = await whatsAppClient.sendTemplateMessageV2(requestData);
+        // Appeler la méthode d'envoi du client WhatsApp v2
+        const response = await whatsAppClientV2.sendTemplate(
+          props.recipientPhoneNumber,
+          props.templateData.template,
+          bodyValues,
+          headerMedia
+        );
         
         if (response.success) {
           $q.notify({
@@ -616,8 +723,6 @@ export default defineComponent({
         let errorMessage = 'Erreur lors de l\'envoi';
         if (error instanceof Error) {
           errorMessage = `${errorMessage}: ${error.message}`;
-        } else if (typeof error === 'string') {
-          errorMessage = `${errorMessage}: ${error}`;
         }
         
         $q.notify({
@@ -625,7 +730,6 @@ export default defineComponent({
           message: errorMessage,
           position: 'top'
         });
-        
         emit('message-sent', {
           success: false,
           error: errorMessage,
@@ -636,115 +740,52 @@ export default defineComponent({
       }
     };
     
-    // Obtenir le paramètre média selon la source
-    const getMediaParameter = (): { link?: string; id?: string } => {
-      if (mediaSource.value === 'url') {
-        return { link: mediaUrl.value };
-      } else if (mediaSource.value === 'id' || (mediaSource.value === 'upload' && uploadedMediaId.value)) {
-        return { id: mediaSource.value === 'id' ? mediaId.value : uploadedMediaId.value };
-      }
-      return { link: '' };
-    };
-    
     // Propriétés calculées pour l'aperçu du message
-    const getHeaderComponent = () => {
-      if (!props.templateData.components || !Array.isArray(props.templateData.components)) {
-        return null;
-      }
-      return props.templateData.components.find(c => c.type === 'HEADER' || c.type === ComponentType.HEADER);
-    };
-    
     const hasHeader = computed(() => {
-      return !!getHeaderComponent();
+      return props.templateData.components && (
+        props.templateData.components.find((c: any) => 
+          c.type.toUpperCase() === 'HEADER'
+        )
+      );
     });
     
     const headerFormat = computed(() => {
-      const header = getHeaderComponent();
-      return header ? header.format : null;
+      if (!hasHeader.value) return null;
+      
+      const headerComponent = props.templateData.components.find(
+        (c: any) => c.type.toUpperCase() === 'HEADER'
+      );
+      
+      return headerComponent.format || 'TEXT';
     });
     
     const hasHeaderMedia = computed(() => {
-      return hasHeader.value && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerFormat.value as string);
+      return hasHeader.value && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerFormat.value);
     });
     
     const headerText = computed(() => {
-      const header = getHeaderComponent();
-      return hasHeader.value && headerFormat.value === 'TEXT' && header 
-        ? header.text || ''
-        : '';
+      if (!hasHeader.value || headerFormat.value !== 'TEXT') return '';
+      
+      const headerComponent = props.templateData.components.find(
+        (c: any) => c.type.toUpperCase() === 'HEADER'
+      );
+      
+      return headerComponent.text || '';
     });
     
-    const getFooterComponent = () => {
-      if (!props.templateData.components || !Array.isArray(props.templateData.components)) {
-        return null;
-      }
-      return props.templateData.components.find(c => c.type === 'FOOTER' || c.type === ComponentType.FOOTER);
-    };
-    
-    const getButtonsComponent = () => {
-      if (!props.templateData.components || !Array.isArray(props.templateData.components)) {
-        return null;
-      }
-      return props.templateData.components.find(c => c.type === 'BUTTONS' || c.type === ComponentType.BUTTONS);
-    };
-    
     const hasFooter = computed(() => {
-      return !!getFooterComponent();
+      return analysisResult.value?.hasFooter || false;
     });
     
     const footerText = computed(() => {
-      const footer = getFooterComponent();
-      return hasFooter.value && footer && footer.text ? footer.text : '';
+      return analysisResult.value?.footerText || '';
     });
-    
-    const hasButtons = computed(() => {
-      const buttonsComponent = getButtonsComponent();
-      return !!buttonsComponent && !!buttonsComponent.buttons && buttonsComponent.buttons.length > 0;
-    });
-    
-    const buttons = computed(() => {
-      const buttonsComponent = getButtonsComponent();
-      return hasButtons.value && buttonsComponent ? buttonsComponent.buttons : [];
-    });
-    
-    // Computed properties pour détecter et gérer différents formats de buttonVariables
-    const isButtonVariablesArray = computed(() => {
-      return Array.isArray(buttonVariables.value) && buttonVariables.value.length > 0;
-    });
-    
-    const isButtonVariablesObject = computed(() => {
-      return !Array.isArray(buttonVariables.value) && 
-             typeof buttonVariables.value === 'object' && 
-             buttonVariables.value !== null &&
-             Object.keys(buttonVariables.value).length > 0;
-    });
-    
-    // Helper pour accéder de manière sécurisée aux variables de bouton en format objet
-    const getButtonValue = (key: string | number): string => {
-      if (isButtonVariablesObject.value) {
-        const btnVars = buttonVariables.value as unknown as Record<string, string>;
-        return btnVars[String(key)] || '';
-      }
-      return '';
-    };
-    
-    // Helper pour définir de manière sécurisée les variables de bouton en format objet
-    const setButtonValue = (key: string | number, value: string): void => {
-      if (isButtonVariablesObject.value) {
-        const btnVars = buttonVariables.value as unknown as Record<string, string>;
-        btnVars[String(key)] = value;
-      }
-    };
-    
-    const getBodyComponent = () => {
-      if (!props.templateData.components || !Array.isArray(props.templateData.components)) {
-        return null;
-      }
-      return props.templateData.components.find(c => c.type === 'BODY' || c.type === ComponentType.BODY);
-    };
     
     const previewBodyText = computed(() => {
-      const bodyComponent = getBodyComponent();
+      // Trouver le composant body
+      const bodyComponent = props.templateData.components && 
+        props.templateData.components.find((c: any) => c.type.toUpperCase() === 'BODY');
+      
       if (!bodyComponent || !bodyComponent.text) {
         return '';
       }
@@ -761,10 +802,17 @@ export default defineComponent({
       return text;
     });
     
+    // Aperçu de la structure API
+    const apiPreviewJson = computed(() => {
+      const apiData = generateApiPreview();
+      return JSON.stringify(apiData, null, 2);
+    });
+    
     // Vérifier si le formulaire est valide pour l'envoi
     const isFormValid = computed(() => {
       // Vérifier les variables du corps
-      const bodyVariablesValid = bodyVariables.value.length === 0 || bodyVariables.value.every(v => v.value && v.value.length > 0);
+      const bodyVariablesValid = bodyVariables.value.length === 0 || 
+        bodyVariables.value.every(v => v.value && v.value.length > 0);
       
       // Vérifier l'en-tête média si nécessaire
       let headerMediaValid = true;
@@ -778,51 +826,20 @@ export default defineComponent({
         }
       }
       
-      // Vérifier les variables de boutons selon leur format
-      let buttonVariablesValid = true;
-      
-      if (isButtonVariablesArray.value) {
-        // Format tableau d'objets
-        buttonVariablesValid = buttonVariables.value.every(b => {
-          if (b.type === 'URL') {
-            return b.value.length > 0 && b.value.startsWith('https://');
-          }
-          return true; // Les boutons de réponse rapide n'ont pas besoin de validation stricte
-        });
-      } else if (isButtonVariablesObject.value) {
-        // Format objet simple - aucune validation spécifique requise pour les URL
-        // car les valeurs par défaut des boutons sont déjà valides
-        buttonVariablesValid = true;
-      }
-      
-      return bodyVariablesValid && headerMediaValid && buttonVariablesValid;
+      return bodyVariablesValid && headerMediaValid;
     });
+    
+    // Watch pour mettre à jour l'aperçu API quand les données changent
+    watch([bodyVariables, mediaUrl, mediaId, uploadedMediaId, mediaSource], () => {
+      // L'aperçu API sera recalculé automatiquement
+    }, { deep: true });
     
     // Initialiser le composant
     onMounted(() => {
-      console.log('WhatsAppMessageComposer mounted with template data:', props.templateData);
+      console.log('WhatsAppMessageComposerV2 mounted with template data:', props.templateData);
       
-      // Vérifier si nous avons des variables préparées
-      if (props.templateData && props.templateData.bodyVariables) {
-        // Convertir le tableau simple en format structuré pour le composant
-        if (Array.isArray(props.templateData.bodyVariables) && typeof props.templateData.bodyVariables[0] !== 'object') {
-          bodyVariables.value = props.templateData.bodyVariables.map((val, idx): WhatsAppBodyVariable => ({
-            index: idx + 1,
-            value: typeof val === 'string' ? val || '' : (val as WhatsAppBodyVariable).value || '',
-            type: getVariableTypeFromContext(idx)
-          }));
-          
-          // Définir les limites adaptées
-          bodyVariables.value.forEach((v, i) => {
-            variableLimits.value[i] = getVariableLimitByType(v.type);
-          });
-          
-          console.log('Initialized body variables from props:', bodyVariables.value);
-        }
-      } else {
-        // Si pas de données préparées, analyser le template
-        parseTemplate(); // Corrected from parseComponents
-      }
+      // Analyser le template
+      analyzeTemplate();
       
       // Mettre à jour l'heure toutes les minutes
       const timer = setInterval(updateCurrentTime, 60000);
@@ -841,11 +858,11 @@ export default defineComponent({
       uploadedMediaId,
       mediaError,
       bodyVariables,
-      buttonVariables,
       variableLimits,
       mediaSourceOptions,
       mediaAcceptTypes,
       currentTime,
+      analysisResult,
       
       hasHeader,
       headerFormat,
@@ -853,20 +870,21 @@ export default defineComponent({
       headerText,
       hasFooter,
       footerText,
-      hasButtons,
-      buttons,
       previewBodyText,
       isFormValid,
-      isButtonVariablesArray,
-      isButtonVariablesObject,
+      
+      showApiPreview,
+      apiPreviewExpanded,
+      apiPreviewJson,
+      toggleApiPreview,
       
       getVariableIcon,
       getVariableHint,
+      getBadgeColor,
+      getVariableTypeName,
       onFileRejected,
       uploadMedia,
-      sendMessage,
-      getButtonValue,
-      setButtonValue
+      sendMessage
     };
   }
 });
@@ -955,8 +973,18 @@ export default defineComponent({
   height: 100%;
 }
 
-.message-preview-buttons {
-  margin-top: 10px;
+.message-preview-api {
+  border-top: 1px dashed #ddd;
+  padding-top: 10px;
+}
+
+.message-preview-api pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  font-size: 11px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 @media (max-width: 767px) {

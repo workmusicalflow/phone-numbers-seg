@@ -31,12 +31,14 @@ interface WhatsAppMonitoringServiceInterface
      * @param User $user Utilisateur pour lequel récupérer les métriques
      * @param \DateTime|null $startDate Date de début pour la période (null = sans limite)
      * @param \DateTime|null $endDate Date de fin pour la période (null = aujourd'hui)
+     * @param string|null $apiVersion Version de l'API à filtrer (null = toutes)
      * @return array Métriques de performance
      */
     public function getApiPerformanceMetrics(
         User $user,
         ?\DateTime $startDate = null,
-        ?\DateTime $endDate = null
+        ?\DateTime $endDate = null,
+        ?string $apiVersion = null
     ): array;
     
     /**
@@ -61,6 +63,8 @@ interface WhatsAppMonitoringServiceInterface
      * @param float $duration Durée de l'opération en ms
      * @param bool $success Indique si l'opération a réussi
      * @param string|null $errorMessage Message d'erreur éventuel
+     * @param string $apiVersion Version de l'API utilisée (v1, v2)
+     * @param string $endpoint Endpoint spécifique appelé
      * @return void
      */
     public function recordApiPerformance(
@@ -68,7 +72,9 @@ interface WhatsAppMonitoringServiceInterface
         string $operation,
         float $duration,
         bool $success,
-        ?string $errorMessage = null
+        ?string $errorMessage = null,
+        string $apiVersion = 'v1',
+        string $endpoint = ''
     ): void;
     
     /**
@@ -87,4 +93,18 @@ interface WhatsAppMonitoringServiceInterface
      * @return array Liste des alertes actives
      */
     public function getActiveAlerts(User $user): array;
+    
+    /**
+     * Génère un rapport comparatif entre les API v1 et v2
+     * 
+     * @param User $user L'utilisateur
+     * @param \DateTime|null $startDate Date de début pour la période d'analyse
+     * @param \DateTime|null $endDate Date de fin pour la période d'analyse
+     * @return array Rapport de comparaison
+     */
+    public function generateApiVersionComparisonReport(
+        User $user,
+        ?\DateTime $startDate = null,
+        ?\DateTime $endDate = null
+    ): array;
 }

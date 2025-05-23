@@ -28,8 +28,8 @@ class WhatsAppTemplateRepository extends BaseRepository implements WhatsAppTempl
     {
         return $this->getEntityManager()->getRepository(WhatsAppTemplate::class)
             ->findOneBy([
-                'metaTemplateName' => $metaTemplateName,
-                'languageCode' => $languageCode
+                'name' => $metaTemplateName,  // changé de metaTemplateName à name
+                'language' => $languageCode   // changé de languageCode à language
             ]);
     }
     
@@ -49,11 +49,11 @@ class WhatsAppTemplateRepository extends BaseRepository implements WhatsAppTempl
         }
         
         if ($languageCode !== null) {
-            $qb->andWhere('t.languageCode = :language')
+            $qb->andWhere('t.language = :language')
                ->setParameter('language', $languageCode);
         }
         
-        return $qb->orderBy('t.metaTemplateName', 'ASC')
+        return $qb->orderBy('t.name', 'ASC')
             ->getQuery()
             ->getResult();
     }
@@ -64,7 +64,7 @@ class WhatsAppTemplateRepository extends BaseRepository implements WhatsAppTempl
     public function findByCategory(string $category): array
     {
         return $this->getEntityManager()->getRepository(WhatsAppTemplate::class)
-            ->findBy(['category' => $category], ['metaTemplateName' => 'ASC']);
+            ->findBy(['category' => $category], ['name' => 'ASC']);
     }
     
     /**
@@ -73,7 +73,7 @@ class WhatsAppTemplateRepository extends BaseRepository implements WhatsAppTempl
     public function findByLanguage(string $languageCode): array
     {
         return $this->getEntityManager()->getRepository(WhatsAppTemplate::class)
-            ->findBy(['languageCode' => $languageCode], ['metaTemplateName' => 'ASC']);
+            ->findBy(['language' => $languageCode], ['name' => 'ASC']);
     }
     
     /**
@@ -302,7 +302,7 @@ class WhatsAppTemplateRepository extends BaseRepository implements WhatsAppTempl
                 'id' => $template->getTemplateId(),
                 'name' => $template->getName(),
                 'category' => $template->getCategory(),
-                'language' => $template->getLanguageCode(),
+                'language' => $template->getLanguage(),
                 'status' => $template->getStatus(),
                 'components' => $components,
                 'description' => $template->getDescription(),

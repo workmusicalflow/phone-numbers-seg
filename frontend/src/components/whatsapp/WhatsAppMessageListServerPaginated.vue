@@ -445,9 +445,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted, watch } from 'vue';
 import { useQuasar, QTableProps } from 'quasar';
-import { useWhatsAppStore, type WhatsAppMessageHistory } from '@/stores/whatsappStore';
-import { formatPhoneNumber, formatTime, formatDateOnly, formatFullDate } from '@/utils/formatters';
-import { MESSAGE_CONSTANTS } from '@/constants/whatsapp';
+import { useWhatsAppStore, type WhatsAppMessageHistory } from '../../stores/whatsappStore';
+import { formatPhoneNumber, formatTime, formatDateOnly, formatFullDate } from '../../utils/formatters';
+import { MESSAGE_CONSTANTS } from '../../constants/whatsapp';
 
 const $q = useQuasar();
 const whatsAppStore = useWhatsAppStore();
@@ -482,9 +482,19 @@ const pagination = ref({
   rowsNumber: 0
 });
 
+// Type pour les statistiques
+interface MessageStats {
+  total: number;
+  incoming: number;
+  outgoing: number;
+  delivered: number;
+  read: number;
+  failed: number;
+}
+
 // État local
 const rows = ref<WhatsAppMessageHistory[]>([]);
-const stats = ref({
+const stats = ref<MessageStats>({
   total: 0,
   incoming: 0,
   outgoing: 0,
@@ -651,7 +661,14 @@ async function fetchMessages(props?: any) {
     
     if (response) {
       rows.value = response.data || [];
-      stats.value = response.stats || {};
+      stats.value = response.stats as MessageStats || {
+        total: 0,
+        incoming: 0,
+        outgoing: 0,
+        delivered: 0,
+        read: 0,
+        failed: 0
+      };
       totalCount.value = response.totalCount || 0;
       
       // Mise à jour de la pagination
@@ -664,11 +681,17 @@ async function fetchMessages(props?: any) {
         rowsNumber: response.totalCount || 0
       };
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching messages:', error);
+    
+    let errorMessage = 'Erreur lors du chargement des messages';
+    if (error instanceof Error) {
+      errorMessage = `${errorMessage}: ${error.message}`;
+    }
+    
     $q.notify({
       type: 'negative',
-      message: `Erreur lors du chargement des messages: ${error.message}`,
+      message: errorMessage,
       position: 'top'
     });
   } finally {
@@ -745,10 +768,15 @@ async function exportMessages() {
         position: 'top'
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    let errorMessage = 'Erreur lors de l\'export';
+    if (error instanceof Error) {
+      errorMessage = `${errorMessage}: ${error.message}`;
+    }
+    
     $q.notify({
       type: 'negative',
-      message: 'Erreur lors de l\'export',
+      message: errorMessage,
       position: 'top'
     });
   }
@@ -803,10 +831,15 @@ async function sendReply() {
         position: 'top'
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    let errorMessage = 'Erreur lors de l\'envoi du message';
+    if (error instanceof Error) {
+      errorMessage = `${errorMessage}: ${error.message}`;
+    }
+    
     $q.notify({
       type: 'negative',
-      message: 'Erreur lors de l\'envoi du message',
+      message: errorMessage,
       position: 'top'
     });
   } finally {

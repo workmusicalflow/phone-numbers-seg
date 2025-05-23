@@ -47,6 +47,22 @@ class WhatsAppTemplate
     #[ORM\Column(type: "string", length: 10)]
     private string $language;
     
+    /**
+     * Alias pour getLanguage() pour compatibilité avec l'ancien code
+     */
+    public function getLanguageCode(): string
+    {
+        return $this->language;
+    }
+    
+    /**
+     * Alias pour setLanguage() pour compatibilité avec l'ancien code
+     */
+    public function setLanguageCode(string $languageCode): self
+    {
+        return $this->setLanguage($languageCode);
+    }
+    
     #[ORM\Column(type: "string", length: 50, nullable: true)]
     private ?string $category = null;
     
@@ -65,35 +81,81 @@ class WhatsAppTemplate
     #[ORM\Column(name: "meta_template_id", type: "string", length: 255, nullable: true)]
     private ?string $metaTemplateId = null;
     
-    #[ORM\Column(name: "quality_score", type: "float", nullable: true)]
+    /**
+     * ID du template utilisé pour la correspondance avec l'API Meta
+     * Remarque: ce champ n'est pas stocké dans la base de données,
+     * c'est une propriété calculée qui retourne le nom du template
+     * @var string|null
+     */
+    private ?string $templateId = null;
+    
+    /**
+     * Compatibilité avec l'ancien code pour setMetaTemplateName
+     */
+    public function setMetaTemplateName(string $name): self
+    {
+        return $this->setName($name);
+    }
+    
+    /**
+     * Score de qualité du template - non stocké en base de données
+     */
     private ?float $qualityScore = null;
     
-    #[ORM\Column(name: "header_format", type: "string", length: 20, nullable: true)]
+    /**
+     * Format de l'en-tête - propriété virtuelle, non stockée en base de données
+     */
     private ?string $headerFormat = null;
     
-    #[ORM\Column(name: "body_text", type: "text", nullable: true)]
+    /**
+     * Texte du corps - propriété virtuelle, non stockée en base de données
+     */
     private ?string $bodyText = null;
     
-    #[ORM\Column(name: "footer_text", type: "text", nullable: true)]
+    /**
+     * Texte du pied de page - propriété virtuelle, non stockée en base de données
+     */
     private ?string $footerText = null;
     
-    #[ORM\Column(name: "body_variables_count", type: "integer", nullable: true)]
+    /**
+     * Nombre de variables dans le corps - propriété virtuelle, non stockée en base de données
+     */
     private ?int $bodyVariablesCount = null;
     
-    #[ORM\Column(name: "buttons_count", type: "integer", nullable: true)]
+    /**
+     * Nombre de boutons - propriété virtuelle, non stockée en base de données
+     */
     private ?int $buttonsCount = null;
     
-    #[ORM\Column(name: "buttons_details", type: "text", nullable: true)]
+    /**
+     * Détails des boutons - propriété virtuelle, non stockée en base de données
+     */
     private ?string $buttonsDetails = null;
     
-    #[ORM\Column(name: "rejection_reason", type: "text", nullable: true)]
+    /**
+     * Raison de rejet - propriété virtuelle, non stockée en base de données
+     */
     private ?string $rejectionReason = null;
 
-    #[ORM\Column(name: "usage_count", type: "integer", options: ["default" => 0])]
+    /**
+     * Nombre d'utilisations - propriété virtuelle, non stockée en base de données
+     */
     private int $usageCount = 0;
     
-    #[ORM\Column(name: "last_used_at", type: "datetime", nullable: true)]
+    /**
+     * Dernière utilisation - propriété virtuelle, non stockée en base de données
+     */
     private ?\DateTime $lastUsedAt = null;
+    
+    /**
+     * Version de l'API - propriété virtuelle, non stockée en base de données
+     */
+    private string $apiVersion = 'v1';
+    
+    /**
+     * Composants JSON - propriété virtuelle, non stockée en base de données
+     */
+    private ?string $componentsJson = null;
     
     #[ORM\Column(name: "created_at", type: "datetime")]
     private \DateTime $createdAt;
@@ -105,6 +167,7 @@ class WhatsAppTemplate
     {
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
+        $this->templateId = null;  // Initialiser templateId comme null
     }
     
     #[ORM\PreUpdate]
@@ -262,6 +325,30 @@ class WhatsAppTemplate
         return $this;
     }
     
+    /**
+     * Obtenir l'ID du template
+     * 
+     * @return string|null
+     */
+    public function getTemplateId(): ?string
+    {
+        // Si templateId n'est pas défini, utiliser le nom du template
+        // C'est une propriété virtuelle qui n'est pas persistée dans la base de données
+        return $this->name;
+    }
+    
+    /**
+     * Définir l'ID du template
+     * 
+     * @param string|null $templateId
+     * @return self
+     */
+    public function setTemplateId(?string $templateId): self
+    {
+        $this->templateId = $templateId;
+        return $this;
+    }
+    
     public function getCreatedAt(): \DateTime
     {
         return $this->createdAt;
@@ -272,11 +359,19 @@ class WhatsAppTemplate
         return $this->updatedAt;
     }
     
+    /**
+     * Obtenir le score de qualité du template
+     * Propriété virtuelle, non persistée en base de données
+     */
     public function getQualityScore(): ?float
     {
         return $this->qualityScore;
     }
     
+    /**
+     * Définir le score de qualité du template
+     * Propriété virtuelle, non persistée en base de données
+     */
     public function setQualityScore(?float $qualityScore): self
     {
         $this->qualityScore = $qualityScore;
@@ -414,6 +509,9 @@ class WhatsAppTemplate
             switch ($type) {
                 case self::COMPONENT_TYPE_HEADER:
                     $this->setHeaderFormat($component['format'] ?? null);
+                    // Mettre à jour le flag hasMediaHeader
+                    $format = $component['format'] ?? '';
+                    $this->setHasMediaHeader(in_array($format, ['IMAGE', 'VIDEO', 'DOCUMENT']));
                     break;
                     
                 case self::COMPONENT_TYPE_BODY:
@@ -429,16 +527,26 @@ class WhatsAppTemplate
                 case self::COMPONENT_TYPE_FOOTER:
                     if (isset($component['text'])) {
                         $this->setFooterText($component['text']);
+                        // Mettre à jour le flag hasFooter
+                        $this->setHasFooter(true);
                     }
                     break;
                     
                 case self::COMPONENT_TYPE_BUTTONS:
                     if (isset($component['buttons']) && is_array($component['buttons'])) {
-                        $this->setButtonsCount(count($component['buttons']));
+                        $count = count($component['buttons']);
+                        $this->setButtonsCount($count);
                         $this->setButtonsDetailsFromArray($component['buttons']);
+                        // Mettre à jour le flag hasButtons
+                        $this->setHasButtons($count > 0);
                     }
                     break;
             }
+        }
+        
+        // Assurons-nous que templateId est défini
+        if ($this->templateId === null) {
+            $this->templateId = $this->name;
         }
         
         return $this;
@@ -462,5 +570,106 @@ class WhatsAppTemplate
     public function hasButtons(): bool
     {
         return $this->buttonsCount > 0;
+    }
+    
+    /**
+     * Vérifie si le template a des boutons
+     */
+    public function getHasButtons(): bool
+    {
+        return $this->hasButtons();
+    }
+    
+    /**
+     * Définit si le template a des boutons
+     */
+    public function setHasButtons(bool $hasButtons): self
+    {
+        // Optionnellement mettre à jour le nombre de boutons
+        if (!$hasButtons) {
+            $this->buttonsCount = 0;
+        } elseif ($this->buttonsCount == 0) {
+            $this->buttonsCount = 1;
+        }
+        return $this;
+    }
+    
+    /**
+     * Vérifie si le template a un pied de page
+     */
+    public function getHasFooter(): bool
+    {
+        return $this->footerText !== null && $this->footerText !== '';
+    }
+    
+    /**
+     * Définit si le template a un pied de page
+     */
+    public function setHasFooter(bool $hasFooter): self
+    {
+        // Si on supprime le footer, on met à jour le texte
+        if (!$hasFooter && $this->footerText !== null) {
+            $this->footerText = null;
+        }
+        return $this;
+    }
+    
+    /**
+     * Vérifie si le template a un en-tête média
+     */
+    public function getHasMediaHeader(): bool
+    {
+        return $this->hasHeaderMedia();
+    }
+    
+    /**
+     * Définit si le template a un en-tête média
+     */
+    public function setHasMediaHeader(bool $hasMediaHeader): self
+    {
+        if ($hasMediaHeader && $this->headerFormat === null) {
+            $this->headerFormat = self::HEADER_FORMAT_IMAGE;
+        } elseif (!$hasMediaHeader && in_array($this->headerFormat, [
+            self::HEADER_FORMAT_IMAGE,
+            self::HEADER_FORMAT_VIDEO, 
+            self::HEADER_FORMAT_DOCUMENT
+        ])) {
+            $this->headerFormat = self::HEADER_FORMAT_TEXT;
+        }
+        return $this;
+    }
+    
+    /**
+     * Obtenir la version d'API utilisée par ce template
+     */
+    public function getApiVersion(): string
+    {
+        return $this->apiVersion;
+    }
+    
+    /**
+     * Définir la version d'API utilisée par ce template
+     */
+    public function setApiVersion(string $apiVersion): self
+    {
+        $this->apiVersion = $apiVersion;
+        return $this;
+    }
+    
+    /**
+     * Obtenir le JSON des composants au format Meta
+     */
+    public function getComponentsJson(): ?string
+    {
+        return $this->componentsJson;
+    }
+    
+    /**
+     * Définir le JSON des composants au format Meta
+     */
+    public function setComponentsJson(?string $componentsJson): self
+    {
+        $this->componentsJson = $componentsJson;
+        return $this;
     }
 }

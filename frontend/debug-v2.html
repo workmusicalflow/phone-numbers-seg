@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug WhatsApp Templates V2</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow: auto; }
+    .success { color: green; }
+    .error { color: red; }
+    .container { max-width: 800px; margin: 0 auto; }
+    button { padding: 10px 15px; margin: 5px; border-radius: 4px; cursor: pointer; }
+    h2 { margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Diagnostic WhatsApp Templates V2</h1>
+    
+    <div id="app">
+      <h2>1. Vérification des modules</h2>
+      <div>
+        <button id="checkModules">Vérifier les modules</button>
+        <pre id="modulesResult">Cliquez sur le bouton pour vérifier...</pre>
+      </div>
+      
+      <h2>2. Test de l'API REST V2</h2>
+      <div>
+        <button id="testApi">Tester l'API REST</button>
+        <pre id="apiResult">Cliquez sur le bouton pour tester...</pre>
+      </div>
+      
+      <h2>3. Test de récupération des templates</h2>
+      <div>
+        <button id="fetchTemplates">Récupérer les templates</button>
+        <pre id="templatesResult">Cliquez sur le bouton pour récupérer les templates...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import des modules pour tester s'ils se chargent correctement
+    const checkModules = async () => {
+      const resultElement = document.getElementById('modulesResult');
+      resultElement.innerHTML = "Test des imports en cours...";
+      
+      try {
+        // Essayer d'importer les types
+        const typesModule = await import('./src/types/whatsapp-templates.js');
+        const parametersModule = await import('./src/types/whatsapp-parameters.js');
+        
+        // Essayer d'importer les services
+        const serviceModule = await import('./src/services/whatsapp/index-v2.js');
+        const clientModule = await import('./src/services/whatsappRestClientV2.js');
+        
+        let results = "<span class='success'>✓ Tous les modules ont été importés avec succès!</span>\n\n";
+        results += "Types disponibles:\n";
+        results += JSON.stringify(Object.keys(typesModule), null, 2) + "\n\n";
+        results += "Paramètres disponibles:\n";
+        results += JSON.stringify(Object.keys(parametersModule), null, 2) + "\n\n";
+        results += "Services disponibles:\n";
+        results += JSON.stringify(Object.keys(serviceModule), null, 2) + "\n\n";
+        results += "Client disponible:\n";
+        results += JSON.stringify(Object.keys(clientModule), null, 2);
+        
+        resultElement.innerHTML = results;
+      } catch (error) {
+        resultElement.innerHTML = `<span class='error'>✗ Erreur lors de l'import des modules</span>\n\n${error.toString()}\n\nStack trace:\n${error.stack || "Non disponible"}`;
+        console.error("Erreur d'import:", error);
+      }
+    };
+
+    // Test de l'API REST
+    const testApi = async () => {
+      const resultElement = document.getElementById('apiResult');
+      resultElement.innerHTML = "Test de l'API en cours...";
+      
+      try {
+        // Importer le client WhatsApp
+        const { whatsAppClientV2 } = await import('./src/services/whatsappRestClientV2.js');
+        
+        // Vérifier le statut de l'API
+        const status = await whatsAppClientV2.checkApiStatus();
+        
+        resultElement.innerHTML = `<span class='${status.success ? 'success' : 'error'}'>${status.success ? '✓' : '✗'} Statut API</span>\n\n${JSON.stringify(status, null, 2)}`;
+      } catch (error) {
+        resultElement.innerHTML = `<span class='error'>✗ Erreur lors du test de l'API</span>\n\n${error.toString()}\n\nStack trace:\n${error.stack || "Non disponible"}`;
+        console.error("Erreur API:", error);
+      }
+    };
+
+    // Récupération des templates
+    const fetchTemplates = async () => {
+      const resultElement = document.getElementById('templatesResult');
+      resultElement.innerHTML = "Récupération des templates en cours...";
+      
+      try {
+        // Importer le client WhatsApp
+        const { whatsAppClientV2 } = await import('./src/services/whatsappRestClientV2.js');
+        
+        // Récupérer les templates approuvés
+        const templates = await whatsAppClientV2.getApprovedTemplates();
+        
+        if (templates.status === 'error') {
+          resultElement.innerHTML = `<span class='error'>✗ Erreur</span>\n\n${JSON.stringify(templates, null, 2)}`;
+        } else {
+          resultElement.innerHTML = `<span class='success'>✓ ${templates.count} templates récupérés</span>\n\nSource: ${templates.meta.source}\n\nPremier template:\n${JSON.stringify(templates.templates[0], null, 2)}`;
+        }
+      } catch (error) {
+        resultElement.innerHTML = `<span class='error'>✗ Erreur lors de la récupération des templates</span>\n\n${error.toString()}\n\nStack trace:\n${error.stack || "Non disponible"}`;
+        console.error("Erreur templates:", error);
+      }
+    };
+
+    // Attachement des événements
+    document.getElementById('checkModules').addEventListener('click', checkModules);
+    document.getElementById('testApi').addEventListener('click', testApi);
+    document.getElementById('fetchTemplates').addEventListener('click', fetchTemplates);
+  </script>
+</body>
+</html>

@@ -18,6 +18,9 @@ export default defineConfig({
         }),
     ],
     server: {
+        port: 5173,
+        strictPort: true, // Échouer si le port est déjà utilisé au lieu d'essayer le suivant
+        host: 'localhost',
         proxy: {
             "/api.php": {
                 target: "http://localhost:8000",

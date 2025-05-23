@@ -1,19 +1,22 @@
 import { whatsappApi } from './whatsappApiClient';
 import { 
   WhatsAppTemplate,
-  WhatsAppTemplateSendRequest,
   WhatsAppTemplateSendResponse
 } from '../types/whatsapp-templates';
 
-// Définition des anciennes interfaces pour rétrocompatibilité
-// export type { WhatsAppTemplate }; // Removed this re-export
+import {
+  WhatsAppTemplateMessage
+} from '../types/whatsapp-parameters';
 
+import { whatsAppTemplateServiceV2 } from './whatsapp/index-v2';
+
+// Définition des interfaces pour les réponses API
 export interface ApprovedTemplatesResponse {
   status: string;
   templates: WhatsAppTemplate[];
   count: number;
   meta: {
-    source: 'api' | 'cache' | 'fallback';
+    source: 'api' | 'cache' | 'fallback' | 'client_error';
     usedFallback: boolean;
     timestamp: string;
   };
@@ -42,13 +45,12 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
 };
 
 /**
- * Client REST pour l'API WhatsApp
+ * Client REST pour l'API WhatsApp version 2
  * 
- * Ce client fournit des méthodes pour interagir avec l'API WhatsApp
- * en utilisant des endpoints REST qui sont plus robustes que les requêtes GraphQL
- * directes à l'API Meta.
+ * Cette version utilise la structure exacte attendue par l'API Meta Cloud
+ * pour l'envoi de messages basés sur des templates WhatsApp.
  */
-export class WhatsAppRestClient {
+export class WhatsAppRestClientV2 {
   /**
    * Récupère les templates WhatsApp approuvés
    * 
@@ -121,33 +123,12 @@ export class WhatsAppRestClient {
         templates: [],
         count: 0,
         meta: {
-          source: 'fallback', // Changed from 'client_error'
+          source: 'client_error',
           usedFallback: true,
           timestamp: new Date().toISOString()
         },
         message: error.message || 'Erreur inconnue'
       };
-    }
-  }
-  
-  /**
-   * Récupère un template spécifique par son ID
-   * 
-   * @param templateId ID du template à récupérer
-   * @returns Promise contenant le template ou null
-   */
-  async getTemplateById(templateId: string): Promise<WhatsAppTemplate | null> {
-    try {
-      const response = await whatsappApi.get(`/whatsapp/templates/${templateId}`);
-      
-      if (response.data && response.data.status === 'success' && response.data.template) {
-        return response.data.template as WhatsAppTemplate;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error(`Erreur lors de la récupération du template ${templateId}:`, error);
-      return null;
     }
   }
   
@@ -182,17 +163,20 @@ export class WhatsAppRestClient {
   }
 
   /**
-   * Envoie un message template WhatsApp v2 (API REST simplifiée)
+   * Envoie un message template WhatsApp au format Meta API
    * 
-   * @param data Données du message à envoyer
+   * @param templateMessage Le message template complet au format Meta
    * @returns Promise contenant le résultat de l'envoi
    */
-  async sendTemplateMessageV2(data: WhatsAppTemplateSendRequest): Promise<WhatsAppTemplateSendResponse> {
+  async sendTemplateMessageMeta(
+    templateMessage: WhatsAppTemplateMessage
+  ): Promise<WhatsAppTemplateSendResponse> {
     try {
-      console.log('Envoi de message template v2 (REST):', data);
+      console.log('Envoi de message template (format Meta):', 
+                 JSON.stringify(templateMessage, null, 2));
       
-      // Valider les données avant l'envoi
-      this.validateSendRequest(data);
+      // Valider le message avant l'envoi
+      this.validateTemplateMessage(templateMessage);
       
       // Vérifier d'abord le statut de l'API
       const statusCheck = await this.checkApiStatus();
@@ -200,8 +184,8 @@ export class WhatsAppRestClient {
         throw new Error(`API REST non disponible: ${statusCheck.error}`);
       }
       
-      // Utiliser l'endpoint complet pour l'envoi réel
-      const response = await whatsappApi.post('/whatsapp/send-template-v2.php', data);
+      // Utiliser l'endpoint d'envoi de message Meta
+      const response = await whatsappApi.post('/whatsapp/send-message.php', templateMessage);
       
       // Analyser la réponse
       if (response.data && response.data.success) {
@@ -222,9 +206,9 @@ export class WhatsAppRestClient {
       
       throw new Error(errorMessage);
     } catch (error: any) {
-      console.error('Erreur lors de l\'envoi du message template REST v2:', error);
+      console.error('Erreur lors de l\'envoi du message template (format Meta):', error);
       
-      const errorInfo = this.analyzeError(error, data.templateName);
+      const errorInfo = this.analyzeError(error, templateMessage.template.name);
       
       return {
         success: false,
@@ -232,82 +216,122 @@ export class WhatsAppRestClient {
       };
     }
   }
-
+  
   /**
-   * Récupère l'historique d'utilisation des templates WhatsApp
+   * Simplification : méthode pour envoyer un template avec paramètres
    * 
-   * @param limit Nombre maximum d'entrées à récupérer
-   * @param offset Offset pour la pagination
-   * @returns Promise contenant l'historique d'utilisation
+   * @param recipientPhone Numéro de téléphone du destinataire
+   * @param template Template WhatsApp à utiliser
+   * @param bodyValues Valeurs pour les variables du corps
+   * @param headerMedia Données du média d'en-tête (si applicable)
+   * @returns Promise contenant le résultat de l'envoi
    */
-  async getTemplateUsageHistory(limit: number = 20, offset: number = 0): Promise<any> {
+  async sendTemplate(
+    recipientPhone: string,
+    template: WhatsAppTemplate,
+    bodyValues: string[] = [],
+    headerMedia?: { type: string; value: string; isId?: boolean }
+  ): Promise<WhatsAppTemplateSendResponse> {
+    // Utiliser le service de template pour préparer le message
+    const templateMessage = whatsAppTemplateServiceV2.prepareApiMessage(
+      recipientPhone,
+      template,
+      bodyValues,
+      headerMedia
+    );
+    
+    // Envoyer le message formaté
+    return this.sendTemplateMessageMeta(templateMessage);
+  }
+  
+  /**
+   * Méthode de compatibilité avec l'ancien format sendTemplateMessageV2
+   * 
+   * @param data Données au format ancien
+   * @returns Promise contenant le résultat de l'envoi
+   */
+  async sendTemplateMessageV2(
+    data: {
+      recipientPhoneNumber: string;
+      templateName: string;
+      templateLanguage: string;
+      bodyVariables: string[];
+      headerMediaUrl?: string;
+      headerMediaId?: string;
+    }
+  ): Promise<WhatsAppTemplateSendResponse> {
     try {
-      const params = new URLSearchParams();
-      params.append('limit', limit.toString());
-      params.append('offset', offset.toString());
+      // Déterminer le type de média et sa source
+      let headerMedia: { type: string; value: string; isId?: boolean } | undefined;
       
-      const endpoint = `/whatsapp/templates/history?${params.toString()}`;
-      const response = await whatsappApi.get(endpoint);
-      
-      if (response.data && response.data.status === 'success') {
-        return {
-          status: 'success',
-          history: response.data.history || [],
-          count: response.data.count || 0
+      if (data.headerMediaUrl) {
+        // Déterminer le type de média à partir de l'extension de l'URL
+        const url = data.headerMediaUrl.toLowerCase();
+        let mediaType = 'IMAGE'; // Par défaut
+        
+        if (url.endsWith('.mp4') || url.endsWith('.mov') || url.includes('video')) {
+          mediaType = 'VIDEO';
+        } else if (url.endsWith('.pdf') || url.endsWith('.doc') || url.endsWith('.docx')) {
+          mediaType = 'DOCUMENT';
+        }
+        
+        headerMedia = {
+          type: mediaType,
+          value: data.headerMediaUrl,
+          isId: false
+        };
+      } else if (data.headerMediaId) {
+        // Utiliser l'ID média fourni
+        headerMedia = {
+          type: 'IMAGE', // Le type n'importe pas autant avec un ID
+          value: data.headerMediaId,
+          isId: true
         };
       }
       
-      throw new Error('Format de réponse inattendu');
+      // Récupérer d'abord des informations sur le template
+      const templateInfo = {
+        name: data.templateName,
+        language: data.templateLanguage,
+        // Ici, nous n'avons pas toutes les informations sur le template,
+        // mais suffisamment pour l'envoi
+      } as WhatsAppTemplate;
+      
+      // Envoyer avec la méthode moderne
+      return this.sendTemplate(
+        data.recipientPhoneNumber,
+        templateInfo,
+        data.bodyVariables,
+        headerMedia
+      );
     } catch (error: any) {
-      console.error('Erreur lors de la récupération de l\'historique des templates:', error);
+      console.error('Erreur lors de l\'envoi du message template V2 (compatibilité):', error);
       return {
-        status: 'error',
-        history: [],
-        count: 0,
-        message: error.message || 'Erreur inconnue'
+        success: false,
+        error: error.message || 'Erreur inconnue'
       };
     }
   }
-
+  
   /**
-   * Valide la requête d'envoi avant de la transmettre à l'API
-   * @param data Données à valider
-   * @throws Error si les données sont invalides
+   * Valide un message template avant l'envoi
    */
-  private validateSendRequest(data: WhatsAppTemplateSendRequest): void {
+  private validateTemplateMessage(message: WhatsAppTemplateMessage): void {
     const errors: string[] = [];
     
-    // Valider les champs obligatoires
-    if (!data.recipientPhoneNumber) {
+    // Vérifier les champs obligatoires
+    if (!message.to) {
       errors.push('Le numéro de téléphone du destinataire est requis');
-    } else if (!this.isValidPhoneNumber(data.recipientPhoneNumber)) {
-      errors.push('Le format du numéro de téléphone est invalide, utilisez le format international (+XXX...)');
+    } else if (!this.isValidPhoneNumber(message.to)) {
+      errors.push('Le format du numéro de téléphone est invalide');
     }
     
-    if (!data.templateName) {
+    if (!message.template || !message.template.name) {
       errors.push('Le nom du template est requis');
     }
     
-    if (!data.templateLanguage) {
+    if (!message.template || !message.template.language || !message.template.language.code) {
       errors.push('La langue du template est requise');
-    }
-    
-    // Valider les variables
-    if (data.bodyVariables && !Array.isArray(data.bodyVariables)) {
-      errors.push('Les variables du corps doivent être un tableau');
-    }
-    
-    if (data.buttonVariables && !Array.isArray(data.buttonVariables)) {
-      errors.push('Les variables des boutons doivent être un tableau');
-    }
-    
-    // Vérifier l'en-tête média
-    if (data.headerMediaUrl && data.headerMediaId) {
-      errors.push('Veuillez spécifier soit une URL de média, soit un ID de média, mais pas les deux');
-    }
-    
-    if (data.headerMediaUrl && !this.isValidUrl(data.headerMediaUrl)) {
-      errors.push('L\'URL du média d\'en-tête est invalide');
     }
     
     // Si des erreurs ont été trouvées, lancer une exception
@@ -315,36 +339,17 @@ export class WhatsAppRestClient {
       throw new Error(`Validation échouée: ${errors.join(', ')}`);
     }
   }
-
+  
   /**
    * Vérifie si une chaîne est un numéro de téléphone valide
-   * @param phone Numéro à vérifier
-   * @returns true si le format est valide
    */
   private isValidPhoneNumber(phone: string): boolean {
     // Format international avec + et chiffres
     return /^\+[0-9]{8,15}$/.test(phone.replace(/\s/g, ''));
   }
-
-  /**
-   * Vérifie si une chaîne est une URL valide
-   * @param url URL à vérifier
-   * @returns true si l'URL est valide
-   */
-  private isValidUrl(url: string): boolean {
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === 'https:';
-    } catch (e) {
-      return false;
-    }
-  }
-
+  
   /**
    * Analyse une erreur et fournit un message détaillé
-   * @param error Erreur survenue
-   * @param templateName Nom du template concerné
-   * @returns Message d'erreur détaillé
    */
   private analyzeError(error: Error, templateName: string): string {
     const errorMessage = error.message || 'Erreur inconnue';
@@ -376,4 +381,4 @@ export class WhatsAppRestClient {
 }
 
 // Export d'une instance unique
-export const whatsAppClient = new WhatsAppRestClient();
+export const whatsAppClientV2 = new WhatsAppRestClientV2();

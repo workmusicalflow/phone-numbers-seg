@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vérification du serveur</title>
+</head>
+<body>
+  <h1>Le serveur fonctionne correctement!</h1>
+  <p>Si vous voyez cette page, le serveur Vite est en fonctionnement et répond aux requêtes.</p>
+  <p>Timestamp: <span id="timestamp"></span></p>
+  
+  <script>
+    // Script simple qui ne dépend d'aucun module
+    document.getElementById('timestamp').textContent = new Date().toISOString();
+  </script>
+</body>
+</html>

@@ -219,13 +219,15 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
     public function getApiPerformanceMetrics(
         User $user,
         ?\DateTime $startDate = null,
-        ?\DateTime $endDate = null
+        ?\DateTime $endDate = null,
+        ?string $apiVersion = null
     ): array {
         $cacheKey = sprintf(
-            'api_performance_metrics_%d_%s_%s',
+            'api_performance_metrics_%d_%s_%s_%s',
             $user->getId(),
             $startDate ? $startDate->format('Ymd') : 'all',
-            $endDate ? $endDate->format('Ymd') : 'now'
+            $endDate ? $endDate->format('Ymd') : 'now',
+            $apiVersion ?? 'all'
         );
         
         // Vérifier le cache
@@ -249,6 +251,11 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
             
             if ($endDate !== null) {
                 $criteria['created_at <='] = $endDate;
+            }
+            
+            // Filtrer par version d'API si spécifiée
+            if ($apiVersion !== null) {
+                $criteria['api_version'] = $apiVersion;
             }
             
             // Récupérer les métriques de performance API
@@ -570,12 +577,16 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
         string $operation,
         float $duration,
         bool $success,
-        ?string $errorMessage = null
+        ?string $errorMessage = null,
+        string $apiVersion = 'v1',  // Ajout de la version de l'API
+        string $endpoint = ''       // Ajout de l'endpoint spécifique
     ): void {
         try {
             $this->logger->debug('Enregistrement d\'une métrique de performance WhatsApp', [
                 'user_id' => $user->getId(),
                 'operation' => $operation,
+                'api_version' => $apiVersion,
+                'endpoint' => $endpoint,
                 'duration' => $duration,
                 'success' => $success
             ]);
@@ -585,6 +596,8 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
             $metric->setOperation($operation);
             $metric->setDuration($duration);
             $metric->setSuccess($success);
+            $metric->setApiVersion($apiVersion);  // Stocker la version d'API
+            $metric->setEndpoint($endpoint);      // Stocker l'endpoint
             
             if (!$success && $errorMessage !== null) {
                 $metric->setErrorMessage($errorMessage);
@@ -593,6 +606,8 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
                 $this->logger->warning('Erreur API WhatsApp détectée', [
                     'user_id' => $user->getId(),
                     'operation' => $operation,
+                    'api_version' => $apiVersion,
+                    'endpoint' => $endpoint,
                     'error' => $errorMessage,
                     'duration' => $duration
                 ]);
@@ -602,6 +617,8 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
                     $this->logger->error('ERREUR CRITIQUE API WhatsApp', [
                         'user_id' => $user->getId(),
                         'operation' => $operation,
+                        'api_version' => $apiVersion,
+                        'endpoint' => $endpoint,
                         'error' => $errorMessage,
                         'duration' => $duration
                     ]);
@@ -610,6 +627,14 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
                 }
             }
             
+            // Ajouter des métadonnées JSON pour des informations supplémentaires
+            $metadata = [
+                'api_version' => $apiVersion,
+                'endpoint' => $endpoint,
+                'timestamp' => (new \DateTime())->format('c')
+            ];
+            $metric->setMetadata(json_encode($metadata));
+            
             $metric->setCreatedAt(new \DateTime());
             $this->apiMetricRepository->save($metric);
             
@@ -617,7 +642,8 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
             $this->logger->error('Erreur lors de l\'enregistrement d\'une métrique de performance', [
                 'error' => $e->getMessage(),
                 'user_id' => $user->getId(),
-                'operation' => $operation
+                'operation' => $operation,
+                'api_version' => $apiVersion
             ]);
         }
     }
@@ -846,6 +872,185 @@ class WhatsAppMonitoringService implements WhatsAppMonitoringServiceInterface
         }
         
         return $simplified;
+    }
+    
+    /**
+     * Génère un rapport comparatif entre les API v1 et v2
+     * 
+     * @param User $user L'utilisateur
+     * @param \DateTime|null $startDate Date de début pour la période d'analyse
+     * @param \DateTime|null $endDate Date de fin pour la période d'analyse
+     * @return array Rapport de comparaison
+     */
+    public function generateApiVersionComparisonReport(
+        User $user,
+        ?\DateTime $startDate = null,
+        ?\DateTime $endDate = null
+    ): array {
+        try {
+            $this->logger->info('Génération du rapport de comparaison d\'API WhatsApp', [
+                'user_id' => $user->getId(),
+                'start_date' => $startDate ? $startDate->format('Y-m-d') : 'all',
+                'end_date' => $endDate ? $endDate->format('Y-m-d') : 'now'
+            ]);
+            
+            // Obtenir les métriques pour chaque version
+            $v1Metrics = $this->getApiPerformanceMetrics($user, $startDate, $endDate, 'v1');
+            $v2Metrics = $this->getApiPerformanceMetrics($user, $startDate, $endDate, 'v2');
+            
+            // Obtenir les taux d'erreur pour chaque version
+            $v1ErrorMetrics = $this->getApiErrorMetrics($user, $startDate, $endDate);
+            $v1ErrorMetrics['api_version'] = 'v1';
+            
+            $v2ErrorMetrics = $this->getApiErrorMetrics($user, $startDate, $endDate);
+            $v2ErrorMetrics['api_version'] = 'v2';
+            
+            // Calculer les différences
+            $successRateDiff = $v2Metrics['overall_success_rate'] - $v1Metrics['overall_success_rate'];
+            $avgDurationDiff = $v1Metrics['avg_duration'] - $v2Metrics['avg_duration']; // Note: positif = v2 est plus rapide
+            $p95DurationDiff = $v1Metrics['p95_duration'] - $v2Metrics['p95_duration'];
+            
+            // Calculer les pourcentages d'utilisation
+            $totalOperations = $v1Metrics['total_operations'] + $v2Metrics['total_operations'];
+            $v1Percentage = $totalOperations > 0 ? ($v1Metrics['total_operations'] / $totalOperations) * 100 : 0;
+            $v2Percentage = $totalOperations > 0 ? ($v2Metrics['total_operations'] / $totalOperations) * 100 : 0;
+            
+            // Construire le rapport
+            $report = [
+                'period' => [
+                    'start_date' => $startDate ? $startDate->format('Y-m-d') : 'all time',
+                    'end_date' => $endDate ? $endDate->format('Y-m-d') : 'now'
+                ],
+                'usage' => [
+                    'total_operations' => $totalOperations,
+                    'v1_operations' => $v1Metrics['total_operations'],
+                    'v2_operations' => $v2Metrics['total_operations'],
+                    'v1_percentage' => round($v1Percentage, 2),
+                    'v2_percentage' => round($v2Percentage, 2)
+                ],
+                'performance' => [
+                    'success_rate' => [
+                        'v1' => $v1Metrics['overall_success_rate'],
+                        'v2' => $v2Metrics['overall_success_rate'],
+                        'difference' => round($successRateDiff, 2),
+                        'improvement' => $successRateDiff >= 0
+                    ],
+                    'avg_duration' => [
+                        'v1' => $v1Metrics['avg_duration'],
+                        'v2' => $v2Metrics['avg_duration'],
+                        'difference' => round($avgDurationDiff, 2),
+                        'improvement' => $avgDurationDiff >= 0
+                    ],
+                    'p95_duration' => [
+                        'v1' => $v1Metrics['p95_duration'],
+                        'v2' => $v2Metrics['p95_duration'],
+                        'difference' => round($p95DurationDiff, 2),
+                        'improvement' => $p95DurationDiff >= 0
+                    ]
+                ],
+                'errors' => [
+                    'v1' => [
+                        'total_errors' => $v1ErrorMetrics['total_errors'],
+                        'error_rate' => $v1ErrorMetrics['error_rate'],
+                        'critical_errors' => $v1ErrorMetrics['critical_errors']
+                    ],
+                    'v2' => [
+                        'total_errors' => $v2ErrorMetrics['total_errors'],
+                        'error_rate' => $v2ErrorMetrics['error_rate'],
+                        'critical_errors' => $v2ErrorMetrics['critical_errors']
+                    ]
+                ],
+                'operations' => [
+                    'v1' => $this->groupOperationsByType($v1Metrics['by_operation']),
+                    'v2' => $this->groupOperationsByType($v2Metrics['by_operation'])
+                ],
+                'summary' => $this->generateComparisonSummary(
+                    $v1Metrics,
+                    $v2Metrics,
+                    $v1ErrorMetrics,
+                    $v2ErrorMetrics
+                )
+            ];
+            
+            return $report;
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Erreur lors de la génération du rapport de comparaison d\'API', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->getId()
+            ]);
+            
+            return [
+                'error' => $e->getMessage(),
+                'status' => 'error'
+            ];
+        }
+    }
+    
+    /**
+     * Groupe les opérations par type pour le rapport de comparaison
+     * 
+     * @param array $operations Liste des opérations et leurs métriques
+     * @return array Opérations groupées par type
+     */
+    private function groupOperationsByType(array $operations): array {
+        $grouped = [
+            'template_operations' => [],
+            'message_operations' => [],
+            'media_operations' => [],
+            'other_operations' => []
+        ];
+        
+        foreach ($operations as $operation) {
+            $name = $operation['operation'];
+            
+            if (strpos($name, 'template') !== false) {
+                $grouped['template_operations'][$name] = $operation;
+            } else if (strpos($name, 'message') !== false) {
+                $grouped['message_operations'][$name] = $operation;
+            } else if (strpos($name, 'media') !== false) {
+                $grouped['media_operations'][$name] = $operation;
+            } else {
+                $grouped['other_operations'][$name] = $operation;
+            }
+        }
+        
+        return $grouped;
+    }
+    
+    /**
+     * Génère un résumé textuel de la comparaison
+     * 
+     * @param array $v1Metrics Métriques de performance v1
+     * @param array $v2Metrics Métriques de performance v2
+     * @param array $v1ErrorMetrics Métriques d'erreur v1
+     * @param array $v2ErrorMetrics Métriques d'erreur v2
+     * @return string Résumé de la comparaison
+     */
+    private function generateComparisonSummary(
+        array $v1Metrics,
+        array $v2Metrics,
+        array $v1ErrorMetrics,
+        array $v2ErrorMetrics
+    ): string {
+        $successRateDiff = $v2Metrics['overall_success_rate'] - $v1Metrics['overall_success_rate'];
+        $avgDurationDiff = $v1Metrics['avg_duration'] - $v2Metrics['avg_duration'];
+        
+        if ($v2Metrics['total_operations'] < 10) {
+            return "Données insuffisantes pour l'API V2. Plus d'utilisation est nécessaire pour une comparaison fiable.";
+        }
+        
+        if ($successRateDiff > 5 && $avgDurationDiff > 50) {
+            return "L'API V2 est significativement plus performante avec un taux de succès supérieur de {$successRateDiff}% et une réduction de latence moyenne de {$avgDurationDiff}ms.";
+        } else if ($successRateDiff > 5) {
+            return "L'API V2 présente un meilleur taux de réussite (+{$successRateDiff}%) mais des performances similaires en termes de latence.";
+        } else if ($avgDurationDiff > 50) {
+            return "L'API V2 est plus rapide ({$avgDurationDiff}ms de réduction) mais avec un taux de réussite similaire.";
+        } else if ($successRateDiff < -5 || $avgDurationDiff < -50) {
+            return "L'API V2 présente actuellement des métriques moins favorables que V1. Une investigation peut être nécessaire.";
+        } else {
+            return "Les performances des API V1 et V2 sont comparables, avec des différences mineures.";
+        }
     }
     
     /**

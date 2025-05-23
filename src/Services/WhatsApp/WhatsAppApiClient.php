@@ -28,8 +28,20 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
         $this->logger = $logger;
         $this->config = $config;
         
+        // S'assurer que la base_url se termine par un '/'
+        $baseUrl = $config['base_url'] ?? 'https://graph.facebook.com';
+        if (substr($baseUrl, -1) !== '/') {
+            $baseUrl .= '/';
+        }
+        
+        $this->logger->debug('Initialisation du client WhatsApp API', [
+            'base_url' => $baseUrl,
+            'api_version' => $config['api_version'] ?? 'Non défini',
+            'phone_number_id' => $config['phone_number_id'] ?? 'Non défini'
+        ]);
+        
         $this->httpClient = new Client([
-            'base_uri' => $config['base_url'] ?? 'https://graph.facebook.com/',
+            'base_uri' => $baseUrl,
             'timeout' => 30,
             'headers' => [
                 'Authorization' => 'Bearer ' . $config['access_token'],
@@ -43,9 +55,42 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
      */
     public function sendMessage(array $payload): array
     {
-        $endpoint = $this->config['api_version'] . '/' . $this->config['phone_number_id'] . '/messages';
+        // Vérification des paramètres requis et définir une valeur par défaut pour api_version
+        if (empty($this->config['api_version'])) {
+            $this->logger->warning('api_version manquante, utilisation de la version v22.0 par défaut');
+            $this->config['api_version'] = 'v22.0'; // Version par défaut
+        }
+        
+        if (empty($this->config['phone_number_id'])) {
+            throw new \Exception('Configuration WhatsApp incomplète: phone_number_id manquant');
+        }
+        
+        // Utilisation de l'URL complète plutôt que d'un chemin relatif
+        $baseUrl = $this->config['base_url'] ?? 'https://graph.facebook.com';
+        // Nettoyer le baseUrl pour éviter les double slashes
+        $baseUrl = rtrim($baseUrl, '/');
+        
+        // Garantir que les valeurs de configuration sont non-vides
+        $apiVersion = $this->config['api_version'];
+        $phoneNumberId = $this->config['phone_number_id'];
+        
+        $endpoint = sprintf('%s/%s/%s/messages', 
+            $baseUrl,
+            $apiVersion,
+            $phoneNumberId
+        );
+        
+        // Log pour débogage
+        $this->logger->debug('Préparation envoi message WhatsApp', [
+            'endpoint_complet' => $endpoint,
+            'base_url' => $baseUrl,
+            'api_version' => $this->config['api_version'],
+            'phone_number_id' => $this->config['phone_number_id'],
+            'access_token_length' => isset($this->config['access_token']) ? strlen($this->config['access_token']) : 0
+        ]);
         
         try {
+            // Utilisation de l'URL complète plutôt que de compter sur base_uri
             $response = $this->httpClient->post($endpoint, [
                 'json' => $payload
             ]);
@@ -86,7 +131,29 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
      */
     public function uploadMedia(string $filePath, string $mimeType): string
     {
-        $endpoint = $this->config['api_version'] . '/' . $this->config['phone_number_id'] . '/media';
+        // Vérification des paramètres requis et définir une valeur par défaut pour api_version
+        if (empty($this->config['api_version'])) {
+            $this->logger->warning('api_version manquante, utilisation de la version v22.0 par défaut');
+            $this->config['api_version'] = 'v22.0'; // Version par défaut
+        }
+        
+        if (empty($this->config['phone_number_id'])) {
+            throw new \Exception('Configuration WhatsApp incomplète: phone_number_id manquant');
+        }
+        
+        // Construction de l'URL complète
+        $baseUrl = rtrim($this->config['base_url'] ?? 'https://graph.facebook.com', '/');
+        $endpoint = sprintf('%s/%s/%s/media', 
+            $baseUrl,
+            $this->config['api_version'],
+            $this->config['phone_number_id']
+        );
+        
+        $this->logger->debug('Préparation upload média WhatsApp', [
+            'endpoint_complet' => $endpoint,
+            'file' => $filePath,
+            'mime_type' => $mimeType
+        ]);
         
         try {
             $response = $this->httpClient->post($endpoint, [
@@ -161,7 +228,24 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
      */
     public function getMediaUrl(string $mediaId): string
     {
-        $endpoint = $this->config['api_version'] . '/' . $mediaId;
+        // Vérification des paramètres requis et définir une valeur par défaut pour api_version
+        if (empty($this->config['api_version'])) {
+            $this->logger->warning('api_version manquante, utilisation de la version v22.0 par défaut');
+            $this->config['api_version'] = 'v22.0'; // Version par défaut
+        }
+        
+        // Construction de l'URL complète
+        $baseUrl = rtrim($this->config['base_url'] ?? 'https://graph.facebook.com', '/');
+        $endpoint = sprintf('%s/%s/%s', 
+            $baseUrl,
+            $this->config['api_version'],
+            $mediaId
+        );
+        
+        $this->logger->debug('Obtention URL média WhatsApp', [
+            'endpoint_complet' => $endpoint,
+            'media_id' => $mediaId
+        ]);
         
         try {
             $response = $this->httpClient->get($endpoint);
@@ -201,8 +285,8 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
         }
         
         if (empty($this->config['api_version'])) {
-            $this->logger->error('Configuration WhatsApp incomplète: api_version manquante');
-            throw new \Exception('Configuration WhatsApp incomplète: api_version manquante');
+            $this->logger->warning('api_version manquante, utilisation de la version v22.0 par défaut');
+            $this->config['api_version'] = 'v22.0'; // Version par défaut
         }
         
         if (empty($this->config['access_token'])) {
@@ -210,12 +294,18 @@ class WhatsAppApiClient implements WhatsAppApiClientInterface
             throw new \Exception('Configuration WhatsApp incomplète: access_token manquant');
         }
 
-        // Construire l'endpoint pour l'API
-        $endpoint = $this->config['api_version'] . '/' . $this->config['whatsapp_business_account_id'] . '/message_templates';
+        // Construire l'endpoint complet pour l'API
+        $baseUrl = rtrim($this->config['base_url'] ?? 'https://graph.facebook.com', '/');
+        $endpoint = sprintf('%s/%s/%s/message_templates', 
+            $baseUrl,
+            $this->config['api_version'],
+            $this->config['whatsapp_business_account_id']
+        );
         
         // Log des tentatives pour traçage et débogage
         $this->logger->info('Récupération des templates WhatsApp', [
-            'endpoint' => $endpoint,
+            'endpoint_complet' => $endpoint,
+            'base_url' => $baseUrl,
             'waba_id' => $this->config['whatsapp_business_account_id'],
             'api_version' => $this->config['api_version'],
             'token_length' => strlen($this->config['access_token'])

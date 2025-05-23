@@ -228,7 +228,8 @@ class WhatsAppService implements WhatsAppServiceInterface
             $this->messageRepository->save($messageHistory);
 
             // Récupérer le template complet pour avoir sa catégorie
-            $template = $this->templateRepository->findOneBy(['template_id' => $templateName]);
+            // Rechercher par nom au lieu de template_id (qui n'existe pas dans l'entité)
+            $template = $this->templateRepository->findOneBy(['name' => $templateName]);
             $category = $template ? $template->getCategory() : 'UTILITY';
 
             // Enregistrer l'utilisation du template dans l'historique dédié
@@ -427,7 +428,8 @@ class WhatsAppService implements WhatsAppServiceInterface
             }
 
             // Récupérer le template complet pour avoir sa catégorie
-            $template = $this->templateRepository->findOneBy(['template_id' => $templateName]);
+            // Rechercher par nom au lieu de template_id (qui n'existe pas dans l'entité)
+            $template = $this->templateRepository->findOneBy(['name' => $templateName]);
             $category = $template ? $template->getCategory() : 'UTILITY';
 
             // Enregistrer l'utilisation du template dans l'historique dédié
@@ -1465,7 +1467,8 @@ class WhatsAppService implements WhatsAppServiceInterface
             }
 
             // Lier au template si on peut le trouver
-            $template = $this->templateRepository->findOneBy(['template_id' => $templateId]);
+            // Rechercher par nom au lieu de template_id (qui n'existe pas dans l'entité)
+            $template = $this->templateRepository->findOneBy(['name' => $templateId]);
             if ($template !== null) {
                 $templateHistory->setTemplate($template);
             }

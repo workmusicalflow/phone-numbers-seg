@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { apolloClient, gql } from '@/services/api';
+import { apolloClient, gql } from '../services/api';
 
 // Types pour l'historique des messages WhatsApp
 export interface WhatsAppMessageHistory {
