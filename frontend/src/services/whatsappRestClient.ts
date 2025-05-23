@@ -92,6 +92,15 @@ export class WhatsAppRestClient {
         }
       }
     
+      // Debug de développement
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[DEBUG] Réponse de l\'API WhatsApp Templates:', {
+          status: response.status,
+          templatesCount: response.data?.templates?.length || 0,
+          source: response.data?.meta?.source || 'unknown'
+        });
+      }
+
       // Vérifier que la réponse est au format attendu
       if (response.data && response.data.templates && Array.isArray(response.data.templates)) {
         if (response.data.status === 'error') {
@@ -109,8 +118,8 @@ export class WhatsAppRestClient {
         return response.data as ApprovedTemplatesResponse;
       }
     
-      // Si la réponse n'est pas au format attendu, lever une erreur
-      console.error('Format de réponse inattendu:', response.data);
+      // Si la réponse n'est pas au format attendu, lever une erreur détaillée
+      console.error('Format de réponse inattendu. Attendu: {status, templates[], count, meta}, Reçu:', response.data);
       throw new Error('Format de réponse inattendu');
     } catch (error: any) {
       console.error('Erreur lors de la récupération des templates WhatsApp:', error);

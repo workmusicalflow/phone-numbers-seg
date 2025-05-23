@@ -30,7 +30,7 @@
     
     <q-separator />
     
-    <q-card-section class="q-pt-xs q-pb-xs">
+    <q-card-section class="q-pt-xs q-pb-xs flex-grow-1">
       <!-- Description -->
       <div class="template-description text-body2" :class="{ 'template-description--compact': compact }">
         {{ template.description }}
@@ -211,6 +211,9 @@ function getHeaderTypeLabel(headerType: string | null): string {
 .template-card {
   transition: all 0.2s;
   position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .template-card:hover {

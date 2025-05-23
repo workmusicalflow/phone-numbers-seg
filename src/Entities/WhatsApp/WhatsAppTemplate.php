@@ -82,6 +82,11 @@ class WhatsAppTemplate
     private ?string $metaTemplateId = null;
     
     /**
+     * Description du template - propriété virtuelle, non stockée en base de données
+     */
+    private ?string $description = null;
+    
+    /**
      * ID du template utilisé pour la correspondance avec l'API Meta
      * Remarque: ce champ n'est pas stocké dans la base de données,
      * c'est une propriété calculée qui retourne le nom du template
@@ -670,6 +675,23 @@ class WhatsAppTemplate
     public function setComponentsJson(?string $componentsJson): self
     {
         $this->componentsJson = $componentsJson;
+        return $this;
+    }
+    
+    /**
+     * Obtenir la description du template
+     */
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+    
+    /**
+     * Définir la description du template
+     */
+    public function setDescription(?string $description): self
+    {
+        $this->description = $description;
         return $this;
     }
 }

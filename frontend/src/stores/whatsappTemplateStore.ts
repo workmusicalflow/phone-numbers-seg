@@ -264,6 +264,8 @@ export const useWhatsAppTemplateStore = defineStore('whatsappTemplate', () => {
       // Utiliser le client REST au lieu de GraphQL
       const response = await whatsAppClient.getApprovedTemplates();
       
+      console.log('[Store] Chargement des templates réussi:', response.templates.length, 'templates récupérés');
+      
       if (response.status === 'success' && Array.isArray(response.templates)) {
         // Transformer les templates REST en format compatible avec le store
         templates.value = response.templates.map(template => {
@@ -303,10 +305,16 @@ export const useWhatsAppTemplateStore = defineStore('whatsappTemplate', () => {
         });
       } else if (response.status === 'error') {
         throw new Error(response.message || 'Erreur lors du chargement des templates');
+      } else {
+        throw new Error('Format de réponse inattendu de l\'API');
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement des templates:', err);
       error.value = err.message || 'Erreur lors du chargement des templates';
+      
+      // En cas d'erreur, laisser la liste vide pour afficher le message d'erreur approprié
+      templates.value = [];
+      totalCount.value = 0;
     } finally {
       isLoading.value = false;
     }

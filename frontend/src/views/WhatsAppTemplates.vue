@@ -33,32 +33,6 @@
                   @click="showTemplateSelector = true"
                 />
                 
-                <!-- Sélecteur de version API -->
-                <div class="q-mt-md">
-                  <q-item tag="label" class="q-py-sm">
-                    <q-item-section>
-                      <q-item-label>Format API WhatsApp</q-item-label>
-                      <q-item-label caption>Sélectionner la version de l'API</q-item-label>
-                    </q-item-section>
-                    <q-item-section side>
-                      <q-toggle
-                        v-model="useV2Components"
-                        color="primary"
-                        keep-color
-                      />
-                    </q-item-section>
-                  </q-item>
-                  
-                  <q-badge :color="useV2Components ? 'green' : 'blue'">
-                    Format API {{ apiVersion }}
-                  </q-badge>
-                  <q-tooltip v-if="useV2Components">
-                    Format conforme aux spécifications Meta Cloud API
-                  </q-tooltip>
-                  <q-tooltip v-else>
-                    Format historique compatible
-                  </q-tooltip>
-                </div>
               </div>
             </q-card-section>
           </q-card>
@@ -78,9 +52,6 @@
                     <div class="row items-center">
                       <q-badge :color="message.success ? 'positive' : 'negative'" class="q-mr-xs">
                         {{ message.success ? 'Envoyé' : 'Échec' }}
-                      </q-badge>
-                      <q-badge v-if="message.version" :color="message.version === 'v2' ? 'green' : 'blue'">
-                        {{ message.version }}
                       </q-badge>
                     </div>
                   </q-item-section>
@@ -112,19 +83,7 @@
                 <q-btn flat color="primary" icon="arrow_back" label="Changer de template" @click="selectedTemplate = null" />
               </div>
               
-              <!-- Version v1 (existante) -->
               <WhatsAppMessageComposer
-                v-if="!useV2Components"
-                :template-data="templateData"
-                :recipient-phone-number="phoneNumber"
-                @message-sent="onTemplateMessageSent"
-                @cancel="showTemplateSelector = false"
-                @change-template="selectedTemplate = null"
-              />
-              
-              <!-- Nouvelle version v2 -->
-              <WhatsAppMessageComposerV2
-                v-else
                 :template-data="templateData"
                 :recipient-phone-number="phoneNumber"
                 @message-sent="onTemplateMessageSent"
@@ -182,17 +141,13 @@ import { defineComponent, ref, onMounted, getCurrentInstance, watch } from 'vue'
 import { useQuasar } from 'quasar';
 import EnhancedTemplateSelector from '../components/whatsapp/EnhancedTemplateSelector.vue';
 import WhatsAppMessageComposer from '../components/whatsapp/WhatsAppMessageComposer.vue';
-import WhatsAppMessageComposerV2 from '../components/whatsapp/WhatsAppMessageComposerV2.vue';
 import { whatsAppClient } from '../services/whatsappRestClient';
-import { whatsAppClientV2 } from '../services/whatsappRestClientV2';
-import { templateParserV2, whatsAppTemplateServiceV2 } from '../services/whatsapp/index-v2';
 
 export default defineComponent({
   name: 'WhatsAppTemplatesView',
   components: {
     EnhancedTemplateSelector,
-    WhatsAppMessageComposer,
-    WhatsAppMessageComposerV2
+    WhatsAppMessageComposer
   },
   setup() {
     console.log('[WhatsAppTemplatesView] Initialisation du composant');
@@ -203,8 +158,6 @@ export default defineComponent({
     const selectedTemplate = ref(null);
     const templateData = ref(null);
     const sentMessages = ref([]);
-    const useV2Components = ref(true); // Par défaut, utiliser la nouvelle version
-    const apiVersion = ref('v2'); // Pour le suivi dans l'historique
     const notification = ref({
       show: false,
       success: false,
@@ -268,10 +221,8 @@ export default defineComponent({
         
         console.log('[WhatsAppTemplates] Envoi du template avec REST client:', requestData);
         
-        // Utiliser le client REST pour envoyer le template (v1 ou v2 selon le mode)
-        const response = useV2Components.value
-          ? await whatsAppClientV2.sendTemplateMessageV2(requestData)
-          : await whatsAppClient.sendTemplateMessageV2(requestData);
+        // Utiliser le client REST pour envoyer le template
+        const response = await whatsAppClient.sendTemplateMessageV2(requestData);
         
         if (response.success) {
           console.log('[WhatsAppTemplates] Envoi réussi, réponse API:', response);
@@ -282,8 +233,7 @@ export default defineComponent({
             phoneNumber: templateData.recipientPhoneNumber,
             timestamp: response.timestamp || new Date().toISOString(),
             success: true,
-            messageId: response.messageId,
-            version: apiVersion.value
+            messageId: response.messageId
           });
           
           // Afficher une notification de succès
@@ -307,8 +257,7 @@ export default defineComponent({
           phoneNumber: templateData.recipientPhoneNumber,
           timestamp: new Date().toISOString(),
           success: false,
-          error: error.message,
-          version: apiVersion.value
+          error: error.message
         });
         
         // Afficher une notification d'erreur
@@ -335,21 +284,6 @@ export default defineComponent({
       selectedTemplate.value = template;
       
       try {
-        // Déterminer quelle version du service utiliser en fonction du mode sélectionné
-        if (useV2Components.value) {
-          console.log('[V2] Utilisation du service V2 pour préparer le template');
-          
-          // Utiliser le service V2 pour analyser et préparer le template
-          templateData.value = whatsAppTemplateServiceV2.processTemplate(
-            template,
-            recipientPhoneNumber
-          );
-          
-          console.log('[V2] Template prêt pour personnalisation:', templateData.value);
-          return; // Sortir de la fonction après traitement V2
-        }
-        
-        // CODE V1 (mode historique) - Inchangé
         // Obtenir les données du template depuis le composant
         const bodyVariables = [];
         const buttonVariables = {};
@@ -499,16 +433,6 @@ export default defineComponent({
       selectEnhancedTemplate(template, recipientPhoneNumber);
     };
     
-    // Observer les changements de mode API
-    watch(useV2Components, (newValue) => {
-      apiVersion.value = newValue ? 'v2' : 'v1';
-      console.log(`[WhatsAppTemplates] Mode API changé: ${apiVersion.value}`);
-      
-      // Si un template est déjà sélectionné, le retraiter avec la bonne version
-      if (selectedTemplate.value) {
-        selectEnhancedTemplate(selectedTemplate.value, phoneNumber.value);
-      }
-    });
     
     // Callback quand un message template a été envoyé
     const onTemplateMessageSent = (result) => {
@@ -523,8 +447,7 @@ export default defineComponent({
           success: true,
           messageId: result.messageId || '',
           template: selectedTemplate.value.name,
-          language: selectedTemplate.value.language,
-          version: apiVersion.value
+          language: selectedTemplate.value.language
         });
         
         // Afficher une notification de succès avec plus de détails
@@ -545,8 +468,7 @@ export default defineComponent({
           phoneNumber: phoneNumber.value,
           timestamp: new Date().toISOString(),
           success: false,
-          error: result.error || 'Erreur inconnue',
-          version: apiVersion.value
+          error: result.error || 'Erreur inconnue'
         });
         
         // Afficher une notification d'erreur détaillée
@@ -571,8 +493,6 @@ export default defineComponent({
       templateData,
       sentMessages,
       notification,
-      useV2Components,
-      apiVersion,
       formatDate,
       sendTemplate,
       sendEnhancedTemplate,

@@ -256,7 +256,7 @@ class WhatsAppTemplateService implements WhatsAppTemplateServiceInterface
                     
                     // Mettre à jour les composants si présents
                     if (isset($templateData['components']) && is_array($templateData['components'])) {
-                        $existingTemplate->setComponents($templateData['components']);
+                        $existingTemplate->setComponents(json_encode($templateData['components']));
                         $existingTemplate->setComponentsJson(json_encode($templateData['components']));
                     }
                     
@@ -283,7 +283,7 @@ class WhatsAppTemplateService implements WhatsAppTemplateServiceInterface
                     
                     // Enregistrer les composants
                     if (isset($templateData['components']) && is_array($templateData['components'])) {
-                        $template->setComponents($templateData['components']);
+                        $template->setComponents(json_encode($templateData['components']));
                         $template->setComponentsJson(json_encode($templateData['components']));
                     }
                     

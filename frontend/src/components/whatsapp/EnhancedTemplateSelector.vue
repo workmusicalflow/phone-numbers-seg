@@ -128,6 +128,25 @@
       </div>
     </q-slide-transition>
     
+    <!-- Section pour afficher tous les templates -->
+    <div v-if="showOrganizedSections && !hideOrganizedSections" class="show-all-section q-mb-md">
+      <q-card flat bordered class="q-pa-md">
+        <div class="row items-center justify-between">
+          <div>
+            <div class="text-h6">Explorez tous les templates</div>
+            <div class="text-caption text-grey-7">Parcourez l'ensemble de vos templates WhatsApp approuvés</div>
+          </div>
+          <q-btn 
+            color="primary" 
+            label="Voir tous les templates" 
+            icon="view_list"
+            @click="showAllTemplates"
+            unelevated
+          />
+        </div>
+      </q-card>
+    </div>
+
     <!-- Sections organisées (Récents, Favoris, Populaires) -->
     <div v-if="showOrganizedSections && !hideOrganizedSections" class="organized-sections q-mb-md">
       <!-- Section Templates Récents -->
@@ -139,16 +158,16 @@
         </div>
         
         <q-scroll-area style="height: 140px;">
-          <div class="row q-col-gutter-sm">
-            <div v-for="template in recentTemplates" :key="template.id" class="col-12 col-md-4 col-lg-3">
-              <template-card 
-                :template="template" 
-                compact 
-                @click="selectTemplate(template)" 
-                @favorite="toggleFavorite(template)"
-                :is-favorite="isTemplateFavorite(template.id)"
-              />
-            </div>
+          <div class="templates-grid templates-grid--compact">
+            <template-card 
+              v-for="template in recentTemplates" 
+              :key="template.id"
+              :template="template" 
+              compact 
+              @click="selectTemplate(template)" 
+              @favorite="toggleFavorite(template)"
+              :is-favorite="isTemplateFavorite(template.id)"
+            />
           </div>
         </q-scroll-area>
       </div>
@@ -162,16 +181,16 @@
         </div>
         
         <q-scroll-area style="height: 140px;">
-          <div class="row q-col-gutter-sm">
-            <div v-for="template in favoriteTemplates" :key="template.id" class="col-12 col-md-4 col-lg-3">
-              <template-card 
-                :template="template" 
-                compact 
-                @click="selectTemplate(template)" 
-                @favorite="toggleFavorite(template)"
-                :is-favorite="true"
-              />
-            </div>
+          <div class="templates-grid templates-grid--compact">
+            <template-card 
+              v-for="template in favoriteTemplates" 
+              :key="template.id"
+              :template="template" 
+              compact 
+              @click="selectTemplate(template)" 
+              @favorite="toggleFavorite(template)"
+              :is-favorite="true"
+            />
           </div>
         </q-scroll-area>
       </div>
@@ -185,27 +204,50 @@
         </div>
         
         <q-scroll-area style="height: 140px;">
-          <div class="row q-col-gutter-sm">
-            <div v-for="template in popularTemplates" :key="template.id" class="col-12 col-md-4 col-lg-3">
-              <template-card 
-                :template="template" 
-                compact 
-                @click="selectTemplate(template)" 
-                @favorite="toggleFavorite(template)"
-                :is-favorite="isTemplateFavorite(template.id)"
-                :show-usage-count="true"
-              />
-            </div>
+          <div class="templates-grid templates-grid--compact">
+            <template-card 
+              v-for="template in popularTemplates" 
+              :key="template.id"
+              :template="template" 
+              compact 
+              @click="selectTemplate(template)" 
+              @favorite="toggleFavorite(template)"
+              :is-favorite="isTemplateFavorite(template.id)"
+              :show-usage-count="true"
+            />
           </div>
         </q-scroll-area>
       </div>
     </div>
     
+    <!-- Bouton de retour quand on affiche tous les templates -->
+    <div v-if="hideOrganizedSections" class="return-to-sections q-mb-md">
+      <q-btn 
+        flat 
+        color="primary" 
+        icon="arrow_back" 
+        label="Retour aux sections" 
+        @click="returnToSections"
+        class="q-mb-sm"
+      />
+    </div>
+
     <!-- Liste principale des templates (filtrée) -->
     <div class="templates-list">
       <div v-if="!loading && filteredTemplates.length === 0" class="text-center q-pa-md">
         <q-icon name="search_off" size="2rem" color="grey-7" />
-        <div class="text-grey-7 q-mt-sm">Aucun template correspondant aux critères de recherche</div>
+        <div class="text-grey-7 q-mt-sm">
+          {{ store.templates.length === 0 ? 'Aucun template chargé. Vérifiez votre connexion ou l\'API WhatsApp.' : 'Aucun template correspondant aux critères de recherche' }}
+        </div>
+        <q-btn 
+          v-if="store.templates.length === 0" 
+          flat 
+          color="primary" 
+          label="Recharger les templates" 
+          icon="refresh"
+          @click="store.fetchTemplates()"
+          class="q-mt-sm"
+        />
       </div>
       
       <div v-else-if="loading" class="text-center q-pa-md">
@@ -218,35 +260,35 @@
         <div v-if="groupByCategory">
           <div v-for="(templates, category) in groupedTemplates" :key="category" class="q-mb-lg">
             <div class="text-subtitle1 text-weight-medium q-mb-sm">{{ category }}</div>
-            <div class="row q-col-gutter-md">
-              <div v-for="template in templates" :key="template.id" class="col-12 col-md-4 col-lg-3">
-                <template-card 
-                  :template="template" 
-                  @click="selectTemplate(template)" 
-                  @favorite="toggleFavorite(template)"
-                  :is-favorite="isTemplateFavorite(template.id)"
-                  :show-buttons="showButtons"
-                  :show-variables="showVariables"
-                  :show-header-type="showHeaderType"
-                />
-              </div>
+            <div class="templates-grid">
+              <template-card 
+                v-for="template in templates" 
+                :key="template.id"
+                :template="template" 
+                @click="selectTemplate(template)" 
+                @favorite="toggleFavorite(template)"
+                :is-favorite="isTemplateFavorite(template.id)"
+                :show-buttons="showButtons"
+                :show-variables="showVariables"
+                :show-header-type="showHeaderType"
+              />
             </div>
           </div>
         </div>
         
         <!-- Affichage en liste plate -->
-        <div v-else class="row q-col-gutter-md">
-          <div v-for="template in filteredTemplates" :key="template.id" class="col-12 col-md-4 col-lg-3">
-            <template-card 
-              :template="template" 
-              @click="selectTemplate(template)" 
-              @favorite="toggleFavorite(template)"
-              :is-favorite="isTemplateFavorite(template.id)"
-              :show-buttons="showButtons"
-              :show-variables="showVariables"
-              :show-header-type="showHeaderType"
-            />
-          </div>
+        <div v-else class="templates-grid">
+          <template-card 
+            v-for="template in filteredTemplates" 
+            :key="template.id"
+            :template="template" 
+            @click="selectTemplate(template)" 
+            @favorite="toggleFavorite(template)"
+            :is-favorite="isTemplateFavorite(template.id)"
+            :show-buttons="showButtons"
+            :show-variables="showVariables"
+            :show-header-type="showHeaderType"
+          />
         </div>
         
         <!-- Pagination -->
@@ -571,6 +613,26 @@ function showAllPopular() {
   emit('filter-change', filters);
 }
 
+async function showAllTemplates() {
+  // Réinitialiser tous les filtres pour afficher tous les templates
+  resetFilters();
+  hideOrganizedSections.value = true;
+  
+  // S'assurer que les templates sont chargés
+  if (store.templates.length === 0) {
+    await store.fetchTemplates();
+  }
+  
+  // Émettre un événement pour charger tous les templates
+  emit('filter-change', {});
+}
+
+function returnToSections() {
+  // Réafficher les sections organisées
+  hideOrganizedSections.value = false;
+  resetFilters();
+}
+
 // Observateurs
 watch(searchQuery, (newValue) => {
   if (!newValue) {
@@ -583,27 +645,33 @@ watch(searchQuery, (newValue) => {
 onMounted(async () => {
   loading.value = true;
   
-  // Initialiser le store
-  store.initialize();
-  
-  // Si des préférences ont été spécifiées via les props, les appliquer
-  if (props.preselectedCategory || props.preselectedLanguage) {
-    const filters = {
-      category: props.preselectedCategory || undefined,
-      language: props.preselectedLanguage || undefined
-    };
+  try {
+    // Charger les préférences depuis localStorage
+    store.loadSavedTemplatesPreferences();
     
-    // Appliquer les filtres
-    await store.searchTemplates(filters);
+    // Si des préférences ont été spécifiées via les props, les appliquer
+    if (props.preselectedCategory || props.preselectedLanguage) {
+      const filters = {
+        category: props.preselectedCategory || undefined,
+        language: props.preselectedLanguage || undefined
+      };
+      
+      // Appliquer les filtres
+      await store.searchTemplates(filters);
+      
+      // Émettre l'événement
+      emit('filter-change', filters);
+    } else {
+      // Sinon, charger tous les templates
+      await store.fetchTemplates();
+    }
     
-    // Émettre l'événement
-    emit('filter-change', filters);
-  } else {
-    // Sinon, charger tous les templates
-    await store.fetchTemplates();
+    console.log('[EnhancedTemplateSelector] Templates chargés:', store.templates.length);
+  } catch (error) {
+    console.error('[EnhancedTemplateSelector] Erreur lors du chargement:', error);
+  } finally {
+    loading.value = false;
   }
-  
-  loading.value = false;
 });
 </script>
 
@@ -621,5 +689,61 @@ onMounted(async () => {
 .section-header {
   border-bottom: 1px solid #f0f0f0;
   padding-bottom: 4px;
+}
+
+/* Grille responsive pour les templates */
+.templates-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+/* Grille compacte pour les sections (récents, favoris, populaires) */
+.templates-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 768px) {
+  .templates-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .templates-grid--compact {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .templates-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  
+  .templates-grid--compact {
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .templates-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+  
+  .templates-grid--compact {
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  }
+}
+
+@media (min-width: 1441px) {
+  .templates-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+  
+  .templates-grid--compact {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
 }
 </style>
