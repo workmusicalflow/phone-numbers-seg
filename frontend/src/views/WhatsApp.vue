@@ -342,7 +342,70 @@
         
         <!-- Onglet Templates -->
         <q-tab-panel name="templates">
-          <WhatsAppTemplateHistoryList />
+          <div class="template-redirect-panel">
+            <q-card class="modern-redirect-card">
+              <q-card-section class="redirect-header">
+                <div class="header-content">
+                  <div class="header-icon-wrapper">
+                    <q-icon name="dashboard_customize" size="md" />
+                  </div>
+                  <div class="header-text">
+                    <h3 class="card-title">Templates WhatsApp</h3>
+                    <p class="card-subtitle">Gérez vos templates de messages professionnels</p>
+                  </div>
+                </div>
+              </q-card-section>
+
+              <q-card-section class="redirect-content">
+                <q-banner class="template-info-banner">
+                  <template v-slot:avatar>
+                    <q-icon name="info" color="purple" />
+                  </template>
+                  <div class="text-body2">
+                    <strong>Interface dédiée aux templates</strong><br>
+                    Modifiez et utilisez vos templates WhatsApp Business dans une interface spécialisée.
+                  </div>
+                </q-banner>
+
+                <div class="features-list">
+                  <div class="feature-item">
+                    <q-icon name="visibility" color="green" class="feature-icon" />
+                    <div class="feature-text">
+                      <h4>Visualiser tous vos templates</h4>
+                      <p>Parcourez l'ensemble de vos templates approuvés</p>
+                    </div>
+                  </div>
+                  
+                  <div class="feature-item">
+                    <q-icon name="send" color="green" class="feature-icon" />
+                    <div class="feature-text">
+                      <h4>Envoi rapide</h4>
+                      <p>Envoyez directement vos templates avec personnalisation</p>
+                    </div>
+                  </div>
+                  
+                  <div class="feature-item">
+                    <q-icon name="tune" color="green" class="feature-icon" />
+                    <div class="feature-text">
+                      <h4>Paramètres avancés</h4>
+                      <p>Configurez les variables et options de vos templates</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="redirect-actions">
+                  <q-btn 
+                    class="action-btn primary-btn"
+                    color="purple"
+                    icon="dashboard_customize"
+                    label="Accéder aux Templates"
+                    size="lg"
+                    @click="goToTemplatesPage"
+                  />
+                </div>
+              </q-card-section>
+            </q-card>
+          </div>
         </q-tab-panel>
       </q-tab-panels>
     </div>
@@ -360,7 +423,6 @@ import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 import WhatsAppSendMessage from '@/components/whatsapp/WhatsAppSendMessage.vue';
 import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServerPaginated.vue';
 import WhatsAppMediaUpload from '@/components/whatsapp/WhatsAppMediaUpload.vue';
-import WhatsAppTemplateHistoryList from '@/components/whatsapp/WhatsAppTemplateHistoryList.vue';
 import WhatsAppTemplateSelector from '@/components/whatsapp/WhatsAppTemplateSelector.vue';
 import WhatsAppMessageComposer from '@/components/whatsapp/WhatsAppMessageComposer.vue';
 
@@ -590,6 +652,11 @@ const goToMessages = () => {
   activeTab.value = 'messages';
 };
 
+// Aller à la page des templates
+const goToTemplatesPage = () => {
+  router.push('/whatsapp-templates');
+};
+
 // Fonction pour rafraîchir le nombre de contacts
 const refreshContactsCount = async () => {
   contactsCount.value = await contactStore.fetchContactsCount();
@@ -616,13 +683,8 @@ watch(() => route.query, () => {
 
 // Watch for tab changes to load appropriate data
 watch(activeTab, async (newTab) => {
-  if (newTab === 'templates') {
-    await Promise.all([
-      whatsAppStore.fetchTemplateHistory(),
-      whatsAppStore.fetchMostUsedTemplates(),
-      whatsAppStore.fetchCommonParameterValues()
-    ]);
-  }
+  // L'onglet templates n'a plus besoin de charger de données pour le moment
+  // car le composant WhatsAppTemplateHistoryList a été supprimé
 });
 
 // Watch for successful message send
@@ -639,14 +701,7 @@ onMounted(async () => {
   await refreshContactsCount();
   await whatsAppStore.fetchMessages();
   
-  // Charger les données d'historique des templates si on est sur l'onglet templates
-  if (activeTab.value === 'templates') {
-    await Promise.all([
-      whatsAppStore.fetchTemplateHistory(),
-      whatsAppStore.fetchMostUsedTemplates(),
-      whatsAppStore.fetchCommonParameterValues()
-    ]);
-  }
+  // L'onglet templates n'a plus besoin de charger de données pour le moment
   
   // Process URL parameters
   processRouteParams();
@@ -654,11 +709,6 @@ onMounted(async () => {
   // Refresh data periodically for real-time feel
   const interval = setInterval(() => {
     whatsAppStore.fetchMessages();
-    
-    // Si on est sur l'onglet templates, actualiser aussi l'historique
-    if (activeTab.value === 'templates') {
-      whatsAppStore.fetchTemplateHistory();
-    }
   }, 30000); // Every 30 seconds
   
   // Clean up interval on unmount
@@ -1020,6 +1070,231 @@ onMounted(async () => {
   
   .message-info .info-item {
     margin-bottom: 14px;
+  }
+}
+
+// Template redirect panel
+.template-redirect-panel {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.modern-redirect-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+  }
+}
+
+.redirect-header {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  padding: 24px;
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    .header-icon-wrapper {
+      width: 56px;
+      height: 56px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      .q-icon {
+        font-size: 1.75rem;
+      }
+    }
+
+    .header-text {
+      flex: 1;
+
+      .card-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .card-subtitle {
+        font-size: 0.95rem;
+        opacity: 0.9;
+        margin: 0;
+      }
+    }
+  }
+}
+
+.redirect-content {
+  padding: 32px 24px;
+}
+
+.template-info-banner {
+  background: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%);
+  border: 1px solid #8b5cf6;
+  border-radius: 12px;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #8b5cf6;
+  }
+
+  :deep(.q-icon) {
+    color: #8b5cf6;
+  }
+}
+
+.features-list {
+  margin: 32px 0;
+
+  .feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #f0fff4;
+      border-color: #25d366;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(37, 211, 102, 0.1);
+    }
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      flex-shrink: 0;
+    }
+
+    .feature-text {
+      flex: 1;
+
+      h4 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #374151;
+        margin: 0 0 4px 0;
+      }
+
+      p {
+        font-size: 0.9rem;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+.redirect-actions {
+  text-align: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #f3f4f6;
+
+  .action-btn {
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 16px 32px;
+    text-transform: none;
+    transition: all 0.2s ease;
+    min-width: 200px;
+
+    &.primary-btn {
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+      }
+    }
+  }
+}
+
+// Responsive design for redirect panel
+@media (max-width: 768px) {
+  .template-redirect-panel {
+    padding: 8px;
+  }
+
+  .redirect-header {
+    padding: 20px 16px;
+
+    .header-content {
+      flex-direction: column;
+      text-align: center;
+      gap: 12px;
+
+      .header-icon-wrapper {
+        width: 48px;
+        height: 48px;
+      }
+
+      .card-title {
+        font-size: 1.3rem;
+      }
+    }
+  }
+
+  .redirect-content {
+    padding: 24px 16px;
+  }
+
+  .features-list .feature-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .redirect-actions .action-btn {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .template-redirect-panel {
+    .redirect-header {
+      padding: 16px 12px;
+    }
+
+    .redirect-content {
+      padding: 20px 12px;
+    }
+
+    .features-list .feature-item {
+      padding: 16px;
+    }
   }
 }
 </style>
