@@ -9,8 +9,12 @@ use App\Services\WhatsApp\WhatsAppApiClient;
 // Configuration
 $whatsappConfig = require __DIR__ . '/../src/config/whatsapp.php';
 
+// Créer un logger
+$logger = new \Monolog\Logger('test-whatsapp');
+$logger->pushHandler(new \Monolog\Handler\StreamHandler('php://stdout'));
+
 // Créer le client API
-$apiClient = new WhatsAppApiClient($whatsappConfig);
+$apiClient = new WhatsAppApiClient($logger, $whatsappConfig);
 
 // Test de l'upload de média
 try {

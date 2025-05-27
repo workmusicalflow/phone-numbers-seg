@@ -60,8 +60,23 @@ try {
     // Configurer PDO pour lancer des exceptions en cas d'erreur
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+    // Charger l'EntityManager
+    $entityManager = require __DIR__ . '/../../src/bootstrap-doctrine.php';
+    
+    // Créer les repositories nécessaires
+    $adminActionLogRepository = new \App\Repositories\Doctrine\AdminActionLogRepository($entityManager);
+    $userRepository = new \App\Repositories\Doctrine\UserRepository($entityManager);
+    
+    // Créer un logger
+    $logger = new \Monolog\Logger('admin-logs');
+    $logger->pushHandler(new \Monolog\Handler\StreamHandler('php://stdout'));
+    
     // Créer une instance du service AdminActionLogger
-    $adminActionLogger = new \App\Services\AdminActionLogger($pdo);
+    $adminActionLogger = new \App\Services\AdminActionLogger(
+        $adminActionLogRepository,
+        $userRepository,
+        $logger
+    );
 
     // Récupérer les journaux en fonction des filtres
     $logs = [];

@@ -53,15 +53,41 @@ $messageRepository = new WhatsAppMessageHistoryRepository($entityManager, WhatsA
 $templateRepository = new class($entityManager) implements \App\Repositories\Interfaces\WhatsApp\WhatsAppTemplateRepositoryInterface {
     private $em;
     public function __construct($em) { $this->em = $em; }
-    public function find($id) { return null; }
+    public function find($_id) { return null; }
     public function findAll() { return []; }
-    public function save($entity) { $this->em->persist($entity); $this->em->flush(); }
-    public function remove($entity) { $this->em->remove($entity); $this->em->flush(); }
-    public function findByNameAndLanguage(string $name, string $language) { return null; }
-    public function findByStatus(string $status) { return []; }
-    public function findUserTemplates(User $user) { return []; }
-    public function markAsActive(string $name, string $language): void {}
+    public function save($_entity) { $this->em->persist($_entity); $this->em->flush(); }
+    public function remove($_entity) { $this->em->remove($_entity); $this->em->flush(); }
+    public function findByNameAndLanguage(string $_name, string $_language) { return null; }
+    public function findByStatus(string $_status) { return []; }
+    public function findUserTemplates(User $_user) { return []; }
+    public function markAsActive(string $_name, string $_language): void {}
     public function clearCache(): void {}
+};
+
+// Créer un mock du templateService
+$templateService = new class implements \App\Services\Interfaces\WhatsApp\WhatsAppTemplateServiceInterface {
+    public function syncTemplates(?User $_user = null): array {
+        return ['synced' => 0];
+    }
+    public function fetchAndCacheTemplatesFromApi(?User $_user = null): array {
+        return [];
+    }
+    public function getTemplates(?User $_user = null): array {
+        return [];
+    }
+    public function createTemplate(User $_user, array $_data): \App\Entities\WhatsApp\WhatsAppTemplate {
+        throw new \Exception("Not implemented");
+    }
+    public function updateTemplate(User $_user, string $_templateId, array $_data): \App\Entities\WhatsApp\WhatsAppTemplate {
+        throw new \Exception("Not implemented");
+    }
+    public function deleteTemplate(User $_user, string $_templateId): bool {
+        return false;
+    }
+    public function getCachedTemplates(?User $_user = null): array {
+        return [];
+    }
+    public function clearTemplateCache(): void {}
 };
 
 // Créer le service WhatsApp
@@ -70,7 +96,8 @@ $whatsappService = new WhatsAppService(
     $messageRepository,
     $templateRepository,
     $logger,
-    $config
+    $config,
+    $templateService
 );
 
 echo "Envoi du message à : $phoneNumber\n";

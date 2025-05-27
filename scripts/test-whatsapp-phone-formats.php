@@ -10,7 +10,6 @@ use App\Entities\User;
 use App\Entities\WhatsApp\WhatsAppMessageHistory;
 use App\Services\PhoneNumberNormalizerService;
 use GuzzleHttp\Client;
-use Psr\Log\NullLogger;
 
 // Le numéro cible de base
 $basePhoneNumber = '2250777104936';

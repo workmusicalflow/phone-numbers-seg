@@ -41,12 +41,15 @@ try {
     $templateRepo = $container->get(\App\Repositories\Interfaces\WhatsApp\WhatsAppTemplateRepositoryInterface::class);
     $config = $container->get('whatsapp.config');
     
+    $templateService = $container->get(\App\Services\Interfaces\WhatsApp\WhatsAppTemplateServiceInterface::class);
+    
     $debugService = new \App\Services\WhatsApp\WhatsAppService(
         $apiClient,
         $messageRepo,
         $templateRepo,
         $debugLogger,
-        $config
+        $config,
+        $templateService
     );
     
     $result = $debugService->sendMessage(
