@@ -47,7 +47,7 @@ export interface WhatsAppTemplateHistory {
 
 // Input pour l'envoi de messages
 export interface WhatsAppMessageInput {
-  phoneNumber: string;
+  recipient: string;
   type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'template';
   content?: string;
   mediaUrl?: string;
@@ -59,7 +59,7 @@ export interface WhatsAppMessageInput {
 
 // Input pour l'envoi de templates
 export interface WhatsAppTemplateSendInput {
-  phoneNumber: string;
+  recipient: string;
   templateName: string;
   templateLanguage: string;
   headerParams?: string[];
@@ -289,7 +289,7 @@ export const useWhatsAppStore = defineStore('whatsapp', () => {
         `,
         variables: { 
           message: {
-            recipient: template.phoneNumber,
+            recipient: template.recipient,
             type: 'template',
             templateName: template.templateName,
             languageCode: template.templateLanguage,

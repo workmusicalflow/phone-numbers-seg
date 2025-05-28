@@ -811,7 +811,7 @@ async function sendReply() {
   
   try {
     const response = await whatsAppStore.sendMessage({
-      phoneNumber: selectedMessage.value.phoneNumber,
+      recipient: selectedMessage.value.phoneNumber,
       type: 'text',
       content: replyMessage.value
     });

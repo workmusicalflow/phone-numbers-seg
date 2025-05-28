@@ -449,7 +449,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { useWhatsAppStore, type WhatsAppMessageHistory } from '@/stores/whatsappStore';
+import { useWhatsAppStore, type WhatsAppMessageHistory } from '../../stores/whatsappStore';
 
 const $q = useQuasar();
 const whatsAppStore = useWhatsAppStore();
@@ -933,7 +933,7 @@ async function sendReply() {
   
   try {
     const response = await whatsAppStore.sendMessage({
-      phoneNumber: selectedMessage.value.phoneNumber,
+      recipient: selectedMessage.value.phoneNumber,
       type: 'text',
       content: replyMessage.value
     });
