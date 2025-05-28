@@ -21,7 +21,6 @@ import "./assets/global.css";
 
 import App from "./App.vue";
 import { useAuthStore } from "./stores/authStore"; // Import the auth store
-import { useWhatsAppTemplateStore } from "./stores/whatsappTemplateStore"; // Import WhatsApp template store
 
 // Import des composants globaux
 import WhatsAppTemplateSelector from "./components/whatsapp/WhatsAppTemplateSelector.vue";
@@ -71,8 +70,6 @@ app.use(pinia);
 
 // Get AuthStore instance
 const authStore = useAuthStore(); // No need to pass pinia if app.use(pinia) is called before
-// Get WhatsAppTemplateStore instance
-const whatsAppTemplateStore = useWhatsAppTemplateStore();
 
 // Asynchronous function to initialize critical services and then mount the app
 async function initializeAndMountApp() {
@@ -81,11 +78,7 @@ async function initializeAndMountApp() {
     await authStore.init();
     console.log('Auth store initialized from main.ts. isAuthenticated:', authStore.isAuthenticated);
     
-    // Initialize WhatsApp template store after auth
-    if (authStore.isAuthenticated) {
-      console.log('Initializing WhatsApp template store...');
-      await whatsAppTemplateStore.initialize();
-    }
+    
   } catch (error) {
     console.error("Error during auth initialization in main.ts:", error);
     // App will still mount, router guards will handle redirection if auth failed

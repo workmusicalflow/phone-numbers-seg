@@ -8,8 +8,9 @@ use Psr\Container\ContainerInterface;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
-use Doctrine\ORM\Tools\Setup;
-use Doctrine\Common\Annotations\AnnotationReader;
+use Doctrine\ORM\ORMSetup;
+use Doctrine\DBAL\DriverManager;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use PHPUnit\Framework\MockObject\MockObject;
 
 /**
@@ -64,19 +65,12 @@ abstract class TestCase extends BaseTestCase
         $containerBuilder->addDefinitions([
             EntityManagerInterface::class => function() {
                 if (static::$entityManager === null) {
-                    $config = Setup::createAnnotationMetadataConfiguration(
+                    $cache = new ArrayAdapter();
+                    $config = ORMSetup::createAttributeMetadataConfiguration(
                         [__DIR__ . '/../src/Entities'],
                         true,
                         null,
-                        null,
-                        false
-                    );
-                    
-                    $config->setMetadataDriverImpl(
-                        new \Doctrine\ORM\Mapping\Driver\AnnotationDriver(
-                            new AnnotationReader(),
-                            [__DIR__ . '/../src/Entities']
-                        )
+                        $cache
                     );
                     
                     $conn = [
@@ -84,7 +78,10 @@ abstract class TestCase extends BaseTestCase
                         'memory' => true,
                     ];
                     
-                    static::$entityManager = EntityManager::create($conn, $config);
+                    static::$entityManager = new EntityManager(
+                        DriverManager::getConnection($conn, $config),
+                        $config
+                    );
                     
                     // Create schema
                     $schemaTool = new SchemaTool(static::$entityManager);
@@ -138,7 +135,7 @@ abstract class TestCase extends BaseTestCase
         
         // Configure the mock to return specific responses for requests
         $mockClient->method('request')
-            ->will($this->returnCallback(function($method, $uri, $options) use ($responses) {
+            ->will($this->returnCallback(function($method, $uri) use ($responses) {
                 $key = "$method $uri";
                 
                 if (isset($responses[$key])) {

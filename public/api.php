@@ -85,7 +85,7 @@ function getCurrentUser()
     
     try {
         // Obtenir le service d'authentification du conteneur
-        $authService = $container->get(\App\Services\Interfaces\Auth\AuthServiceInterface::class);
+        $authService = $container->get(\App\Services\Interfaces\AuthServiceInterface::class);
         
         // Vérifier le token et obtenir l'utilisateur correspondant
         return $authService->getUserFromToken($token);

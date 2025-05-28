@@ -96,7 +96,7 @@
                 <div class="header-actions">
                   <q-btn
                     color="white"
-                    text-color="primary"
+                    text-color="white"
                     icon="clear_all"
                     label="Effacer"
                     outline
@@ -207,7 +207,7 @@
                 <div class="header-actions">
                   <q-btn
                     color="white"
-                    text-color="primary"
+                    text-color="white"
                     icon="arrow_back"
                     label="Changer"
                     outline
@@ -419,7 +419,6 @@ import { ref, computed, onMounted, getCurrentInstance } from 'vue';
 import { useQuasar } from 'quasar';
 import EnhancedTemplateSelector from '../components/whatsapp/EnhancedTemplateSelector.vue';
 import WhatsAppMessageComposer from '../components/whatsapp/WhatsAppMessageComposer.vue';
-import { whatsAppClient } from '../services/whatsappRestClient';
 
 console.log('[WhatsAppTemplatesView] Initialisation du composant');
 const $q = useQuasar();
@@ -520,24 +519,28 @@ const selectEnhancedTemplate = (template: any, recipientPhoneNumber: string) => 
     // Extraire les informations des composants
     const componentsJson = template.componentsJson || '{}';
     console.log('[V1] Components JSON string:', componentsJson);
-    components = JSON.parse(componentsJson);
+    const parsedComponents = JSON.parse(componentsJson);
     
-    console.log('[V1] Components JSON parsed:', components);
+    console.log('[V1] Components JSON parsed:', parsedComponents);
     
     // Vérifier si components est un tableau
-    if (!Array.isArray(components)) {
+    if (!Array.isArray(parsedComponents)) {
       console.log('[V1] Components is not an array, trying to convert from object format');
-      const componentsArray = [];
-      for (const key in components) {
-        if (Object.prototype.hasOwnProperty.call(components, key)) {
-          componentsArray.push({
-            type: key.toUpperCase(),
-            ...components[key]
-          });
+      const componentsArray: any[] = [];
+      if (parsedComponents && typeof parsedComponents === 'object') {
+        for (const key in parsedComponents) {
+          if (Object.prototype.hasOwnProperty.call(parsedComponents, key)) {
+            componentsArray.push({
+              type: key.toUpperCase(),
+              ...(parsedComponents as any)[key]
+            });
+          }
         }
       }
       components = componentsArray;
       console.log('[V1] Converted components to array:', components);
+    } else {
+      components = parsedComponents;
     }
     
     // Analyser chaque composant pour comprendre la structure complète du template
@@ -589,7 +592,7 @@ const selectEnhancedTemplate = (template: any, recipientPhoneNumber: string) => 
       if (type === 'BUTTONS' && component.buttons && Array.isArray(component.buttons)) {
         console.log('[V1] Analyzing BUTTONS component:', component.buttons.length, 'buttons found');
         
-        component.buttons.forEach((button, index) => {
+        component.buttons.forEach((button: any, index: number) => {
           const buttonType = (button.type || '').toString().toUpperCase();
           console.log(`[V1] Button ${index} type: ${buttonType}`);
           

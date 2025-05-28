@@ -91,19 +91,22 @@ return [
         return new \App\GraphQL\Types\WhatsApp\WhatsAppMessageHistoryType();
     }),
     
-    \App\GraphQL\Types\WhatsApp\SendTemplateResult::class => factory(function (Container $container) {
-        return new \App\GraphQL\Types\WhatsApp\SendTemplateResult(false, null, null);
-    }),
+    // @deprecated - SendTemplateResult n'est plus utilisé, l'envoi de templates se fait via l'API REST
+    // \App\GraphQL\Types\WhatsApp\SendTemplateResult::class => factory(function (Container $container) {
+    //     return new \App\GraphQL\Types\WhatsApp\SendTemplateResult(false, null, null);
+    // }),
     
-    \App\GraphQL\Types\WhatsApp\SendTemplateInput::class => factory(function (Container $container) {
-        // Factory pour le type d'entrée
-        return null; // Les types d'entrée n'ont pas besoin d'être instanciés
-    }),
+    // @deprecated - SendTemplateInput n'est plus utilisé, l'envoi de templates se fait via l'API REST
+    // \App\GraphQL\Types\WhatsApp\SendTemplateInput::class => factory(function (Container $container) {
+    //     // Factory pour le type d'entrée
+    //     return null; // Les types d'entrée n'ont pas besoin d'être instanciés
+    // }),
     
     // GraphQL Controllers (If used directly, otherwise resolvers handle logic)
     \App\GraphQL\Controllers\WhatsApp\WhatsAppTemplateController::class => factory(function (Container $container) {
         return new \App\GraphQL\Controllers\WhatsApp\WhatsAppTemplateController(
             $container->get(\App\Services\Interfaces\WhatsApp\WhatsAppServiceInterface::class),
+            $container->get(\App\Services\Interfaces\WhatsApp\WhatsAppTemplateServiceInterface::class),
             $container->get(Psr\Log\LoggerInterface::class)
         );
     }),

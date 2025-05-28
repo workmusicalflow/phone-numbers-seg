@@ -4,9 +4,6 @@ namespace Tests\WhatsApp;
 
 use App\Entities\User;
 use App\Entities\WhatsApp\WhatsAppApiMetric;
-use App\Entities\WhatsApp\WhatsAppMessageHistory;
-use App\Entities\WhatsApp\WhatsAppTemplate;
-use App\Entities\WhatsApp\WhatsAppTemplateHistory;
 use App\Repositories\Interfaces\WhatsApp\WhatsAppApiMetricRepositoryInterface;
 use App\Repositories\Interfaces\WhatsApp\WhatsAppMessageHistoryRepositoryInterface;
 use App\Repositories\Interfaces\WhatsApp\WhatsAppTemplateHistoryRepositoryInterface;
@@ -68,11 +65,20 @@ class WhatsAppMonitoringServiceTest extends TestCase
         $this->logger = $this->createMockWithExpectations(LoggerInterface::class);
         
         // Créer le service de monitoring
+        /** @var WhatsAppTemplateHistoryRepositoryInterface $templateHistoryRepo */
+        $templateHistoryRepo = $this->templateHistoryRepository;
+        /** @var WhatsAppMessageHistoryRepositoryInterface $messageHistoryRepo */
+        $messageHistoryRepo = $this->messageHistoryRepository;
+        /** @var WhatsAppApiMetricRepositoryInterface $apiMetricRepo */
+        $apiMetricRepo = $this->apiMetricRepository;
+        /** @var LoggerInterface $loggerMock */
+        $loggerMock = $this->logger;
+        
         $this->monitoringService = new WhatsAppMonitoringService(
-            $this->templateHistoryRepository,
-            $this->messageHistoryRepository,
-            $this->apiMetricRepository,
-            $this->logger
+            $templateHistoryRepo,
+            $messageHistoryRepo,
+            $apiMetricRepo,
+            $loggerMock
         );
         
         // Créer un utilisateur de test
@@ -368,13 +374,18 @@ class WhatsAppMonitoringServiceTest extends TestCase
         // Pour ce test, nous allons simuler un taux de succès bas
         
         // Message success count (70 succès, 30 échecs => 70% success rate)
+        $callCounter = 0;
         $this->messageHistoryRepository->expects($this->atLeastOnce())
             ->method('countByStatus')
-            ->withConsecutive(
-                [$this->equalTo($this->testUser->getId()), $this->equalTo(['sent', 'delivered', 'read']), $this->anything()],
-                [$this->equalTo($this->testUser->getId()), $this->equalTo(['failed']), $this->anything()]
-            )
-            ->willReturnOnConsecutiveCalls(70, 30);
+            ->willReturnCallback(function($userId, $statuses) use (&$callCounter) {
+                $callCounter++;
+                if ($callCounter === 1 && in_array('sent', $statuses)) {
+                    return 70; // Success count
+                } elseif ($callCounter === 2 && in_array('failed', $statuses)) {
+                    return 30; // Failed count
+                }
+                return 0;
+            });
         
         // Création de fausses métriques d'erreur pour simuler des alertes
         $now = new \DateTime();
@@ -429,13 +440,18 @@ class WhatsAppMonitoringServiceTest extends TestCase
     public function testGetActiveAlertsWithNoAlerts(): void
     {
         // Message success count (95 succès)
+        $callCounter = 0;
         $this->messageHistoryRepository->expects($this->atLeastOnce())
             ->method('countByStatus')
-            ->withConsecutive(
-                [$this->equalTo($this->testUser->getId()), $this->equalTo(['sent', 'delivered', 'read']), $this->anything()],
-                [$this->equalTo($this->testUser->getId()), $this->equalTo(['failed']), $this->anything()]
-            )
-            ->willReturnOnConsecutiveCalls(95, 5);
+            ->willReturnCallback(function($_userId, $statuses) use (&$callCounter) {
+                $callCounter++;
+                if ($callCounter === 1 && in_array('sent', $statuses)) {
+                    return 95; // Success count
+                } elseif ($callCounter === 2 && in_array('failed', $statuses)) {
+                    return 5; // Failed count
+                }
+                return 0;
+            });
             
         // Configurer le mock pour les métriques d'erreur (aucune erreur)
         $this->apiMetricRepository->expects($this->any())

@@ -308,8 +308,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, defineProps, defineEmits } from 'vue';
-import { useWhatsAppTemplateStore, WhatsAppTemplate } from '@/stores/whatsappTemplateStore';
+import { useWhatsAppTemplateStore, type WhatsAppTemplate } from '@/stores/whatsappTemplateStore';
 import TemplateCard from './TemplateCard.vue';
+
+// Interface pour les filtres avec propriétés optionnelles
+interface TemplateFilters {
+  name?: string;
+  category?: string;
+  language?: string;
+  headerFormat?: string;
+  hasHeaderMedia?: boolean;
+  hasButtons?: boolean;
+  minVariables?: number;
+  maxVariables?: number;
+}
 
 // Props
 const props = defineProps({
@@ -395,7 +407,7 @@ const variablesRangeOptions = [
 // Computed values
 const availableCategories = computed(() => {
   const categories = store.availableCategories;
-  return categories.map(category => ({
+  return categories.map((category: string) => ({
     label: category,
     value: category
   }));
@@ -404,7 +416,7 @@ const availableCategories = computed(() => {
 const availableLanguages = computed(() => {
   // Extraire les langues uniques des templates
   const languages = new Set<string>();
-  store.templates.forEach(template => {
+  store.templates.forEach((template: WhatsAppTemplate) => {
     languages.add(template.language);
   });
   
@@ -420,8 +432,8 @@ const recentTemplates = computed(() => {
 
 const favoriteTemplates = computed(() => {
   // Récupérer les templates correspondant aux IDs des favoris
-  const favoriteIds = store.favoriteTemplates.map(fav => fav.templateId);
-  return store.templates.filter(template => favoriteIds.includes(template.id));
+  const favoriteIds = store.favoriteTemplates.map((fav: any) => fav.templateId);
+  return store.templates.filter((template: WhatsAppTemplate) => favoriteIds.includes(template.id));
 });
 
 const popularTemplates = computed(() => {
@@ -531,7 +543,7 @@ function resetFilters() {
 
 function applyFilters() {
   // Construire l'objet de filtre
-  const filters = {
+  const filters: TemplateFilters = {
     name: searchQuery.value || undefined,
     category: selectedCategory.value || undefined,
     language: selectedLanguage.value || undefined,

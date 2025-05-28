@@ -1,18 +1,17 @@
 <?php
 /**
- * Endpoint pour l'envoi de messages WhatsApp utilisant des templates
+ * Endpoint pour l'envoi de messages WhatsApp utilisant des templates - Version 2
  * 
- * Cet endpoint prend en charge l'envoi de messages WhatsApp complets
- * avec variables, médias et boutons personnalisés.
+ * Cette version offre plus de flexibilité et de robustesse dans la configuration
+ * des templates WhatsApp, notamment pour l'utilisation des médias et des composants.
  * 
  * @package Oracle
  * @subpackage WhatsApp
  */
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
 
 use App\Services\WhatsApp\WhatsAppService;
-use App\Services\WhatsApp\WhatsAppTemplateService;
 use App\Utils\CorsHelper;
 use App\Utils\JsonResponse;
 
@@ -30,76 +29,116 @@ $inputJSON = file_get_contents('php://input');
 $input = json_decode($inputJSON, true);
 
 // Vérifier que les données sont valides
-if (!$input || !isset($input['to']) || !isset($input['template']) || !isset($input['template']['name'])) {
-    JsonResponse::error("Données invalides", 400);
+if (!$input || !isset($input['templateName']) || !isset($input['recipientPhoneNumber']) || !isset($input['templateLanguage'])) {
+    JsonResponse::error("Données invalides ou incomplètes", 400);
     exit;
 }
 
 try {
-    // Récupérer les services via le conteneur DI
-    $container = require __DIR__ . '/../../src/bootstrap.php';
+    // Définir un fichier de log dédié
+    $logFile = __DIR__ . '/../../../logs/whatsapp-rest-debug.log';
+    
+    // Fonction d'aide pour le logging
+    $logMessage = function($message) use ($logFile) {
+        $timestamp = date('Y-m-d H:i:s');
+        $formattedMessage = "[$timestamp] $message" . PHP_EOL;
+        file_put_contents($logFile, $formattedMessage, FILE_APPEND);
+    };
+    
+    $logMessage("Démarrage de l'endpoint send-template-v2.php");
+    $logMessage("Input reçu: " . json_encode($input, JSON_UNESCAPED_UNICODE));
+    
+    // Récupérer le service WhatsApp via le conteneur DI
+    $logMessage("Chargement du bootstrap-rest.php - version simplifiée");
+    $container = require __DIR__ . '/../../../src/bootstrap-rest.php';
+    
+    $logMessage("Récupération du service WhatsApp");
     $whatsappService = $container->get(WhatsAppService::class);
     
-    // Vérifier et formater le numéro de téléphone
-    $phoneNumber = $input['to'];
-    if (!preg_match('/^\+[0-9]{10,15}$/', $phoneNumber)) {
-        // Tenter de formater le numéro
-        if (strpos($phoneNumber, '+') !== 0) {
-            $phoneNumber = '+' . preg_replace('/[^0-9]/', '', $phoneNumber);
-        }
-        
-        // Vérifier à nouveau
-        if (!preg_match('/^\+[0-9]{10,15}$/', $phoneNumber)) {
-            JsonResponse::error("Numéro de téléphone invalide: $phoneNumber", 400);
-            exit;
-        }
+    // Journal pour le debugging
+    $logMessage("Préparation de l'envoi du template WhatsApp: {$input['templateName']} à {$input['recipientPhoneNumber']}");
+    
+    // Récupérer l'utilisateur actuel - pour cet endpoint REST, utiliser un utilisateur système
+    $entityManager = $container->get(\Doctrine\ORM\EntityManager::class);
+    $userRepo = $entityManager->getRepository(\App\Entities\User::class);
+    $systemUser = $userRepo->findOneBy(['username' => 'system']) ?: $userRepo->findOneBy([], ['id' => 'ASC']);
+    
+    if (!$systemUser) {
+        JsonResponse::error("Utilisateur système non trouvé", 500);
+        exit;
     }
     
-    // Préparer les données pour l'API WhatsApp
-    $templateName = $input['template']['name'];
-    $languageCode = $input['template']['language']['code'] ?? 'fr';
-    $components = $input['template']['components'] ?? [];
+    // Préparation des composants si fournis en JSON
+    $components = [];
+    if (isset($input['templateComponentsJsonString']) && !empty($input['templateComponentsJsonString'])) {
+        $components = json_decode($input['templateComponentsJsonString'], true) ?: [];
+    }
     
-    // Log pour le débogage
-    error_log("Envoi de template WhatsApp: $templateName à $phoneNumber");
-    error_log("Composants: " . json_encode($components));
+    // Préparation des paramètres du corps
+    $bodyVariables = isset($input['bodyVariables']) ? $input['bodyVariables'] : [];
     
-    // Envoyer le message via le service WhatsApp
-    $result = $whatsappService->sendTemplateMessage(
-        $phoneNumber,
-        $templateName,
-        $languageCode,
-        $components
-    );
+    // Préparation du média d'en-tête
+    $headerMediaUrl = isset($input['headerMediaUrl']) ? $input['headerMediaUrl'] : null;
+    $headerMediaId = isset($input['headerMediaId']) ? $input['headerMediaId'] : null;
     
-    // Traiter la réponse
-    if ($result && isset($result['messages']) && !empty($result['messages'])) {
-        // Préparer les données de succès
-        $messageId = $result['messages'][0]['id'] ?? null;
-        
-        // Enregistrer l'historique d'utilisation
-        $whatsappTemplateService = $container->get(WhatsAppTemplateService::class);
-        $whatsappTemplateService->recordTemplateUsage(
-            $templateName,
-            $phoneNumber,
-            [
-                'messageId' => $messageId,
-                'components' => $components
-            ]
+    // Log détaillé pour le debugging
+    error_log("[API REST] Paramètres: " . json_encode([
+        'components' => $components,
+        'bodyVariables' => $bodyVariables,
+        'headerMediaUrl' => $headerMediaUrl,
+        'headerMediaId' => $headerMediaId
+    ], JSON_UNESCAPED_UNICODE));
+    
+    // Envoyer le message via le service avec composants - Version 2
+    $result = null;
+    if ($headerMediaId) {
+        // Avec Media ID
+        error_log("[API REST] Utilisation du Media ID: $headerMediaId");
+        $result = $whatsappService->sendTemplateMessageWithComponents(
+            $systemUser,
+            $input['recipientPhoneNumber'],
+            $input['templateName'],
+            $input['templateLanguage'],
+            $components,
+            $headerMediaId
         );
-        
-        // Renvoyer une réponse de succès
-        JsonResponse::success([
-            'messageId' => $messageId,
-            'status' => 'sent',
-            'timestamp' => date('c')
-        ]);
     } else {
-        // Erreur lors de l'envoi
-        $error = isset($result['error']) ? $result['error']['message'] : 'Échec de l\'envoi du message';
-        JsonResponse::error($error, 500);
+        // Avec URL d'image ou sans média
+        error_log("[API REST] Utilisation de l'URL média ou sans média");
+        $result = $whatsappService->sendTemplateMessage(
+            $systemUser,
+            $input['recipientPhoneNumber'],
+            $input['templateName'],
+            $input['templateLanguage'],
+            $headerMediaUrl,
+            $bodyVariables
+        );
     }
-} catch (Exception $e) {
-    error_log("Exception lors de l'envoi du template WhatsApp: " . $e->getMessage());
+    
+    // Si le résultat est un objet WhatsAppMessageHistory, le convertir en tableau
+    if ($result instanceof \App\Entities\WhatsApp\WhatsAppMessageHistory) {
+        $result = [
+            'wabaMessageId' => $result->getWabaMessageId(),
+            'status' => $result->getStatus()
+        ];
+    }
+    
+    // Renvoyer une réponse de succès
+    JsonResponse::success([
+        'success' => true,
+        'messageId' => $result['wabaMessageId'] ?? ($result['messages'][0]['id'] ?? null),
+        'timestamp' => date('c')
+    ]);
+} catch (\Exception $e) {
+    $logMessage("EXCEPTION lors de l'envoi du template: " . $e->getMessage());
+    $logMessage("Trace: " . $e->getTraceAsString());
     JsonResponse::error("Erreur lors de l'envoi du message: " . $e->getMessage(), 500);
+} catch (\Error $e) {
+    $logMessage("ERREUR PHP: " . $e->getMessage());
+    $logMessage("Trace: " . $e->getTraceAsString());
+    JsonResponse::error("Erreur PHP: " . $e->getMessage(), 500);
+} catch (\Throwable $e) {
+    $logMessage("THROWABLE: " . $e->getMessage());
+    $logMessage("Trace: " . $e->getTraceAsString());
+    JsonResponse::error("Exception non gérée: " . $e->getMessage(), 500);
 }

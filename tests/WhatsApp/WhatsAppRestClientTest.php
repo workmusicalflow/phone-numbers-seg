@@ -56,10 +56,15 @@ class WhatsAppRestClientTest extends TestCase
         $this->monitoringService = $this->createMockWithExpectations(WhatsAppMonitoringServiceInterface::class);
         
         // Remplacer le client HTTP dans RestClient
+        /** @var LoggerInterface $loggerMock */
+        $loggerMock = $this->logger;
+        /** @var WhatsAppMonitoringServiceInterface|null $monitoringServiceMock */
+        $monitoringServiceMock = $this->monitoringService;
+        
         $this->restClient = new WhatsAppRestClient(
-            $this->logger,
+            $loggerMock,
             'http://test.example.com',
-            $this->monitoringService
+            $monitoringServiceMock
         );
         
         // Injecter le client HTTP mock par réflexion

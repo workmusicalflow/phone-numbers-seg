@@ -160,6 +160,43 @@ export const API = {
      */
     RETRY: (id: string) => `${API.SMS.BASE()}/retry/${id}`,
   },
+
+  /**
+   * WhatsApp-related endpoints
+   */
+  WHATSAPP: {
+    /**
+     * Base WhatsApp endpoint
+     */
+    BASE: () => `${API.BASE}/whatsapp`,
+    
+    /**
+     * Send template message endpoint
+     * @see /docs/whatsapp-api-endpoints-clarification.md for API details
+     */
+    SEND_TEMPLATE: () => `${API.WHATSAPP.BASE()}/send-template.php`,
+    
+    /**
+     * Upload media endpoint
+     */
+    UPLOAD_MEDIA: () => `${API.WHATSAPP.BASE()}/upload.php`,
+    
+    /**
+     * Webhook endpoint for Meta callbacks
+     * Note: Webhook is located in /whatsapp/ not /api/whatsapp/
+     */
+    WEBHOOK: () => `${API.BASE.replace('/api', '')}/whatsapp/webhook.php`,
+    
+    /**
+     * Check message status
+     */
+    STATUS: () => `${API.WHATSAPP.BASE()}/status.php`,
+    
+    /**
+     * Get approved templates
+     */
+    TEMPLATES_APPROVED: () => `${API.WHATSAPP.BASE()}/templates/approved.php`,
+  },
 };
 
 /**

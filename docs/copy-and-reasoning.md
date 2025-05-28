@@ -1,123 +1,111 @@
-(3.10.0) ns2poportable@192 phone-numbers-seg % curl -X GET "https://graph.facebook.com/v22.0/664409593123173/message_templates?limit=100" \
--H "Authorization: Bearer EAAQ93dlFUw4BOZCu6OPmzQuo47pE8eYgGCJLWaQzeyHo03ZCmUWNOQZABt0NeJgVfx9zgurvJc3YynNmFZBgfsCslzydmfzdWZA3onZCyGQsgSo1ZAC6o7ZCgzukF10wmeCjfWcWItPeOw0hanzT0V5ShOIQZCEzVF9qP2aGALaD5ZCTvy95DhjlUwOwijVNAEXpGzEG0YKIsRI8ZCngj9BiXLltt3azinQQYgPBIs9bZA6K"
+il y a plusieurs erreurs et problèmes potentiels dans ce fichier `intelephense-mcp-server.js`. C'est un script complexe qui tente d'intégrer Intelephense (un serveur de langage PHP) via le protocole LSP (Language Server Protocol) et de l'exposer en tant que serveur MCP.
 
-{
-"data": [
-{
-"name": "qshe_invitation1",
-"parameter_format": "POSITIONAL",
-"components": [
-{
-"type": "HEADER",
-"format": "IMAGE",
-"example": {
-"header_handle": [
-"https://scontent.whatsapp.net/v/t61.29466-34/490583588_1194607085081673_2117468919397060704_n.jpg?ccb=1-7&_nc_sid=8b1bef&_nc_ohc=4vWztmG3EtMQ7kNvwEuOaKo&_nc_oc=AdlqBByix8PnxSYWb2AtNz4YEqq4XMj5W4ddzztSarzBEi3ncoyXiRoJKduQgHwI_4AF1x1HFkhGDLP1BV8mslAw&_nc_zt=3&_nc_ht=scontent.whatsapp.net&edm=AH51TzQEAAAA&_nc_gid=io0gJQrY6AOkLtaQ8J-nCw&oh=01_Q5Aa1gEBrXKv-G-Oag01k5fXrrQE_GlwjqpX83EG4zqMyO-hkg&oe=68550AB2"
-]
-}
-},
-{
-"type": "BODY",
-"text": "Bonjour,\nNous serons ravis de votre participation (présence) au _QSHE Forum 2025_ qui se tiendra au II Plateau Latrille Events à Abidjan les _08, 09 et 10 Mai_.\n\n* Le Prix des entreprises Africaines pour la restauration des terres\n* Le PrixQualité-Performance Afrique\n* Les concertos de l'environnement\n* Panels\n* Networking\n* Expositions\n\n*Thème de l'édition* :\nAccélérer la transition écologique pour une Afrique durable et résiliente: innovations, stratégies et collaborations\n\n*Visitez notre site internet*:\nhttps://events-qualitas-ci.com/\n*Générez votre badge numérique de participation gratuite*\nhttps://events-qualitas-ci.com/badge/formulaire.html\n*Téléchargez la brochure de l'évènement*\nhttps://drive.google.com/file/d/1yOM8uiLsQ1q25cc3sJ17nM5Ld1XMTpSx/view"
-},
-{
-"type": "BUTTONS",
-"buttons": [
-{
-"type": "QUICK_REPLY",
-"text": "Se désabonner"
-}
-]
-}
-],
-"language": "fr",
-"status": "APPROVED",
-"category": "MARKETING",
-"id": "1194607081748340"
-},
-{
-"name": "connection_check",
-"parameter_format": "POSITIONAL",
-"components": [
-{
-"type": "BODY",
-"text": "Bonjour,\n\nNous souhaitons nous assurer que nous pouvons toujours vous joindre via WhatsApp pour les informations et actualités importantes.\n\nMerci !"
-},
-{
-"type": "FOOTER",
-"text": "L'équipe Qualitas Côte d'Ivoire"
-}
-],
-"language": "fr",
-"status": "APPROVED",
-"category": "MARKETING",
-"id": "721730966911320"
-},
-{
-"name": "hello_world",
-"parameter_format": "POSITIONAL",
-"components": [
-{
-"type": "HEADER",
-"format": "TEXT",
-"text": "Hello World"
-},
-{
-"type": "BODY",
-"text": "Welcome and congratulations!! This message demonstrates your ability to send a WhatsApp message notification from the Cloud API, hosted by Meta. Thank you for taking the time to test with us."
-},
-{
-"type": "FOOTER",
-"text": "WhatsApp Business Platform sample message"
-}
-],
-"language": "en_US",
-"status": "APPROVED",
-"category": "UTILITY",
-"id": "674717171814442"
-},
-{
-"name": "qshe_day_3",
-"parameter_format": "POSITIONAL",
-"components": [
-{
-"type": "HEADER",
-"format": "IMAGE",
-"example": {
-"header_handle": [
-"https://scontent.whatsapp.net/v/t61.29466-34/491875656_701148198972905_7825089176746978920_n.jpg?ccb=1-7&_nc_sid=8b1bef&_nc_ohc=qBPO4Tm_HAkQ7kNvwEgb8PZ&_nc_oc=AdldBcZ8yOeokXifV76eBOSSNf-gH6DPmxIYWcjVBZmBSwnv9QI25aHdAKBqZ1eclV5JTTYxmPkU9f8RvzlhXvPs&_nc_zt=3&_nc_ht=scontent.whatsapp.net&edm=AH51TzQEAAAA&_nc_gid=io0gJQrY6AOkLtaQ8J-nCw&oh=01_Q5Aa1gGLBZmPZZVzmddORYUTUfzY0fOlCplricQZbEC02RD20A&oe=685511CE"
-]
-}
-},
-{
-"type": "BODY",
-"text": "*AFRICA QSHE FORUM 2025\* : Une belle aventure qui a tenu ses promesses grâce à une communauté d'entreprises et de personnes engagées... Merci à tous !\n\nLa brochure de l'événement est consultable et téléchargeable gratuitement en version numérique (en cliquant sur le lien bleu)."
-},
-{
-"type": "FOOTER",
-"text": "AfricAQSHE2025 - Qualitas Côte d'Ivoire"
-},
-{
-"type": "BUTTONS",
-"buttons": [
-{
-"type": "URL",
-"text": "Consultez le magazine",
-"url": "https://drive.google.com/file/d/1VpRRXdOa9h0sZreMdlsehP1KhsGqUxuU/view?usp=sharing"
-}
-]
-}
-],
-"language": "fr",
-"status": "APPROVED",
-"category": "MARKETING",
-"id": "701148195639572"
-}
-],
-"paging": {
-"cursors": {
-"before": "MAZDZD",
-"after": "OTkZD"
-}
-}
-}
+**Erreurs de Syntaxe et de Structure Majeures :**
+
+1.  **Définition de Classe Interrompue :**
+
+    ```javascript
+    class IntelephenseMCPServer {
+      constructor() {
+        this.server = new Server(
+          {
+            name: 'intelephense-diagnostics',
+            version: '1.0.0',
+          } // <--- Parenthèse fermante manquante pour l'objet options de Server
+
+      async getPhpDiagnostics(specificFile = null) {, // <--- Cette méthode est DANS le constructeur !
+          { // <--- Ceci est l'objet 'capabilities' pour le constructeur de Server, mal placé
+            capabilities: {
+              tools: {},
+            },
+          }
+        ); // <--- Ici se ferme l'appel au constructeur de Server
+
+        // ... le reste du constructeur ...
+      } // fin du constructeur
+
+      // ... la méthode getPhpDiagnostics est définie une DEUXIEME FOIS ici plus bas ...
+    ```
+
+    - **Correction :** La méthode `getPhpDiagnostics` doit être définie en dehors du `constructor`, et l'appel au constructeur de `Server` doit être correctement fermé.
+
+2.  **Doublon de la méthode `getPhpDiagnostics` :** La méthode est déclarée une fois de manière incorrecte dans le constructeur, puis une seconde fois correctement plus bas dans la classe. Il faut supprimer la première déclaration incorrecte.
+
+3.  **Placement de `inputSchema` dans `ListToolsRequestSchema` :**
+    Dans `setupHandlers`, la structure du `inputSchema` pour `get_php_diagnostics` est incorrecte, elle contient un autre outil (`get_error_summary`) à l'intérieur de ses `properties`.
+    ```javascript
+    // Dans ListToolsRequestSchema
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: { /* ... */ },
+        // L'outil suivant ne devrait PAS être ici
+        // { // Incorrect
+        //   name: 'get_error_summary',
+        //   description: 'Résumé des erreurs par type et gravité',
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {}
+        //   }
+        // } // Incorrect
+      }
+    }
+    ```
+    - **Correction :** L'outil `get_error_summary` doit être un élément distinct dans le tableau `tools`, au même niveau que `get_php_diagnostics`.
+
+**Problèmes Logiques et Potentiels :**
+
+1.  **Gestion de la Communication LSP :**
+
+    - La communication avec un serveur LSP est complexe. Le parsing manuel des en-têtes `Content-Length` et des messages JSON est sujet aux erreurs, surtout avec le buffering. Des bibliothèques existent pour gérer la communication LSP (par exemple, `vscode-languageclient` ou des composants plus bas niveau), mais ici c'est fait manuellement.
+    - La logique de synchronisation (envoyer `initialize`, attendre la réponse, envoyer `initialized`) est correcte en principe mais délicate à implémenter sans bibliothèque dédiée.
+    - La gestion des `id` des requêtes LSP doit être rigoureuse. Utiliser `Date.now()` pour les `id` de requêtes comme dans `analyzeFile` est une mauvaise pratique car ce n'est pas garanti d'être unique si les appels sont très rapides. Il vaut mieux un compteur incrémental.
+
+2.  **Chemins d'Intelephense :**
+
+    - La tentative de trouver Intelephense à plusieurs endroits est une bonne idée, mais `fss.existsSync(cmdPath)` pour un binaire local (`node_modules/.bin/intelephense`) peut ne pas fonctionner comme prévu sur tous les systèmes (surtout Windows où les binaires peuvent être des `.cmd` ou `.ps1`).
+
+3.  **Gestion des Erreurs d'Intelephense :**
+
+    - Si le processus `intelephenseProcess` se ferme ou génère une erreur, le serveur MCP pourrait devenir instable ou cesser de fonctionner. La gestion actuelle logue les erreurs mais pourrait ne pas être suffisante pour une récupération gracieuse.
+
+4.  **Dépendances Manquantes (implicites) :**
+
+    - Le script utilise `glob` (`const glob = require('glob');`) sans le déclarer dans les `dependencies` d'un `package.json` (si ce script était packagé). Pour un script autonome, il faudrait s'assurer que `glob` est installé là où le script est exécuté.
+    - Même chose pour `chokidar`.
+
+5.  **Performances et Stabilité :**
+
+    - Lancer une nouvelle instance d'Intelephense pour chaque "workspace" (via `start_php_analysis`) peut être lourd. Idéalement, un seul serveur Intelephense pourrait gérer plusieurs workspaces ou être plus léger.
+    - La surveillance de fichiers avec `chokidar` et l'analyse à chaque changement peuvent consommer beaucoup de ressources, surtout sur de gros projets.
+    - Les `setTimeout` pour attendre les diagnostics (`await new Promise(resolve => setTimeout(resolve, 2000));`) sont des "code smells". C'est une manière peu fiable d'attendre une réponse asynchrone. Il faudrait un mécanisme basé sur la réception effective des messages LSP.
+
+6.  **Sécurité/Validation des Chemins :**
+
+    - Le script ne semble pas avoir de validation des chemins pour `workspaceRoot` ou `filePath` pour s'assurer qu'ils ne sortent pas d'un répertoire autorisé (comme le fait le serveur Filesystem MCP). C'est un risque de sécurité si Claude peut spécifier des chemins arbitraires.
+
+7.  **Format de Réponse des Outils MCP :**
+    - Les outils renvoient `result: { content: [{ type: 'text', text: '...' }] }`. C'est cohérent avec ce que nous avons vu du SDK Filesystem et ce que nous avons adapté pour nos autres serveurs. C'est bien.
+
+**Comment un serveur MCP Intelephense _devrait_ idéalement fonctionner :**
+
+1.  **Démarrage :**
+    - Le serveur MCP démarre.
+    - L'utilisateur (via Claude) appelle un outil `start_php_analysis` avec un `workspaceRoot`.
+2.  **Initialisation d'Intelephense :**
+    - Le serveur MCP lance une instance du serveur de langage Intelephense en tant que processus enfant.
+    - Il établit une communication LSP bidirectionnelle avec Intelephense (messages `initialize`, `initialized`, etc.).
+3.  **Analyse :**
+    - Le serveur MCP envoie des notifications `textDocument/didOpen` à Intelephense pour les fichiers PHP du workspace.
+    - Intelephense analyse ces fichiers et renvoie des diagnostics via des notifications `textDocument/publishDiagnostics`.
+4.  **Stockage des Diagnostics :**
+    - Le serveur MCP reçoit ces diagnostics et les stocke en mémoire (par exemple, dans `this.diagnostics`).
+5.  **Exposition via Outils MCP :**
+    - L'outil `get_php_diagnostics` lit les diagnostics stockés et les renvoie à Claude.
+    - Des outils pour forcer la réanalyse ou obtenir des résumés peuvent aussi interagir avec le serveur LSP ou les données stockées.
+6.  **Surveillance des Fichiers :**
+    - `chokidar` surveille les modifications. Quand un fichier change, le serveur MCP envoie `textDocument/didChange` à Intelephense, qui renvoie de nouveaux diagnostics.
+
+**le fichier contient des erreurs de syntaxe qui l'empêcheraient de s'exécuter correctement.** La principale est la structure de la classe et la méthode `getPhpDiagnostics` mal placée.
+
+veuillez corriger la structure de la classe et les erreurs de syntaxe évidentes pour que le script soit au moins syntaxiquement valide. Rendre ce serveur pleinement fonctionnel et robuste nécessiterait un travail plus conséquent sur la communication LSP et la gestion des erreurs, veuillez ensuite le faire.

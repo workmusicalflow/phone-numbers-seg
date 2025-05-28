@@ -210,7 +210,7 @@ export class WhatsAppRestClient {
       }
       
       // Utiliser l'endpoint complet pour l'envoi réel
-      const response = await whatsappApi.post('/whatsapp/send-template-v2.php', data);
+      const response = await whatsappApi.post('/whatsapp/send-template.php', data);
       
       // Analyser la réponse
       if (response.data && response.data.success) {

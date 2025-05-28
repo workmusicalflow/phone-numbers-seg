@@ -53,7 +53,7 @@ try {
             $token = $matches[1];
             
             $container = new \App\GraphQL\DIContainer();
-            $authService = $container->get(\App\Services\Interfaces\Auth\AuthServiceInterface::class);
+            $authService = $container->get(\App\Services\Interfaces\AuthServiceInterface::class);
             
             // Vérifier le token et obtenir l'utilisateur correspondant
             return $authService->getUserFromToken($token);

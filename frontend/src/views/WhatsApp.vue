@@ -66,7 +66,7 @@
               </div>
 
               <!-- Étape 3: Personnalisation du message -->
-              <div v-else-if="currentStep === 'customize'" class="q-mt-md">
+              <div v-else-if="currentStep === 'customize' && selectedTemplateData" class="q-mt-md">
                 <WhatsAppMessageComposer 
                   :templateData="selectedTemplateData" 
                   :recipientPhoneNumber="selectedRecipient"
@@ -425,6 +425,7 @@ import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServer
 import WhatsAppMediaUpload from '@/components/whatsapp/WhatsAppMediaUpload.vue';
 import WhatsAppTemplateSelector from '@/components/whatsapp/WhatsAppTemplateSelector.vue';
 import WhatsAppMessageComposer from '@/components/whatsapp/WhatsAppMessageComposer.vue';
+import type { WhatsAppTemplateData } from '@/types/whatsapp-templates';
 
 // Stores and utilities
 const userStore = useUserStore();
@@ -439,8 +440,13 @@ const activeTab = ref('send');
 const contactsCount = ref(0);
 const currentStep = ref('recipient'); // 'recipient', 'template', 'customize', 'success'
 const selectedRecipient = ref('');
-const selectedTemplateData = ref(null);
-const lastSentTemplateMessage = ref(null);
+const selectedTemplateData = ref<WhatsAppTemplateData | null>(null);
+const lastSentTemplateMessage = ref<{
+  messageId: string;
+  templateName: string;
+  recipient: string;
+  timestamp: string;
+} | null>(null);
 
 // Computed properties
 const lastSentMessage = computed(() => {
@@ -619,7 +625,7 @@ const onTemplateSent = (result: any) => {
   if (result.success) {
     lastSentTemplateMessage.value = {
       messageId: result.messageId,
-      templateName: selectedTemplateData.value.template.name,
+      templateName: selectedTemplateData.value?.template.name || '',
       recipient: selectedRecipient.value,
       timestamp: result.timestamp || new Date().toISOString()
     };
@@ -682,7 +688,7 @@ watch(() => route.query, () => {
 }, { deep: true });
 
 // Watch for tab changes to load appropriate data
-watch(activeTab, async (newTab) => {
+watch(activeTab, async () => {
   // L'onglet templates n'a plus besoin de charger de données pour le moment
   // car le composant WhatsAppTemplateHistoryList a été supprimé
 });
