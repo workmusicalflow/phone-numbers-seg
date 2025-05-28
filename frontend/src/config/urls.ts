@@ -196,6 +196,11 @@ export const API = {
      * Get approved templates
      */
     TEMPLATES_APPROVED: () => `${API.WHATSAPP.BASE()}/templates/approved.php`,
+    
+    /**
+     * Bulk send templates endpoint
+     */
+    BULK_SEND: () => `${API.WHATSAPP.BASE()}/bulk-send.php`,
   },
 };
 
