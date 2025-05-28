@@ -229,7 +229,8 @@ class WhatsAppService implements WhatsAppServiceInterface
 
             // Récupérer le template complet pour avoir sa catégorie
             // Rechercher par nom au lieu de template_id (qui n'existe pas dans l'entité)
-            $template = $this->templateRepository->findOneBy(['name' => $templateName]);
+            $templates = $this->templateRepository->findByAdvancedCriteria(['name' => $templateName], [], 1);
+            $template = !empty($templates) ? $templates[0] : null;
             $category = $template ? $template->getCategory() : 'UTILITY';
 
             // Enregistrer l'utilisation du template dans l'historique dédié
@@ -429,7 +430,8 @@ class WhatsAppService implements WhatsAppServiceInterface
 
             // Récupérer le template complet pour avoir sa catégorie
             // Rechercher par nom au lieu de template_id (qui n'existe pas dans l'entité)
-            $template = $this->templateRepository->findOneBy(['name' => $templateName]);
+            $templates = $this->templateRepository->findByAdvancedCriteria(['name' => $templateName], [], 1);
+            $template = !empty($templates) ? $templates[0] : null;
             $category = $template ? $template->getCategory() : 'UTILITY';
 
             // Enregistrer l'utilisation du template dans l'historique dédié
@@ -826,7 +828,7 @@ class WhatsAppService implements WhatsAppServiceInterface
      * Pour l'instant, cette méthode retourne null car la logique de mapping
      * doit être implémentée selon les besoins spécifiques du projet
      */
-    private function findUserByPhoneNumberId(string $phoneNumberId): ?User
+    private function findUserByPhoneNumberId(string $_phoneNumberId): ?User
     {
         // TODO: Implémenter la logique pour trouver l'utilisateur
         // basé sur le phone_number_id de WhatsApp
@@ -1111,36 +1113,6 @@ class WhatsAppService implements WhatsAppServiceInterface
         $template->setButtonsCount($buttonsCount);
     }
     
-    /**
-     * Convertit une entité WhatsAppTemplate en tableau pour l'API
-     * 
-     * @param WhatsAppTemplate $template L'entité à convertir
-     * @return array Le template au format tableau
-     */
-    private function convertTemplateEntityToArray(WhatsAppTemplate $template): array
-    {
-        $componentsArray = [];
-        
-        if ($template->getComponentsJson()) {
-            $componentsArray = json_decode($template->getComponentsJson(), true) ?? [];
-        }
-        
-        return [
-            'id' => $template->getTemplateId(),
-            'name' => $template->getName(),
-            'status' => $template->getStatus(),
-            'category' => $template->getCategory(),
-            'language' => $template->getLanguageCode(),
-            'components' => $componentsArray,
-            'description' => $template->getDescription(),
-            'componentsJson' => $template->getComponentsJson(),
-            'bodyVariablesCount' => $template->getBodyVariablesCount(),
-            'hasMediaHeader' => $template->getHasMediaHeader(),
-            'hasButtons' => $template->getHasButtons(),
-            'buttonsCount' => $template->getButtonsCount(),
-            'hasFooter' => $template->getHasFooter()
-        ];
-    }
     
     /**
      * Filtre les templates selon les critères donnés
@@ -1468,7 +1440,8 @@ class WhatsAppService implements WhatsAppServiceInterface
 
             // Lier au template si on peut le trouver
             // Rechercher par nom au lieu de template_id (qui n'existe pas dans l'entité)
-            $template = $this->templateRepository->findOneBy(['name' => $templateId]);
+            $templates = $this->templateRepository->findByAdvancedCriteria(['name' => $templateId], [], 1);
+            $template = !empty($templates) ? $templates[0] : null;
             if ($template !== null) {
                 $templateHistory->setTemplate($template);
             }

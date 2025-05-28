@@ -275,7 +275,7 @@ class WhatsAppWebhookService
         // En production, il faudrait mapper phone_number_id à un utilisateur spécifique
         
         // Option 1: Utiliser un utilisateur par défaut (admin)
-        $defaultUser = $this->userRepository->find(1);
+        $defaultUser = $this->userRepository->findById(1);
         if ($defaultUser) {
             return $defaultUser;
         }

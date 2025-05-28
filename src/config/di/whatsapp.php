@@ -25,17 +25,26 @@ use App\Services\Interfaces\WhatsApp\WhatsAppTemplateSyncServiceInterface;
 use App\Services\Interfaces\WhatsApp\WhatsAppMonitoringServiceInterface;
 use App\Repositories\Interfaces\WhatsApp\WhatsAppApiMetricRepositoryInterface;
 use App\Repositories\Doctrine\WhatsApp\WhatsAppApiMetricRepository;
+use App\Repositories\Interfaces\WhatsApp\WhatsAppTemplateHistoryRepositoryInterface;
+use App\Repositories\Doctrine\WhatsApp\WhatsAppTemplateHistoryRepository;
 use App\Services\WhatsApp\WebhookVerificationService;
 use App\Services\WhatsApp\WhatsAppApiClient;
 use App\Services\WhatsApp\WhatsAppMessageService;
 use App\Services\WhatsApp\WhatsAppService;
+use App\Services\WhatsApp\WhatsAppServiceEnhanced;
+use App\Services\WhatsApp\WhatsAppServiceRefactored;
+use App\Services\WhatsApp\WhatsAppServiceWithCommands;
+use App\Services\WhatsApp\WhatsAppServiceWithResilience;
 use App\Services\WhatsApp\WhatsAppTemplateService;
 use App\Services\WhatsApp\WhatsAppTemplateSyncService;
 use App\Services\WhatsApp\WhatsAppMonitoringService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
-return [
+// Charger la configuration de résilience
+$resilienceConfig = require __DIR__ . '/whatsapp_resilience.php';
+
+return array_merge([
     // Configuration
     'whatsapp.config' => function() {
         return require __DIR__ . '/../whatsapp.php';
@@ -80,7 +89,32 @@ return [
         ),
     
     WhatsAppServiceInterface::class => \DI\factory(function(\Psr\Container\ContainerInterface $container) {
-        return new WhatsAppService(
+        return new WhatsAppServiceWithResilience(
+            $container->get(WhatsAppApiClientInterface::class),
+            $container->get(WhatsAppMessageHistoryRepositoryInterface::class),
+            $container->get(WhatsAppTemplateRepositoryInterface::class),
+            $container->get(LoggerInterface::class),
+            $container->get('whatsapp.config'),
+            $container->get(WhatsAppTemplateServiceInterface::class),
+            $container->get(\App\Services\WhatsApp\ResilientWhatsAppClient::class)
+        );
+    }),
+    
+    // Service WhatsApp refactorisé (Phase 1)
+    WhatsAppServiceRefactored::class => \DI\factory(function(\Psr\Container\ContainerInterface $container) {
+        return new WhatsAppServiceRefactored(
+            $container->get(WhatsAppApiClientInterface::class),
+            $container->get(WhatsAppMessageHistoryRepositoryInterface::class),
+            $container->get(WhatsAppTemplateRepositoryInterface::class),
+            $container->get(LoggerInterface::class),
+            $container->get('whatsapp.config'),
+            $container->get(WhatsAppTemplateServiceInterface::class)
+        );
+    }),
+    
+    // Service WhatsApp avec Commands (Phase 2) 
+    WhatsAppServiceWithCommands::class => \DI\factory(function(\Psr\Container\ContainerInterface $container) {
+        return new WhatsAppServiceWithCommands(
             $container->get(WhatsAppApiClientInterface::class),
             $container->get(WhatsAppMessageHistoryRepositoryInterface::class),
             $container->get(WhatsAppTemplateRepositoryInterface::class),
@@ -193,10 +227,15 @@ return [
         return new WhatsAppApiMetricRepository($entityManager);
     }),
     
+    // Repository de l'historique des templates WhatsApp
+    WhatsAppTemplateHistoryRepositoryInterface::class => \DI\factory(function(EntityManagerInterface $entityManager) {
+        return new WhatsAppTemplateHistoryRepository($entityManager);
+    }),
+    
     // Service de monitoring WhatsApp
     WhatsAppMonitoringServiceInterface::class => \DI\create(WhatsAppMonitoringService::class)
         ->constructor(
-            \DI\get('App\\Repositories\\Interfaces\\WhatsApp\\WhatsAppTemplateHistoryRepositoryInterface'),
+            \DI\get(\App\Repositories\Interfaces\WhatsApp\WhatsAppTemplateHistoryRepositoryInterface::class),
             \DI\get(WhatsAppMessageHistoryRepositoryInterface::class),
             \DI\get(WhatsAppApiMetricRepositoryInterface::class),
             \DI\get(LoggerInterface::class)
@@ -204,4 +243,4 @@ return [
         
     // Alias pour faciliter l'injection
     'App\\GraphQL\\Controllers\\WebhookController' => \DI\get('App\\GraphQL\\Controllers\\WhatsApp\\WebhookController')
-];
+], $resilienceConfig);
