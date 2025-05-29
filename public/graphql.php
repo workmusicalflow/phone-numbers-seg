@@ -126,6 +126,7 @@ use App\GraphQL\Resolvers\AuthResolver;
 use App\GraphQL\Resolvers\ContactGroupResolver;
 use App\GraphQL\Resolvers\ContactSMSResolver;
 use App\GraphQL\Resolvers\WhatsApp\WhatsAppResolver;
+use App\GraphQL\Resolvers\WhatsAppContactInsightsResolver;
 use App\GraphQL\Types\DateTimeType;
 use App\GraphQL\SchemaSetup;
 use Psr\Log\LoggerInterface;
@@ -203,6 +204,7 @@ try {
     $contactGroupResolver = $container->get(ContactGroupResolver::class);
     $contactSmsResolver = $container->get(ContactSMSResolver::class);
     $whatsAppResolver = $container->get(WhatsAppResolver::class);
+    $whatsAppContactInsightsResolver = $container->get('App\\GraphQL\\Resolvers\\WhatsAppContactInsightsResolver');
     $logger->info('Resolver instances obtained from DI container.');
 
     // --- Field Resolver Mapping ---
@@ -214,6 +216,7 @@ try {
         $contactGroupResolver,
         $contactSmsResolver,
         $whatsAppResolver,
+        $whatsAppContactInsightsResolver,
         $logger,
         $container,
         $graphQLContext // Add the GraphQL context
@@ -295,6 +298,10 @@ try {
                         );
                     case 'getWhatsAppUserTemplates':
                         return $whatsAppResolver->getWhatsAppUserTemplates($context);
+                    case 'getContactWhatsAppInsights':
+                        return $whatsAppContactInsightsResolver->getContactWhatsAppInsights($args['contactId']);
+                    case 'getContactsWhatsAppSummary':
+                        return $whatsAppContactInsightsResolver->getContactsWhatsAppSummary($args['contactIds']);
                 }
             }
             // Handle top-level Mutation fields

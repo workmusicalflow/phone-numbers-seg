@@ -42,10 +42,10 @@ class WhatsAppMessageHistory
     #[ORM\Column(type: "integer")]
     private ?int $id = null;
 
-    #[ORM\Column(type: "string", nullable: true)]
+    #[ORM\Column(name: "wabaMessageId", type: "string", nullable: true)]
     private ?string $wabaMessageId = null;
 
-    #[ORM\Column(type: "string")]
+    #[ORM\Column(name: "phoneNumber", type: "string")]
     private string $phoneNumber;
 
     #[ORM\Column(type: "string")]
@@ -63,34 +63,34 @@ class WhatsAppMessageHistory
     #[ORM\Column(type: "datetime")]
     private \DateTime $timestamp;
 
-    #[ORM\Column(type: "integer", nullable: true)]
+    #[ORM\Column(name: "errorCode", type: "integer", nullable: true)]
     private ?int $errorCode = null;
 
-    #[ORM\Column(type: "text", nullable: true)]
+    #[ORM\Column(name: "errorMessage", type: "text", nullable: true)]
     private ?string $errorMessage = null;
 
-    #[ORM\Column(type: "string", nullable: true)]
+    #[ORM\Column(name: "conversationId", type: "string", nullable: true)]
     private ?string $conversationId = null;
 
-    #[ORM\Column(type: "string", nullable: true)]
+    #[ORM\Column(name: "pricingCategory", type: "string", nullable: true)]
     private ?string $pricingCategory = null;
 
-    #[ORM\Column(type: "string", nullable: true)]
+    #[ORM\Column(name: "mediaId", type: "string", nullable: true)]
     private ?string $mediaId = null;
 
-    #[ORM\Column(type: "string", nullable: true)]
+    #[ORM\Column(name: "templateName", type: "string", nullable: true)]
     private ?string $templateName = null;
 
-    #[ORM\Column(type: "string", nullable: true)]
+    #[ORM\Column(name: "templateLanguage", type: "string", nullable: true)]
     private ?string $templateLanguage = null;
 
-    #[ORM\Column(type: "text", nullable: true)]
+    #[ORM\Column(name: "contextData", type: "text", nullable: true)]
     private ?string $contextData = null;
 
-    #[ORM\Column(type: "datetime")]
+    #[ORM\Column(name: "createdAt", type: "datetime")]
     private \DateTime $createdAt;
 
-    #[ORM\Column(type: "datetime", nullable: true)]
+    #[ORM\Column(name: "updatedAt", type: "datetime", nullable: true)]
     private ?\DateTime $updatedAt = null;
 
     #[ORM\Column(type: "json", nullable: true)]

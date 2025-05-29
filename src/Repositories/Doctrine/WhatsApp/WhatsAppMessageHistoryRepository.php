@@ -580,10 +580,10 @@ class WhatsAppMessageHistoryRepository extends BaseRepository implements WhatsAp
             ->getQuery()
             ->getSingleColumnResult();
 
-        // Messages par mois (6 derniers mois)
+        // Messages par mois - récupérer et traiter en PHP
         $sixMonthsAgo = new \DateTime('-6 months');
-        $messagesByMonth = $this->getEntityManager()->createQueryBuilder()
-            ->select('DATE_FORMAT(m.timestamp, \'%Y-%m\') as month, COUNT(m.id) as count')
+        $recentMessages = $this->getEntityManager()->createQueryBuilder()
+            ->select('m.timestamp')
             ->from(WhatsAppMessageHistory::class, 'm')
             ->where('m.phoneNumber = :phoneNumber')
             ->andWhere('m.oracleUser = :user')
@@ -591,21 +591,27 @@ class WhatsAppMessageHistoryRepository extends BaseRepository implements WhatsAp
             ->setParameter('phoneNumber', $phoneNumber)
             ->setParameter('user', $user)
             ->setParameter('sixMonthsAgo', $sixMonthsAgo)
-            ->groupBy('month')
-            ->orderBy('month', 'ASC')
             ->getQuery()
             ->getResult();
 
-        // Nombre de conversations (groupées par jour)
-        $conversationCount = $this->getEntityManager()->createQueryBuilder()
-            ->select('COUNT(DISTINCT DATE(m.timestamp)) as count')
-            ->from(WhatsAppMessageHistory::class, 'm')
-            ->where('m.phoneNumber = :phoneNumber')
-            ->andWhere('m.oracleUser = :user')
-            ->setParameter('phoneNumber', $phoneNumber)
-            ->setParameter('user', $user)
-            ->getQuery()
-            ->getSingleScalarResult();
+        // Traitement en PHP pour les messages par mois
+        $messagesByMonth = [];
+        foreach ($recentMessages as $message) {
+            $month = substr($message['timestamp']->format('Y-m-d'), 0, 7);
+            if (!isset($messagesByMonth[$month])) {
+                $messagesByMonth[$month] = 0;
+            }
+            $messagesByMonth[$month]++;
+        }
+        ksort($messagesByMonth);
+
+        // Nombre de conversations (groupées par jour) - traitement en PHP
+        $uniqueDays = [];
+        foreach ($recentMessages as $message) {
+            $day = $message['timestamp']->format('Y-m-d');
+            $uniqueDays[$day] = true;
+        }
+        $conversationCount = count($uniqueDays);
 
         // Calcul des taux
         $totalOutgoing = (int) $stats['outgoingMessages'];
@@ -650,12 +656,31 @@ class WhatsAppMessageHistoryRepository extends BaseRepository implements WhatsAp
     /**
      * Formater les résultats mensuels
      */
-    private function formatMonthlyResult(array $results): array
+    private function formatMonthlyResult(array $monthlyData): array
     {
-        $formatted = [];
-        foreach ($results as $result) {
-            $formatted[$result['month']] = (int) $result['count'];
+        // Format attendu: ['2024-01' => 5, '2024-02' => 3]
+        // On transforme en format GraphQL: {january: 5, february: 3}
+        $formatted = [
+            'january' => 0, 'february' => 0, 'march' => 0, 'april' => 0,
+            'may' => 0, 'june' => 0, 'july' => 0, 'august' => 0,
+            'september' => 0, 'october' => 0, 'november' => 0, 'december' => 0
+        ];
+        
+        foreach ($monthlyData as $yearMonth => $count) {
+            if (strlen($yearMonth) >= 7) { // Format YYYY-MM
+                $month = (int) substr($yearMonth, 5, 2); // Extraire le mois
+                $monthNames = [
+                    1 => 'january', 2 => 'february', 3 => 'march', 4 => 'april',
+                    5 => 'may', 6 => 'june', 7 => 'july', 8 => 'august',
+                    9 => 'september', 10 => 'october', 11 => 'november', 12 => 'december'
+                ];
+                
+                if (isset($monthNames[$month])) {
+                    $formatted[$monthNames[$month]] = (int) $count;
+                }
+            }
         }
+        
         return $formatted;
     }
 
@@ -691,7 +716,7 @@ class WhatsAppMessageHistoryRepository extends BaseRepository implements WhatsAp
         foreach ($results as $result) {
             $summary[$result['phoneNumber']] = [
                 'totalMessages' => (int) $result['totalMessages'],
-                'lastMessageDate' => $result['lastMessageDate'] ? $result['lastMessageDate']->format('Y-m-d H:i:s') : null
+                'lastMessageDate' => $result['lastMessageDate'] ?? null
             ];
         }
 

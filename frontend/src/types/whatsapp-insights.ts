@@ -14,9 +14,35 @@ export interface WhatsAppContactInsights {
   lastMessageContent: string | null;
   templatesUsed: string[];
   conversationCount: number;
-  messagesByType: Record<string, number>;
-  messagesByStatus: Record<string, number>;
-  messagesByMonth: Record<string, number>;
+  messagesByType: {
+    text?: number;
+    image?: number;
+    document?: number;
+    video?: number;
+    audio?: number;
+    template?: number;
+    interactive?: number;
+  };
+  messagesByStatus: {
+    sent?: number;
+    delivered?: number;
+    read?: number;
+    failed?: number;
+  };
+  messagesByMonth: {
+    january?: number;
+    february?: number;
+    march?: number;
+    april?: number;
+    may?: number;
+    june?: number;
+    july?: number;
+    august?: number;
+    september?: number;
+    october?: number;
+    november?: number;
+    december?: number;
+  };
   deliveryRate: number;
   readRate: number;
 }

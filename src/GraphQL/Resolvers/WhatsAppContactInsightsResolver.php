@@ -27,33 +27,42 @@ class WhatsAppContactInsightsResolver
     /**
      * Obtenir les insights WhatsApp pour un contact spécifique
      */
-    #[Query]
-    #[Logged]
     public function getContactWhatsAppInsights(string $contactId): ?WhatsAppContactInsightsType
     {
         try {
+            error_log('[WhatsAppContactInsightsResolver] Début getContactWhatsAppInsights pour contact ID: ' . $contactId);
+            
             // Authentification
             $user = $this->authService->getCurrentUser();
             if (!$user) {
+                error_log('[WhatsAppContactInsightsResolver] Erreur: Utilisateur non authentifié');
                 throw new \Exception('Utilisateur non authentifié');
             }
+            error_log('[WhatsAppContactInsightsResolver] Utilisateur authentifié: ' . $user->getUsername() . ' (ID: ' . $user->getId() . ')');
 
             // Récupérer le contact
             $contact = $this->contactRepository->findById($contactId);
             if (!$contact) {
+                error_log('[WhatsAppContactInsightsResolver] Erreur: Contact non trouvé pour ID: ' . $contactId);
                 throw new \Exception('Contact non trouvé');
             }
+            error_log('[WhatsAppContactInsightsResolver] Contact trouvé: ' . $contact->getName() . ' (Phone: ' . $contact->getPhoneNumber() . ')');
 
             // Vérifier que le contact appartient à l'utilisateur
             if ($contact->getUserId() !== $user->getId()) {
+                error_log('[WhatsAppContactInsightsResolver] Erreur: Contact appartient à l\'utilisateur ' . $contact->getUserId() . ' mais utilisateur courant est ' . $user->getId());
                 throw new \Exception('Accès non autorisé à ce contact');
             }
+            error_log('[WhatsAppContactInsightsResolver] Autorisation OK');
 
             // Récupérer les insights WhatsApp
+            error_log('[WhatsAppContactInsightsResolver] Appel getContactInsights...');
             $insights = $this->whatsAppRepository->getContactInsights($contact, $user);
+            error_log('[WhatsAppContactInsightsResolver] Insights reçus: ' . json_encode($insights));
 
             // Créer et retourner le type GraphQL
-            return new WhatsAppContactInsightsType(
+            error_log('[WhatsAppContactInsightsResolver] Création du WhatsAppContactInsightsType...');
+            $result = new WhatsAppContactInsightsType(
                 totalMessages: $insights['totalMessages'],
                 outgoingMessages: $insights['outgoingMessages'],
                 incomingMessages: $insights['incomingMessages'],
@@ -71,6 +80,9 @@ class WhatsAppContactInsightsResolver
                 deliveryRate: $insights['deliveryRate'],
                 readRate: $insights['readRate']
             );
+            
+            error_log('[WhatsAppContactInsightsResolver] WhatsAppContactInsightsType créé avec succès');
+            return $result;
 
         } catch (\Exception $e) {
             $this->logger->error('Erreur lors de la récupération des insights WhatsApp', [

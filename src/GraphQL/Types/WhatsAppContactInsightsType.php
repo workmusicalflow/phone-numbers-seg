@@ -30,11 +30,16 @@ class WhatsAppContactInsightsType
         private array $messagesByMonth,
         private float $deliveryRate,
         private float $readRate
-    ) {}
+    ) {
+        error_log('[WhatsAppContactInsightsType] Constructor appelé avec totalMessages: ' . $totalMessages);
+        error_log('[WhatsAppContactInsightsType] Constructor messagesByType: ' . json_encode($messagesByType));
+        error_log('[WhatsAppContactInsightsType] Constructor messagesByMonth: ' . json_encode($messagesByMonth));
+    }
 
     #[Field]
     public function getTotalMessages(): int
     {
+        error_log('[WhatsAppContactInsightsType] getTotalMessages() appelé, retourne: ' . $this->totalMessages);
         return $this->totalMessages;
     }
 

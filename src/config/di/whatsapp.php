@@ -55,6 +55,9 @@ return array_merge([
         return new WhatsAppMessageHistoryRepository($entityManager, WhatsAppMessageHistory::class);
     }),
     
+    // Alias pour la classe concrète
+    'App\\Repositories\\Doctrine\\WhatsApp\\WhatsAppMessageHistoryRepository' => \DI\get(WhatsAppMessageHistoryRepositoryInterface::class),
+    
     WhatsAppTemplateRepositoryInterface::class => \DI\factory(function(EntityManagerInterface $entityManager) {
         return new WhatsAppTemplateRepository($entityManager, WhatsAppTemplate::class);
     }),
@@ -235,6 +238,15 @@ return array_merge([
             \DI\get(\App\Repositories\Interfaces\WhatsApp\WhatsAppTemplateHistoryRepositoryInterface::class),
             \DI\get(WhatsAppMessageHistoryRepositoryInterface::class),
             \DI\get(WhatsAppApiMetricRepositoryInterface::class),
+            \DI\get(LoggerInterface::class)
+        ),
+        
+    // WhatsApp Contact Insights Resolver
+    'App\\GraphQL\\Resolvers\\WhatsAppContactInsightsResolver' => \DI\create('App\\GraphQL\\Resolvers\\WhatsAppContactInsightsResolver')
+        ->constructor(
+            \DI\get('App\\Repositories\\Doctrine\\WhatsApp\\WhatsAppMessageHistoryRepository'),
+            \DI\get(\App\Repositories\Interfaces\ContactRepositoryInterface::class),
+            \DI\get(\App\Services\Interfaces\AuthServiceInterface::class),
             \DI\get(LoggerInterface::class)
         ),
         

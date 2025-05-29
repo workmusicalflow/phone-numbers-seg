@@ -2,14 +2,14 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { gql } from '@apollo/client/core'; // Or your preferred GraphQL client library
 import { useApolloClient } from '@vue/apollo-composable'; // Adjust if using a different client setup
-import { notificationHelper } from '@/helpers/notificationHelper'; // Use the new helper
+import { notificationHelper } from '../helpers/notificationHelper'; // Use the new helper
 import type {
   ContactGroup,
   CreateContactGroupInput,
   UpdateContactGroupInput,
   AddContactsToGroupResult,
-} from '@/types/contactGroup';
-import type { Contact } from '@/types/contact';
+} from '../types/contactGroup';
+import type { Contact } from '../types/contact';
 
 export const useContactGroupStore = defineStore('contactGroup', () => {
   const { client } = useApolloClient(); // Get Apollo client instance

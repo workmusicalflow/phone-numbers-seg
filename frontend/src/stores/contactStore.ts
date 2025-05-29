@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { apolloClient, gql } from '../services/api';
-import type { WhatsAppContactInsights, WhatsAppContactSummary, WhatsAppInsightsState } from '../types/whatsapp-insights';
+import type { WhatsAppContactInsights, WhatsAppContactSummary } from '../types/whatsapp-insights';
 
 interface Contact {
   id: string;
@@ -274,40 +274,7 @@ export const useContactStore = defineStore('contact', () => {
     }
   `;
 
-  // Requêtes GraphQL pour les insights WhatsApp
-  const GET_CONTACT_WHATSAPP_INSIGHTS = gql`
-    query GetContactWhatsAppInsights($contactId: String!) {
-      getContactWhatsAppInsights(contactId: $contactId) {
-        totalMessages
-        outgoingMessages
-        incomingMessages
-        deliveredMessages
-        readMessages
-        failedMessages
-        lastMessageDate
-        lastMessageType
-        lastMessageContent
-        templatesUsed
-        conversationCount
-        messagesByType
-        messagesByStatus
-        messagesByMonth
-        deliveryRate
-        readRate
-      }
-    }
-  `;
 
-  const GET_CONTACTS_WHATSAPP_SUMMARY = gql`
-    query GetContactsWhatsAppSummary($contactIds: [String!]!) {
-      getContactsWhatsAppSummary(contactIds: $contactIds) {
-        contactId
-        phoneNumber
-        totalMessages
-        lastMessageDate
-      }
-    }
-  `;
 
   // Actions
 
@@ -694,13 +661,10 @@ export const useContactStore = defineStore('contact', () => {
     whatsappError.value = null;
 
     try {
-      const response = await apolloClient.query({
-        query: GET_CONTACT_WHATSAPP_INSIGHTS,
-        variables: { contactId },
-        fetchPolicy: 'network-only'
-      });
-
-      const insights = response.data.getContactWhatsAppInsights;
+      // Utilisation du client REST au lieu de GraphQL
+      const { whatsappInsightsClient } = await import('../services/whatsappInsightsClient');
+      const insights = await whatsappInsightsClient.getContactInsights(contactId);
+      
       if (insights) {
         whatsappInsights.value.set(contactId, insights);
         return insights;
@@ -722,13 +686,9 @@ export const useContactStore = defineStore('contact', () => {
     whatsappError.value = null;
 
     try {
-      const response = await apolloClient.query({
-        query: GET_CONTACTS_WHATSAPP_SUMMARY,
-        variables: { contactIds },
-        fetchPolicy: 'network-only'
-      });
-
-      const summaries = response.data.getContactsWhatsAppSummary || [];
+      // Utilisation du client REST au lieu de GraphQL
+      const { whatsappInsightsClient } = await import('../services/whatsappInsightsClient');
+      const summaries = await whatsappInsightsClient.getContactsSummary(contactIds);
       
       // Mettre à jour le cache
       summaries.forEach((summary: WhatsAppContactSummary) => {

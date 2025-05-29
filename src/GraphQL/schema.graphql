@@ -76,6 +76,10 @@ type Query {
   whatsAppTemplateLanguages: [String!]!
   whatsAppTemplatesByHeaderFormat(headerFormat: String!, status: String): [WhatsAppTemplate!]!
   mostUsedWhatsAppTemplates(limit: Int): [WhatsAppTemplate!]!
+  
+  # WhatsApp Contact Insights queries
+  getContactWhatsAppInsights(contactId: String!): WhatsAppContactInsights
+  getContactsWhatsAppSummary(contactIds: [String!]!): [WhatsAppContactSummary!]!
 }
 
 type Segment {
@@ -461,4 +465,66 @@ input TemplateFilterInput {
   minUsageCount: Int
   orderBy: String
   orderDirection: String
+}
+
+# WhatsApp Contact Insights Types
+type WhatsAppContactInsights {
+  totalMessages: Int!
+  outgoingMessages: Int!
+  incomingMessages: Int!
+  deliveredMessages: Int!
+  readMessages: Int!
+  failedMessages: Int!
+  lastMessageDate: String
+  lastMessageType: String
+  lastMessageContent: String
+  templatesUsed: [String!]!
+  conversationCount: Int!
+  messagesByType: MessagesByTypeMap!
+  messagesByStatus: MessagesByStatusMap!
+  messagesByMonth: MessagesByMonthMap!
+  deliveryRate: Float!
+  readRate: Float!
+}
+
+type WhatsAppContactSummary {
+  contactId: String!
+  phoneNumber: String!
+  totalMessages: Int!
+  lastMessageDate: String
+}
+
+# Map types for structured data
+type MessagesByTypeMap {
+  text: Int
+  template: Int
+  image: Int
+  video: Int
+  audio: Int
+  document: Int
+  interactive: Int
+}
+
+type MessagesByStatusMap {
+  sent: Int
+  delivered: Int
+  read: Int
+  failed: Int
+  received: Int
+  pending: Int
+}
+
+type MessagesByMonthMap {
+  january: Int
+  february: Int
+  march: Int
+  april: Int
+  may: Int
+  june: Int
+  july: Int
+  august: Int
+  september: Int
+  october: Int
+  november: Int
+  december: Int
 }

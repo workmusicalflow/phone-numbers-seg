@@ -211,9 +211,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useContactStore } from '../../stores/contactStore'
-import type { WhatsAppContactInsights } from '../../types/whatsapp-insights'
 
 interface Props {
   contactId: string
