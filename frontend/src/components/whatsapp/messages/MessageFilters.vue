@@ -5,13 +5,12 @@
         <div class="col-12 col-md-3">
           <q-input
             :model-value="phoneFilter"
-            @update:model-value="$emit('update:phoneFilter', $event)"
+            @update:model-value="(value) => { $emit('update:phoneFilter', value); $emit('apply-filters'); }"
             label="Rechercher par numéro"
             outlined
             dense
             clearable
             debounce="300"
-            @update:model-value="$emit('apply-filters')"
           >
             <template v-slot:prepend>
               <q-icon name="search" />
@@ -21,7 +20,7 @@
         <div class="col-12 col-md-2">
           <q-select
             :model-value="statusFilter"
-            @update:model-value="$emit('update:statusFilter', $event)"
+            @update:model-value="(value) => { $emit('update:statusFilter', value); $emit('apply-filters'); }"
             :options="statusOptions"
             label="Statut"
             outlined
@@ -29,13 +28,12 @@
             clearable
             emit-value
             map-options
-            @update:model-value="$emit('apply-filters')"
           />
         </div>
         <div class="col-12 col-md-2">
           <q-select
             :model-value="directionFilter"
-            @update:model-value="$emit('update:directionFilter', $event)"
+            @update:model-value="(value) => { $emit('update:directionFilter', value); $emit('apply-filters'); }"
             :options="directionOptions"
             label="Direction"
             outlined
@@ -43,7 +41,6 @@
             clearable
             emit-value
             map-options
-            @update:model-value="$emit('apply-filters')"
           />
         </div>
         <div class="col-12 col-md-3">
