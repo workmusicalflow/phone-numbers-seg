@@ -60,7 +60,7 @@
         <q-virtual-scroll
           :items="filteredGroups"
           separator
-          v-slot="{ item, index }"
+          v-slot="{ item }"
           style="max-height: 300px;"
         >
           <q-item 
@@ -298,7 +298,7 @@ watch(() => props.selectedGroups, (newSelection) => {
 async function loadGroups() {
   loading.value = true
   try {
-    await contactGroupStore.loadContactGroups()
+    await contactGroupStore.fetchContactGroups()
     groups.value = contactGroupStore.contactGroups.map(group => ({
       id: group.id,
       name: group.name,
@@ -352,8 +352,8 @@ async function previewGroupContacts(group: ContactGroup) {
   
   try {
     // Charger les contacts du groupe
-    const contacts = await contactGroupStore.getGroupContacts(group.id)
-    previewContacts.value = contacts.map(contact => ({
+    await contactGroupStore.fetchContactsInGroup(String(group.id))
+    previewContacts.value = contactGroupStore.currentGroupContacts.map(contact => ({
       phoneNumber: contact.phoneNumber,
       name: contact.name
     }))
@@ -374,8 +374,8 @@ async function loadSelectedGroupsContacts() {
     const allContacts: string[] = []
     
     for (const groupId of localSelectedGroups.value) {
-      const contacts = await contactGroupStore.getGroupContacts(groupId)
-      const phoneNumbers = contacts
+      await contactGroupStore.fetchContactsInGroup(String(groupId))
+      const phoneNumbers = contactGroupStore.currentGroupContacts
         .map(contact => contact.phoneNumber)
         .filter(phone => phone && phone.startsWith('+'))
       

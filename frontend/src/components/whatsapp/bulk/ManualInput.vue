@@ -13,7 +13,7 @@
         outlined
         dense
         :error="inputError !== null"
-        :error-message="inputError"
+        :error-message="inputError || ''"
         @keyup.enter="addPhoneNumber"
         class="phone-input"
       >
@@ -61,7 +61,7 @@
             outlined
             rows="5"
             :error="batchInputError !== null"
-            :error-message="batchInputError"
+            :error-message="batchInputError || ''"
             class="batch-textarea"
           />
           
