@@ -435,7 +435,7 @@ import { useWhatsAppStore } from '@/stores/whatsappStore';
 import { useQuasar } from 'quasar';
 import ContactCountBadge from '@/components/common/ContactCountBadge.vue';
 import WhatsAppSendMessage from '@/components/whatsapp/WhatsAppSendMessage.vue';
-import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServerPaginated.vue';
+import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageList.vue';
 import WhatsAppMediaUpload from '@/components/whatsapp/WhatsAppMediaUpload.vue';
 import WhatsAppTemplateSelector from '@/components/whatsapp/WhatsAppTemplateSelector.vue';
 import WhatsAppMessageComposer from '@/components/whatsapp/WhatsAppMessageComposer.vue';

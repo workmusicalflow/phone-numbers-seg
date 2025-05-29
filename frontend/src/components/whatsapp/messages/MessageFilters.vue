@@ -160,7 +160,7 @@ interface Emits {
   (e: 'clear-all-filters'): void;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   loading: false,
   hasMessages: false,
   activeFilters: () => [],

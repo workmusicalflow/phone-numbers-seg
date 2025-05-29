@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useQuasar } from 'quasar';
+// import { useQuasar } from 'quasar'; // Non utilisé car géré dans useMessageActions
 import { useWhatsAppStore, type WhatsAppMessageHistory } from '../../../stores/whatsappStore';
 import { useMessageFilters } from './composables/useMessageFilters';
 import { useMessagePagination } from './composables/useMessagePagination';
@@ -71,7 +71,7 @@ import MessageTable from './MessageTable.vue';
 import ReplyDialog from './ReplyDialog.vue';
 import MessageDetailsDialog from './MessageDetailsDialog.vue';
 
-const $q = useQuasar();
+// const $q = useQuasar(); // Non utilisé car géré dans useMessageActions
 const whatsAppStore = useWhatsAppStore();
 
 // État local

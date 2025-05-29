@@ -182,7 +182,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+// import { computed } from 'vue'; // Non utilisé actuellement
 import type { WhatsAppMessageHistory } from '../../../stores/whatsappStore';
 import type { PaginationState } from './composables/useMessagePagination';
 import { useMessageFormatters } from './composables/useMessageFormatters';
@@ -206,7 +206,7 @@ interface Emits {
   (e: 'update:page', page: number): void;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   loading: false
 });
 
