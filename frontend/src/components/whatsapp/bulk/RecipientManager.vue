@@ -26,6 +26,7 @@
       <q-tab name="csv" icon="upload_file" label="Import CSV" />
       <q-tab name="groups" icon="group" label="Groupes" />
       <q-tab name="segments" icon="category" label="Segments" />
+      <q-tab name="all" icon="groups" label="Tous les contacts" />
     </q-tabs>
     
     <q-tab-panels v-model="recipientTab" animated class="tab-panels">
@@ -55,6 +56,14 @@
           :selected-segments="selectedSegments"
           @update:selected-segments="updateSelectedSegments"
           @recipients-loaded="handleSegmentRecipients"
+        />
+      </q-tab-panel>
+      
+      <q-tab-panel name="all" class="all-panel">
+        <AllContactsSelector
+          :is-selected="allContactsSelected"
+          @update:is-selected="updateAllContactsSelected"
+          @recipients-loaded="handleAllContactsRecipients"
         />
       </q-tab-panel>
     </q-tab-panels>
@@ -159,6 +168,7 @@ import ManualInput from './ManualInput.vue'
 import CsvImport from './CsvImport.vue'
 import GroupSelector from './GroupSelector.vue'
 import SegmentSelector from './SegmentSelector.vue'
+import AllContactsSelector from './AllContactsSelector.vue'
 
 interface Props {
   recipients?: string[]
@@ -190,6 +200,7 @@ const recipientTab = ref(props.recipientTab)
 const recipients = ref([...props.recipients])
 const selectedGroups = ref([...props.selectedGroups])
 const selectedSegments = ref([...props.selectedSegments])
+const allContactsSelected = ref(false)
 
 // Validation des numéros de téléphone
 const phoneRegex = /^\+[1-9]\d{1,14}$/
@@ -249,6 +260,14 @@ function handleSegmentRecipients(segmentRecipients: string[]) {
   recipients.value = [...new Set([...recipients.value, ...segmentRecipients])]
 }
 
+function updateAllContactsSelected(isSelected: boolean) {
+  allContactsSelected.value = isSelected
+}
+
+function handleAllContactsRecipients(allContacts: string[]) {
+  recipients.value = [...new Set([...recipients.value, ...allContacts])]
+}
+
 function removeInvalidNumber(number: string) {
   const index = recipients.value.indexOf(number)
   if (index > -1) {
@@ -297,6 +316,7 @@ function clearRecipients() {
     recipients.value = []
     selectedGroups.value = []
     selectedSegments.value = []
+    allContactsSelected.value = false
     $q.notify({
       type: 'info',
       message: 'Liste des destinataires vidée',
@@ -345,7 +365,8 @@ function clearRecipients() {
     .manual-panel,
     .csv-panel,
     .groups-panel,
-    .segments-panel {
+    .segments-panel,
+    .all-panel {
       padding: 16px 0;
     }
   }
