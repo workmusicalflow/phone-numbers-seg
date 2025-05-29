@@ -4,6 +4,7 @@ namespace App\Services\WhatsApp\Bus;
 
 use App\Services\WhatsApp\Commands\CommandInterface;
 use App\Services\WhatsApp\Commands\CommandResult;
+use App\Services\WhatsApp\Handlers\HandlerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -19,6 +20,11 @@ class CommandBus
     private LoggerInterface $logger;
     private array $middleware = [];
     private array $commandStats = [];
+    
+    /**
+     * @var array<HandlerInterface>
+     */
+    private array $handlers = [];
 
     public function __construct(LoggerInterface $logger)
     {
@@ -31,6 +37,14 @@ class CommandBus
     public function addMiddleware(MiddlewareInterface $middleware): void
     {
         $this->middleware[] = $middleware;
+    }
+
+    /**
+     * Enregistre un handler pour traiter des commandes
+     */
+    public function registerHandler(HandlerInterface $handler): void
+    {
+        $this->handlers[] = $handler;
     }
 
     /**
@@ -56,8 +70,15 @@ class CommandBus
                 }
             }
 
-            // Exécuter la commande
-            $result = $command->execute();
+            // Trouver un handler pour la commande ou exécuter directement
+            $handler = $this->findHandler($command);
+            
+            if ($handler !== null) {
+                $result = $handler->handle($command);
+            } else {
+                // Fallback : exécuter la commande directement
+                $result = $command->execute();
+            }
 
             // Exécuter les middlewares après
             foreach (array_reverse($this->middleware) as $middleware) {
@@ -146,5 +167,19 @@ class CommandBus
     public function resetStatistics(): void
     {
         $this->commandStats = [];
+    }
+
+    /**
+     * Trouve un handler pour une commande donnée
+     */
+    private function findHandler(CommandInterface $command): ?HandlerInterface
+    {
+        foreach ($this->handlers as $handler) {
+            if ($handler->supports($command)) {
+                return $handler;
+            }
+        }
+        
+        return null;
     }
 }

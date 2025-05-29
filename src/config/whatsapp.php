@@ -14,21 +14,23 @@ if (file_exists(__DIR__ . '/../../.env') && !isset($_ENV['WHATSAPP_API_TOKEN']) 
 }
 
 // Fonction utilitaire pour récupérer les variables d'environnement depuis différentes sources
-function get_env_var($name, $default = null) {
-    if (isset($_ENV[$name])) {
-        return $_ENV[$name];
+if (!function_exists('get_env_var')) {
+    function get_env_var($name, $default = null) {
+        if (isset($_ENV[$name])) {
+            return $_ENV[$name];
+        }
+        
+        if (isset($_SERVER[$name])) {
+            return $_SERVER[$name];
+        }
+        
+        $value = getenv($name);
+        if ($value !== false) {
+            return $value;
+        }
+        
+        return $default;
     }
-    
-    if (isset($_SERVER[$name])) {
-        return $_SERVER[$name];
-    }
-    
-    $value = getenv($name);
-    if ($value !== false) {
-        return $value;
-    }
-    
-    return $default;
 }
 
 // Configuration complète avec valeurs hardcodées de secours depuis .env

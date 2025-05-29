@@ -124,12 +124,6 @@
               <span class="item-label">Durée estimée:</span>
               <span class="item-value">{{ estimatedDuration }}</span>
             </div>
-            
-            <div class="summary-item">
-              <q-icon name="euro" class="item-icon" />
-              <span class="item-label">Coût estimé:</span>
-              <span class="item-value">{{ estimatedCost }}</span>
-            </div>
           </div>
         </div>
       </div>
@@ -181,7 +175,6 @@ interface Props {
   batchSize?: number
   batchDelay?: number
   estimatedDuration?: string
-  estimatedCost?: string
 }
 
 interface Emits {
@@ -206,8 +199,7 @@ const props = withDefaults(defineProps<Props>(), {
   warnings: () => [],
   batchSize: 20,
   batchDelay: 1000,
-  estimatedDuration: '--',
-  estimatedCost: '--'
+  estimatedDuration: '--'
 })
 
 const emit = defineEmits<Emits>()

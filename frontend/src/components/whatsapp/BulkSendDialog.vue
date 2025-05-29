@@ -133,7 +133,7 @@
                   :warnings="warnings"
                   :estimated-duration="estimatedDuration"
                   :estimated-cost="estimatedCost"
-                  @send="startSending"
+                  @send="handleStartSending"
                   @pause="pauseSending"
                   @resume="resumeSending"
                   @stop="stopSending"
@@ -330,6 +330,27 @@ onMounted(async () => {
 })
 
 // Methods
+async function handleStartSending() {
+  console.log('[BulkSendDialog] Démarrage de l\'envoi', {
+    recipients: recipients.value,
+    template: selectedTemplate.value,
+    customization: templateCustomization.value
+  })
+  
+  if (!selectedTemplate.value || !currentTemplate.value) {
+    console.error('[BulkSendDialog] Aucun template sélectionné')
+    return
+  }
+  
+  // Appeler startSending avec les bons paramètres
+  await startSending(
+    recipients.value,
+    selectedTemplate.value, // nom du template
+    currentTemplate.value.language || 'fr',
+    templateCustomization.value
+  )
+}
+
 function handleCancel() {
   if (sending.value) {
     stopSending()

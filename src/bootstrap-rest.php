@@ -17,6 +17,7 @@ if (class_exists('\\Dotenv\\Dotenv') && file_exists(__DIR__ . '/../.env')) {
 use DI\ContainerBuilder;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\ORMSetup;
+use Doctrine\DBAL\DriverManager;
 use App\Services\WhatsApp\WhatsAppService;
 use App\Services\WhatsApp\WhatsAppApiClient;
 use App\Services\Interfaces\WhatsApp\WhatsAppApiClientInterface;
@@ -31,6 +32,35 @@ use App\Repositories\Doctrine\WhatsApp\WhatsAppTemplateRepository;
 use App\Repositories\Doctrine\WhatsApp\WhatsAppTemplateHistoryRepository;
 use Psr\Log\LoggerInterface;
 use App\Services\SimpleLogger;
+use App\Services\AuthService;
+use App\Services\Interfaces\AuthServiceInterface;
+use App\Services\EmailService;
+use App\Services\Interfaces\EmailServiceInterface;
+use App\GraphQL\Context\GraphQLContextFactory;
+use App\Repositories\Interfaces\UserRepositoryInterface;
+use App\Repositories\Doctrine\UserRepository;
+use App\Repositories\Interfaces\ContactGroupMembershipRepositoryInterface;
+use App\Repositories\Doctrine\ContactGroupMembershipRepository;
+use App\Repositories\Interfaces\ContactGroupRepositoryInterface;
+use App\Repositories\Doctrine\ContactGroupRepository;
+use App\Repositories\Interfaces\ContactRepositoryInterface;
+use App\Repositories\Doctrine\ContactRepository;
+use App\GraphQL\Formatters\GraphQLFormatterInterface;
+use App\GraphQL\Formatters\GraphQLFormatterService;
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface;
+use App\Repositories\Doctrine\CustomSegmentRepository;
+use App\Services\SenderNameService;
+use App\Services\OrangeAPIConfigService;
+use App\Repositories\Interfaces\SenderNameRepositoryInterface;
+use App\Repositories\Doctrine\SenderNameRepository;
+use App\Repositories\Interfaces\OrangeAPIConfigRepositoryInterface;
+use App\Repositories\Doctrine\OrangeAPIConfigRepository;
+use App\Repositories\Interfaces\SMSHistoryRepositoryInterface;
+use App\Repositories\Doctrine\SMSHistoryRepository;
+use App\Services\WhatsApp\Bus\CommandBus;
+use App\Services\WhatsApp\Bus\LoggingMiddleware;
+use App\Services\WhatsApp\Handlers\BulkSendHandler;
+use App\Services\WhatsApp\Events\EventDispatcher;
 
 // Fonction d'aide pour le logging
 $logFile = __DIR__ . '/../logs/bootstrap-rest-debug.log';
@@ -65,20 +95,10 @@ try {
             $proxyDir,
             $cache
         );
-    } else if (method_exists(ORMSetup::class, 'createAnnotationMetadataConfiguration')) {
-        // Ancienne méthode pour Doctrine 2.x (avec annotations)
-        $logMessage("Utilisation de createAnnotationMetadataConfiguration (Doctrine 2.x)");
-        $config = ORMSetup::createAnnotationMetadataConfiguration(
-            $paths,
-            $isDevMode,
-            $proxyDir,
-            $cache,
-            $useSimpleAnnotationReader
-        );
     } else {
-        // Méthode de secours pour les versions très récentes
-        $logMessage("Utilisation de createDefaultMetadataConfiguration");
-        $config = ORMSetup::createDefaultConfiguration(
+        // Méthode de secours : utiliser la configuration XML/YAML si les attributs ne sont pas disponibles
+        $logMessage("Utilisation de createXMLMetadataConfiguration en fallback");
+        $config = ORMSetup::createXMLMetadataConfiguration(
             $paths,
             $isDevMode,
             $proxyDir,
@@ -98,20 +118,14 @@ try {
     // Créer l'EntityManager
     $logMessage("Création de l'EntityManager");
     
-    // Vérifier la méthode disponible pour créer l'EntityManager selon la version de Doctrine
-    if (method_exists(EntityManager::class, 'create')) {
-        // Méthode traditionnelle pour Doctrine 2.x
-        $logMessage("Utilisation de EntityManager::create (Doctrine 2.x)");
-        $entityManager = EntityManager::create($conn, $config);
-    } else {
-        // Méthode pour Doctrine 3.x
-        $logMessage("Utilisation de la nouvelle méthode pour Doctrine 3.x");
-        // Utilisation de la factory
-        $entityManager = new \Doctrine\ORM\EntityManager(
-            \Doctrine\DBAL\DriverManager::getConnection($conn, $config),
-            $config
-        );
-    }
+    // Créer l'EntityManager avec la méthode moderne
+    $logMessage("Création de l'EntityManager avec DriverManager");
+    
+    // Créer la connexion DBAL
+    $connection = DriverManager::getConnection($conn, $config);
+    
+    // Créer l'EntityManager
+    $entityManager = new EntityManager($connection, $config);
     
     // Créer le conteneur
     $logMessage("Création du conteneur DI");
@@ -159,7 +173,7 @@ try {
         },
         
         // Services WhatsApp
-        WhatsAppApiClientInterface::class => function (LoggerInterface $logger) use ($containerBuilder) {
+        WhatsAppApiClientInterface::class => function (LoggerInterface $logger) {
             $config = [
                 'app_id' => '1193922949108494',
                 'phone_number_id' => '660953787095211',
@@ -186,7 +200,7 @@ try {
             WhatsAppTemplateRepositoryInterface $templateRepo,
             LoggerInterface $logger,
             WhatsAppTemplateServiceInterface $templateService
-        ) use ($containerBuilder) {
+        ) {
             // Template history repo is optional
             $templateHistoryRepo = null;
             
@@ -200,6 +214,95 @@ try {
                 'base_url' => 'https://graph.facebook.com' // URL de base de l'API WhatsApp Cloud
             ];
             return new WhatsAppService($apiClient, $messageHistoryRepo, $templateRepo, $logger, $config, $templateService, $templateHistoryRepo);
+        },
+        
+        // User Repository
+        UserRepositoryInterface::class => function (EntityManager $entityManager) {
+            return new UserRepository($entityManager, $entityManager->getClassMetadata(\App\Entities\User::class));
+        },
+        
+        // Contact Repository
+        ContactRepositoryInterface::class => function (EntityManager $entityManager) {
+            return new ContactRepository($entityManager);
+        },
+        
+        // Contact Group Membership Repository
+        ContactGroupMembershipRepositoryInterface::class => function (EntityManager $entityManager) {
+            return new ContactGroupMembershipRepository($entityManager);
+        },
+        
+        // Contact Group Repository
+        ContactGroupRepositoryInterface::class => function (EntityManager $entityManager, ContactRepositoryInterface $contactRepo, ContactGroupMembershipRepositoryInterface $membershipRepo) {
+            return new ContactGroupRepository($entityManager, $contactRepo, $membershipRepo);
+        },
+        
+        // Custom Segment Repository
+        CustomSegmentRepositoryInterface::class => function (EntityManager $entityManager) {
+            return new CustomSegmentRepository($entityManager);
+        },
+        
+        // Sender Name Repository
+        SenderNameRepositoryInterface::class => function (EntityManager $entityManager) {
+            return new SenderNameRepository($entityManager);
+        },
+        
+        // Orange API Config Repository
+        OrangeAPIConfigRepositoryInterface::class => function (EntityManager $entityManager) {
+            return new OrangeAPIConfigRepository($entityManager);
+        },
+        
+        // SMS History Repository
+        SMSHistoryRepositoryInterface::class => function (EntityManager $entityManager) {
+            return new SMSHistoryRepository($entityManager);
+        },
+        
+        // Sender Name Service
+        SenderNameService::class => function (SenderNameRepositoryInterface $senderNameRepo) {
+            return new SenderNameService($senderNameRepo);
+        },
+        
+        // Orange API Config Service
+        OrangeAPIConfigService::class => function (OrangeAPIConfigRepositoryInterface $orangeAPIConfigRepo) {
+            return new OrangeAPIConfigService($orangeAPIConfigRepo);
+        },
+        
+        // GraphQL Formatter Service
+        GraphQLFormatterInterface::class => function (CustomSegmentRepositoryInterface $customSegmentRepo, LoggerInterface $logger, SenderNameService $senderNameService, OrangeAPIConfigService $orangeAPIConfigService) {
+            return new GraphQLFormatterService($customSegmentRepo, $logger, $senderNameService, $orangeAPIConfigService);
+        },
+        
+        // Email Service
+        EmailServiceInterface::class => function () {
+            return new EmailService();
+        },
+        
+        // Auth Service
+        AuthServiceInterface::class => function (UserRepositoryInterface $userRepo, EmailServiceInterface $emailService, LoggerInterface $logger) {
+            return new AuthService($userRepo, $emailService, $logger);
+        },
+        
+        // GraphQL Context Factory
+        GraphQLContextFactory::class => function ($container, AuthServiceInterface $authService) {
+            return new GraphQLContextFactory($container, $authService);
+        },
+        
+        // EventDispatcher pour les événements d'envoi en masse
+        EventDispatcher::class => function (LoggerInterface $logger) {
+            return new EventDispatcher($logger);
+        },
+        
+        // CommandBus avec BulkSendHandler
+        'whatsapp.command_bus.bulk' => function (LoggerInterface $logger, WhatsAppServiceInterface $whatsappService, EventDispatcher $eventDispatcher) {
+            $commandBus = new CommandBus($logger);
+            
+            // Ajouter le middleware de logging
+            $commandBus->addMiddleware(new LoggingMiddleware($logger));
+            
+            // Enregistrer le BulkSendHandler
+            $bulkSendHandler = new BulkSendHandler($whatsappService, $eventDispatcher, $logger);
+            $commandBus->registerHandler($bulkSendHandler);
+            
+            return $commandBus;
         },
         
         // Aliases concrets pour faciliter l'usage

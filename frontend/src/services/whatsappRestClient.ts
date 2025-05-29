@@ -41,6 +41,39 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
   'access_denied': 'Accès refusé à l\'API WhatsApp. Vérifiez votre token d\'accès.'
 };
 
+interface BulkSendOptions {
+  batchSize?: number
+  delayBetweenBatches?: number
+  stopOnError?: boolean
+}
+
+interface BulkSendRequest {
+  recipients: string[]
+  templateName: string
+  templateLanguage?: string
+  bodyVariables?: string[]
+  headerVariables?: string[]
+  headerMediaUrl?: string
+  headerMediaId?: string
+  defaultParameters?: Record<string, string>
+  recipientParameters?: Record<string, Record<string, string>>
+  options?: BulkSendOptions
+  includeDetails?: boolean
+}
+
+interface BulkSendResponse {
+  success: boolean
+  message: string
+  data: {
+    totalSent: number
+    totalFailed: number
+    totalAttempted: number
+    successRate: number
+    errorSummary: Record<string, number>
+    failedRecipients?: Record<string, { error: string; code?: string }>
+  }
+}
+
 /**
  * Client REST pour l'API WhatsApp
  * 
@@ -381,6 +414,52 @@ export class WhatsAppRestClient {
     
     // Erreur générique
     return `Erreur lors de l'envoi du template "${templateName}": ${errorMessage}`;
+  }
+
+  /**
+   * Envoie un template WhatsApp à plusieurs destinataires
+   * @param request Données de l'envoi en masse
+   * @returns Résultat de l'envoi en masse
+   */
+  async sendBulkTemplate(request: BulkSendRequest): Promise<BulkSendResponse> {
+    try {
+      console.log('Envoi en masse WhatsApp:', {
+        recipients: request.recipients.length,
+        template: request.templateName,
+        options: request.options
+      });
+
+      // Valider la requête
+      if (!request.recipients || request.recipients.length === 0) {
+        throw new Error('La liste des destinataires est vide');
+      }
+
+      if (!request.templateName) {
+        throw new Error('Le nom du template est requis');
+      }
+
+      // Envoyer la requête à l'API (l'authentification se fait par session/cookies)
+      const response = await whatsappApi.post(
+        '/whatsapp/bulk-send.php',
+        request
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Erreur lors de l\'envoi en masse:', error);
+      
+      return {
+        success: false,
+        message: error.response?.data?.error || error.message || 'Erreur lors de l\'envoi en masse',
+        data: {
+          totalSent: 0,
+          totalFailed: 0,
+          totalAttempted: 0,
+          successRate: 0,
+          errorSummary: {}
+        }
+      };
+    }
   }
 }
 

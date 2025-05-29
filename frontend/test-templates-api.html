@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Templates WhatsApp</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #25D366;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #128C7E;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .template-list {
+            margin-top: 20px;
+        }
+        .template-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .template-header {
+            font-weight: bold;
+            color: #25D366;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test API Templates WhatsApp</h1>
+        
+        <div>
+            <button onclick="testTemplatesAPI()">Tester l'API Templates</button>
+            <button onclick="testDirectAPI()">Test Direct (sans authentification)</button>
+            <button onclick="clearResults()">Effacer les résultats</button>
+        </div>
+        
+        <div id="status"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'loading') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function showResults(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (data.templates && Array.isArray(data.templates)) {
+                let html = '<h2>Templates trouvés (' + data.templates.length + ')</h2>';
+                html += '<div class="template-list">';
+                
+                data.templates.forEach(template => {
+                    html += '<div class="template-item">';
+                    html += '<div class="template-header">' + template.name + '</div>';
+                    html += '<div>Langue: ' + template.language + '</div>';
+                    html += '<div>Catégorie: ' + template.category + '</div>';
+                    html += '<div>Statut: ' + template.status + '</div>';
+                    if (template.bodyVariablesCount > 0) {
+                        html += '<div>Variables: ' + template.bodyVariablesCount + '</div>';
+                    }
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            }
+        }
+
+        async function testTemplatesAPI() {
+            showStatus('Chargement des templates...', 'loading');
+            
+            try {
+                const response = await fetch('/api/whatsapp/templates/approved.php?force_meta=true&force_refresh=true&debug=true', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus('Templates chargés avec succès!', 'success');
+                    showResults(data);
+                    console.log('Templates API Response:', data);
+                } else {
+                    showStatus('Erreur: ' + (data.error || data.message || 'Erreur inconnue'), 'error');
+                    showResults(data);
+                }
+            } catch (error) {
+                showStatus('Erreur de connexion: ' + error.message, 'error');
+                document.getElementById('results').innerHTML = '<pre>' + error.stack + '</pre>';
+            }
+        }
+
+        async function testDirectAPI() {
+            showStatus('Test direct de l\'API...', 'loading');
+            
+            try {
+                // Test sans authentification pour voir la réponse
+                const response = await fetch('/api/whatsapp/templates/approved.php', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const text = await response.text();
+                let data;
+                
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    showStatus('Réponse non-JSON reçue', 'error');
+                    document.getElementById('results').innerHTML = '<pre>Status: ' + response.status + '\n\n' + text + '</pre>';
+                    return;
+                }
+                
+                showStatus('Réponse reçue (Status: ' + response.status + ')', response.ok ? 'success' : 'error');
+                showResults(data);
+                
+            } catch (error) {
+                showStatus('Erreur de connexion: ' + error.message, 'error');
+                document.getElementById('results').innerHTML = '<pre>' + error.stack + '</pre>';
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('status').innerHTML = '';
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Test automatique au chargement
+        window.onload = function() {
+            console.log('Page de test chargée - Cliquez sur un bouton pour tester l\'API');
+        };
+    </script>
+</body>
+</html>

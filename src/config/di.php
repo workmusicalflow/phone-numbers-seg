@@ -23,6 +23,7 @@ $configFiles = [
     $configDir . 'interfaces.php',
     $configDir . 'dataloaders.php', // Added DataLoaders configuration
     $configDir . 'whatsapp.php',    // Configuration WhatsApp Business API
+    $configDir . 'whatsapp-bulk-send.php', // Configuration bulk send WhatsApp
     $configDir . 'other.php', // Core setup, controllers, middleware, observers
 ];
 

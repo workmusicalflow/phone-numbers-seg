@@ -4,7 +4,15 @@
       <div class="row items-center q-mb-md">
         <h1 class="text-h4 q-my-none">WhatsApp</h1>
         <q-space />
-        <div v-if="userStore.currentUser" class="row items-center">
+        <div v-if="userStore.currentUser" class="row items-center q-gutter-sm">
+          <!-- Bouton envoi en masse -->
+          <q-btn
+            unelevated
+            color="primary"
+            icon="mdi-send-multiple"
+            label="Envoi en masse"
+            @click="showBulkSendDialog = true"
+          />
           <!-- Badge contacts WhatsApp (utilise les mêmes contacts) -->
           <ContactCountBadge
             :count="contactsCount"
@@ -409,6 +417,12 @@
         </q-tab-panel>
       </q-tab-panels>
     </div>
+
+    <!-- Dialog d'envoi en masse -->
+    <BulkSendDialog
+      v-model="showBulkSendDialog"
+      @sent="onBulkSendComplete"
+    />
   </q-page>
 </template>
 
@@ -425,6 +439,7 @@ import WhatsAppMessageList from '@/components/whatsapp/WhatsAppMessageListServer
 import WhatsAppMediaUpload from '@/components/whatsapp/WhatsAppMediaUpload.vue';
 import WhatsAppTemplateSelector from '@/components/whatsapp/WhatsAppTemplateSelector.vue';
 import WhatsAppMessageComposer from '@/components/whatsapp/WhatsAppMessageComposer.vue';
+import BulkSendDialog from '@/components/whatsapp/BulkSendDialog.vue';
 import type { WhatsAppTemplateData } from '@/types/whatsapp-templates';
 
 // Stores and utilities
@@ -439,6 +454,7 @@ const $q = useQuasar();
 const activeTab = ref('send');
 const contactsCount = ref(0);
 const currentStep = ref('recipient'); // 'recipient', 'template', 'customize', 'success'
+const showBulkSendDialog = ref(false);
 const selectedRecipient = ref('');
 const selectedTemplateData = ref<WhatsAppTemplateData | null>(null);
 const lastSentTemplateMessage = ref<{
@@ -661,6 +677,21 @@ const goToMessages = () => {
 // Aller à la page des templates
 const goToTemplatesPage = () => {
   router.push('/whatsapp-templates');
+};
+
+// Handler pour l'envoi en masse terminé
+const onBulkSendComplete = (result: any) => {
+  showBulkSendDialog.value = false;
+  
+  $q.notify({
+    type: result.failed === 0 ? 'positive' : 'warning',
+    message: `Envoi en masse terminé: ${result.successful} réussis, ${result.failed} échecs`,
+    timeout: 5000,
+    position: 'top'
+  });
+  
+  // Rafraîchir les messages
+  whatsAppStore.fetchMessages();
 };
 
 // Fonction pour rafraîchir le nombre de contacts

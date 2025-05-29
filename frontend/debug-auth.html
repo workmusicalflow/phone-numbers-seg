@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Auth - WhatsApp Bulk Send</title>
+</head>
+<body>
+    <h1>Debug Auth WhatsApp</h1>
+    <div id="debug-info"></div>
+    <br>
+    <button onclick="testBulkSend()">Test Bulk Send</button>
+    <div id="result"></div>
+
+    <script>
+        // Debug auth information
+        function debugAuth() {
+            const authToken = localStorage.getItem('auth_token');
+            const authTokenOld = localStorage.getItem('authToken');
+            
+            document.getElementById('debug-info').innerHTML = `
+                <p><strong>auth_token:</strong> ${authToken ? '✅ Present' : '❌ Missing'}</p>
+                <p><strong>authToken (old):</strong> ${authTokenOld ? '✅ Present' : '❌ Missing'}</p>
+                <p><strong>auth_token length:</strong> ${authToken ? authToken.length : 'N/A'}</p>
+                <p><strong>Current URL:</strong> ${window.location.href}</p>
+            `;
+        }
+
+        // Test bulk send request
+        async function testBulkSend() {
+            const authToken = localStorage.getItem('auth_token');
+            
+            if (!authToken) {
+                document.getElementById('result').innerHTML = '<p style="color: red;">❌ No auth token found</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/whatsapp/bulk-send.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        recipients: ['+2250700000000'],
+                        templateName: 'test',
+                        templateLanguage: 'fr'
+                    })
+                });
+
+                const data = await response.json();
+                
+                document.getElementById('result').innerHTML = `
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Response:</strong></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <p style="color: red;"><strong>Error:</strong> ${error.message}</p>
+                `;
+            }
+        }
+
+        // Run debug on load
+        debugAuth();
+    </script>
+</body>
+</html>

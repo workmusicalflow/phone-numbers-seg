@@ -3,11 +3,9 @@
  * Configuration d'injection de dépendances pour les services WhatsApp
  */
 
-use App\Entities\WhatsApp\WhatsAppMessage;
 use App\Entities\WhatsApp\WhatsAppMessageHistory;
 use App\Entities\WhatsApp\WhatsAppTemplate;
 use App\Entities\WhatsApp\WhatsAppQueue;
-use App\GraphQL\Controllers\WhatsApp\WebhookController;
 use App\Repositories\Doctrine\WhatsApp\WhatsAppMessageRepository;
 use App\Repositories\Doctrine\WhatsApp\WhatsAppMessageHistoryRepository;
 use App\Repositories\Doctrine\WhatsApp\WhatsAppTemplateRepository;
@@ -30,9 +28,7 @@ use App\Repositories\Doctrine\WhatsApp\WhatsAppTemplateHistoryRepository;
 use App\Services\WhatsApp\WebhookVerificationService;
 use App\Services\WhatsApp\WhatsAppApiClient;
 use App\Services\WhatsApp\WhatsAppMessageService;
-use App\Services\WhatsApp\WhatsAppService;
 use App\Services\WhatsApp\WhatsAppServiceEnhanced;
-use App\Services\WhatsApp\WhatsAppServiceRefactored;
 use App\Services\WhatsApp\WhatsAppServiceWithCommands;
 use App\Services\WhatsApp\WhatsAppServiceWithResilience;
 use App\Services\WhatsApp\WhatsAppTemplateService;
@@ -100,15 +96,16 @@ return array_merge([
         );
     }),
     
-    // Service WhatsApp refactorisé (Phase 1)
-    WhatsAppServiceRefactored::class => \DI\factory(function(\Psr\Container\ContainerInterface $container) {
-        return new WhatsAppServiceRefactored(
+    // Service WhatsApp Enhanced (Phase 1)
+    WhatsAppServiceEnhanced::class => \DI\factory(function(\Psr\Container\ContainerInterface $container) {
+        return new WhatsAppServiceEnhanced(
             $container->get(WhatsAppApiClientInterface::class),
             $container->get(WhatsAppMessageHistoryRepositoryInterface::class),
             $container->get(WhatsAppTemplateRepositoryInterface::class),
             $container->get(LoggerInterface::class),
             $container->get('whatsapp.config'),
-            $container->get(WhatsAppTemplateServiceInterface::class)
+            $container->get(WhatsAppTemplateServiceInterface::class),
+            $container->get(WhatsAppTemplateHistoryRepositoryInterface::class)
         );
     }),
     

@@ -69,6 +69,97 @@ Run tests with PHPUnit:
 composer test
 ```
 
+## API Documentation
+
+### WhatsApp Bulk Send API
+
+Endpoint pour envoyer des messages WhatsApp template à plusieurs destinataires.
+
+#### Endpoint
+```
+POST /api/whatsapp/bulk-send.php
+```
+
+#### Headers requis
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+#### Paramètres
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `recipients` | array | Oui | Liste des numéros de téléphone (format: +225XXXXXXXXXX) |
+| `templateName` | string | Oui | Nom du template WhatsApp approuvé |
+| `defaultParameters` | object | Non | Paramètres par défaut pour le template |
+| `recipientParameters` | object | Non | Paramètres spécifiques par destinataire |
+| `options` | object | Non | Options de traitement (voir ci-dessous) |
+
+#### Options disponibles
+
+| Option | Type | Défaut | Description |
+|--------|------|---------|-------------|
+| `batchSize` | int | 50 | Nombre de messages par batch |
+| `delayBetweenBatches` | int | 1000 | Délai en ms entre les batches |
+| `stopOnError` | bool | false | Arrêter l'envoi en cas d'erreur |
+
+#### Exemple de requête
+
+```json
+{
+  "recipients": ["+22501234567", "+22507654321"],
+  "templateName": "hello_world",
+  "defaultParameters": {
+    "bodyParams": ["John"]
+  },
+  "options": {
+    "batchSize": 50,
+    "stopOnError": false
+  }
+}
+```
+
+#### Réponse succès (200)
+
+```json
+{
+  "success": true,
+  "message": "2 messages envoyés sur 2 (100.0% de réussite)",
+  "data": {
+    "totalSent": 2,
+    "totalFailed": 0,
+    "totalAttempted": 2,
+    "successRate": 100.0,
+    "errorSummary": {}
+  }
+}
+```
+
+#### Réponse avec erreurs partielles (207)
+
+```json
+{
+  "success": true,
+  "message": "1 messages envoyés sur 2 (50.0% de réussite)",
+  "data": {
+    "totalSent": 1,
+    "totalFailed": 1,
+    "totalAttempted": 2,
+    "successRate": 50.0,
+    "errorSummary": {
+      "INVALID_NUMBER": 1
+    }
+  }
+}
+```
+
+#### Limites
+
+- Maximum **500 destinataires** par requête
+- Les crédits SMS de l'utilisateur doivent être suffisants
+- Utilise les templates WhatsApp approuvés uniquement
+
 ## License
 
 Proprietary
