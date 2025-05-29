@@ -44,18 +44,18 @@
           />
         </div>
         <div class="col-12 col-md-3">
-          <q-date 
+          <q-input
             v-model="dateFilter"
             label="Filtrer par date"
             outlined
             dense
-            mask="YYYY-MM-DD"
-            @update:model-value="applyFilters"
+            readonly
+            @click="showDatePicker = true"
           >
             <template v-slot:prepend>
               <q-icon name="event" class="cursor-pointer">
-                <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                  <q-date v-model="dateFilter" mask="YYYY-MM-DD" @update:model-value="applyFilters">
+                <q-popup-proxy v-model="showDatePicker" cover transition-show="scale" transition-hide="scale">
+                  <q-date v-model="dateFilter" mask="YYYY-MM-DD" @update:model-value="() => { applyFilters(); showDatePicker = false; }">
                     <div class="row items-center justify-end">
                       <q-btn v-close-popup label="Fermer" color="primary" flat />
                     </div>
@@ -63,7 +63,15 @@
                 </q-popup-proxy>
               </q-icon>
             </template>
-          </q-date>
+            <template v-slot:append>
+              <q-icon 
+                v-if="dateFilter" 
+                name="close" 
+                @click.stop="dateFilter = ''; applyFilters()" 
+                class="cursor-pointer" 
+              />
+            </template>
+          </q-input>
         </div>
         <div class="col-12 col-md-2 flex items-center">
           <q-btn 
@@ -459,6 +467,7 @@ const phoneFilter = ref('');
 const statusFilter = ref('');
 const directionFilter = ref('');
 const dateFilter = ref('');
+const showDatePicker = ref(false);
 
 // État de la pagination
 const pagination = ref({
