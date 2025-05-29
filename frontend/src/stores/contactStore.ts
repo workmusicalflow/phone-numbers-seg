@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { apolloClient, gql } from '../services/api';
+import type { WhatsAppContactInsights, WhatsAppContactSummary, WhatsAppInsightsState } from '../types/whatsapp-insights';
 
 interface Contact {
   id: string;
@@ -54,6 +55,12 @@ export const useContactStore = defineStore('contact', () => {
   const currentGroupId = ref<string | null>(null); // Stores the current group filter ID
   const sortBy = ref('name'); // Default sort column
   const sortDesc = ref(false); // Default sort direction
+
+  // État WhatsApp Insights
+  const whatsappInsights = ref<Map<string, WhatsAppContactInsights>>(new Map());
+  const whatsappSummaries = ref<Map<string, WhatsAppContactSummary>>(new Map());
+  const whatsappLoading = ref(false);
+  const whatsappError = ref<string | null>(null);
 
   // Getters
   // Removed filteredContacts and paginatedContacts as data fetching handles this now.
@@ -263,6 +270,41 @@ export const useContactStore = defineStore('contact', () => {
       groupsForContact(contactId: $contactId) {
         id
         name
+      }
+    }
+  `;
+
+  // Requêtes GraphQL pour les insights WhatsApp
+  const GET_CONTACT_WHATSAPP_INSIGHTS = gql`
+    query GetContactWhatsAppInsights($contactId: String!) {
+      getContactWhatsAppInsights(contactId: $contactId) {
+        totalMessages
+        outgoingMessages
+        incomingMessages
+        deliveredMessages
+        readMessages
+        failedMessages
+        lastMessageDate
+        lastMessageType
+        lastMessageContent
+        templatesUsed
+        conversationCount
+        messagesByType
+        messagesByStatus
+        messagesByMonth
+        deliveryRate
+        readRate
+      }
+    }
+  `;
+
+  const GET_CONTACTS_WHATSAPP_SUMMARY = gql`
+    query GetContactsWhatsAppSummary($contactIds: [String!]!) {
+      getContactsWhatsAppSummary(contactIds: $contactIds) {
+        contactId
+        phoneNumber
+        totalMessages
+        lastMessageDate
       }
     }
   `;
@@ -646,6 +688,81 @@ export const useContactStore = defineStore('contact', () => {
     }
   }
 
+  // Actions WhatsApp Insights
+  async function fetchContactWhatsAppInsights(contactId: string): Promise<WhatsAppContactInsights | null> {
+    whatsappLoading.value = true;
+    whatsappError.value = null;
+
+    try {
+      const response = await apolloClient.query({
+        query: GET_CONTACT_WHATSAPP_INSIGHTS,
+        variables: { contactId },
+        fetchPolicy: 'network-only'
+      });
+
+      const insights = response.data.getContactWhatsAppInsights;
+      if (insights) {
+        whatsappInsights.value.set(contactId, insights);
+        return insights;
+      }
+      return null;
+    } catch (err: any) {
+      console.error('Erreur lors de la récupération des insights WhatsApp:', err);
+      whatsappError.value = err.message || 'Erreur lors de la récupération des insights WhatsApp';
+      return null;
+    } finally {
+      whatsappLoading.value = false;
+    }
+  }
+
+  async function fetchContactsWhatsAppSummary(contactIds: string[]): Promise<WhatsAppContactSummary[]> {
+    if (contactIds.length === 0) return [];
+
+    whatsappLoading.value = true;
+    whatsappError.value = null;
+
+    try {
+      const response = await apolloClient.query({
+        query: GET_CONTACTS_WHATSAPP_SUMMARY,
+        variables: { contactIds },
+        fetchPolicy: 'network-only'
+      });
+
+      const summaries = response.data.getContactsWhatsAppSummary || [];
+      
+      // Mettre à jour le cache
+      summaries.forEach((summary: WhatsAppContactSummary) => {
+        whatsappSummaries.value.set(summary.contactId, summary);
+      });
+
+      return summaries;
+    } catch (err: any) {
+      console.error('Erreur lors de la récupération du résumé WhatsApp:', err);
+      whatsappError.value = err.message || 'Erreur lors de la récupération du résumé WhatsApp';
+      return [];
+    } finally {
+      whatsappLoading.value = false;
+    }
+  }
+
+  function getContactWhatsAppInsights(contactId: string): WhatsAppContactInsights | null {
+    return whatsappInsights.value.get(contactId) || null;
+  }
+
+  function getContactWhatsAppSummary(contactId: string): WhatsAppContactSummary | null {
+    return whatsappSummaries.value.get(contactId) || null;
+  }
+
+  function clearWhatsAppCache(): void {
+    whatsappInsights.value.clear();
+    whatsappSummaries.value.clear();
+    whatsappError.value = null;
+  }
+
+  // Computed pour les insights WhatsApp
+  const hasWhatsAppData = computed(() => whatsappInsights.value.size > 0);
+  const whatsappInsightsCount = computed(() => whatsappInsights.value.size);
+
   return {
     contacts,
     loading,
@@ -669,5 +786,18 @@ export const useContactStore = defineStore('contact', () => {
     setSorting, // Add sorting action
     sortBy, // Export sorting state
     sortDesc, // Export sorting state
+    
+    // WhatsApp Insights exports
+    whatsappInsights,
+    whatsappSummaries,
+    whatsappLoading,
+    whatsappError,
+    fetchContactWhatsAppInsights,
+    fetchContactsWhatsAppSummary,
+    getContactWhatsAppInsights,
+    getContactWhatsAppSummary,
+    clearWhatsAppCache,
+    hasWhatsAppData,
+    whatsappInsightsCount,
   };
 });

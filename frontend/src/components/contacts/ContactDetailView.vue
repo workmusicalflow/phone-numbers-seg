@@ -100,6 +100,15 @@
       class="q-mb-md"
     />
     
+    <!-- WhatsApp Insights -->
+    <WhatsAppContactInsights
+      :contact-id="contact.id"
+      :auto-load="true"
+      @send-whatsapp="$emit('send-whatsapp', contact)"
+      @view-history="$emit('view-whatsapp-history', contact)"
+      class="q-mb-md"
+    />
+    
     <!-- SMS History -->
     <ContactSMSHistory 
       :contact="contact" 
@@ -114,6 +123,7 @@ import { computed } from 'vue';
 import { Contact } from '../../types/contact';
 import ContactSMSStats from './ContactSMSStats.vue';
 import ContactSMSHistory from './ContactSMSHistory.vue';
+import WhatsAppContactInsights from './WhatsAppContactInsights.vue';
 
 const props = defineProps<{
   contact: Contact;
@@ -125,6 +135,8 @@ const emit = defineEmits<{
   (e: 'delete', contact: Contact): void;
   (e: 'send-sms', contact: Contact): void;
   (e: 'view-sms-details', sms: any): void;
+  (e: 'send-whatsapp', contact: Contact): void;
+  (e: 'view-whatsapp-history', contact: Contact): void;
 }>();
 
 // Get contact initials for avatar

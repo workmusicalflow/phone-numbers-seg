@@ -146,6 +146,7 @@ async function loadContactsCount() {
     totalContacts.value = contacts.length
     validContacts.value = allContactNumbers.value.length
   } catch (error) {
+    console.error('Erreur lors du chargement des contacts:', error)
     $q.notify({
       type: 'negative',
       message: 'Erreur lors du chargement des contacts',

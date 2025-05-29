@@ -129,7 +129,7 @@
             <div class="header-actions">
               <q-btn
                 color="white"
-                text-color="primary"
+                text-color="white"
                 icon="arrow_back"
                 label="Retour"
                 outline
@@ -148,6 +148,8 @@
               @delete="confirmDelete"
               @send-sms="sendSMS"
               @view-sms-details="viewSMSDetails"
+              @send-whatsapp="sendWhatsApp"
+              @view-whatsapp-history="viewWhatsAppHistory"
             />
           </div>
         </div>
@@ -639,6 +641,26 @@ function viewSMSDetails(sms: any) {
   // This function is just for handling the event from the SMS history component
   // The actual display of SMS details is handled in the ContactSMSHistory component
   console.log('SMS details viewed:', sms);
+}
+
+function sendWhatsApp(contact: Contact) {
+  router.push({
+    path: '/whatsapp',
+    query: {
+      recipient: contact.phoneNumber,
+      name: contact.name
+    }
+  });
+}
+
+function viewWhatsAppHistory(contact: Contact) {
+  router.push({
+    path: '/whatsapp/messages',
+    query: {
+      phone: contact.phoneNumber,
+      name: contact.name
+    }
+  });
 }
 
 // Cycle de vie

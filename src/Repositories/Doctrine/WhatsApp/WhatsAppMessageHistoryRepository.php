@@ -496,4 +496,205 @@ class WhatsAppMessageHistoryRepository extends BaseRepository implements WhatsAp
             return 0;
         }
     }
+
+    /**
+     * Obtenir les insights WhatsApp pour un contact spécifique
+     */
+    public function getContactInsights(Contact $contact, User $user): array
+    {
+        $phoneNumber = $contact->getPhoneNumber();
+        
+        // Requête principale pour les statistiques de base
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $stats = $qb->select([
+                'COUNT(m.id) as totalMessages',
+                'SUM(CASE WHEN m.direction = :outgoing THEN 1 ELSE 0 END) as outgoingMessages',
+                'SUM(CASE WHEN m.direction = :incoming THEN 1 ELSE 0 END) as incomingMessages',
+                'SUM(CASE WHEN m.status = :delivered THEN 1 ELSE 0 END) as deliveredMessages',
+                'SUM(CASE WHEN m.status = :read THEN 1 ELSE 0 END) as readMessages',
+                'SUM(CASE WHEN m.status = :failed THEN 1 ELSE 0 END) as failedMessages'
+            ])
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber = :phoneNumber')
+            ->andWhere('m.oracleUser = :user')
+            ->setParameter('phoneNumber', $phoneNumber)
+            ->setParameter('user', $user)
+            ->setParameter('outgoing', 'OUTGOING')
+            ->setParameter('incoming', 'INCOMING')
+            ->setParameter('delivered', 'delivered')
+            ->setParameter('read', 'read')
+            ->setParameter('failed', 'failed')
+            ->getQuery()
+            ->getSingleResult();
+
+        // Dernier message
+        $lastMessage = $this->getEntityManager()->createQueryBuilder()
+            ->select('m')
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber = :phoneNumber')
+            ->andWhere('m.oracleUser = :user')
+            ->setParameter('phoneNumber', $phoneNumber)
+            ->setParameter('user', $user)
+            ->orderBy('m.timestamp', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        // Messages par type
+        $messagesByType = $this->getEntityManager()->createQueryBuilder()
+            ->select('m.type, COUNT(m.id) as count')
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber = :phoneNumber')
+            ->andWhere('m.oracleUser = :user')
+            ->setParameter('phoneNumber', $phoneNumber)
+            ->setParameter('user', $user)
+            ->groupBy('m.type')
+            ->getQuery()
+            ->getResult();
+
+        // Messages par statut
+        $messagesByStatus = $this->getEntityManager()->createQueryBuilder()
+            ->select('m.status, COUNT(m.id) as count')
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber = :phoneNumber')
+            ->andWhere('m.oracleUser = :user')
+            ->setParameter('phoneNumber', $phoneNumber)
+            ->setParameter('user', $user)
+            ->groupBy('m.status')
+            ->getQuery()
+            ->getResult();
+
+        // Templates utilisés (uniquement pour les messages sortants de type template)
+        $templatesUsed = $this->getEntityManager()->createQueryBuilder()
+            ->select('DISTINCT m.templateName')
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber = :phoneNumber')
+            ->andWhere('m.oracleUser = :user')
+            ->andWhere('m.direction = :outgoing')
+            ->andWhere('m.type = :template')
+            ->andWhere('m.templateName IS NOT NULL')
+            ->setParameter('phoneNumber', $phoneNumber)
+            ->setParameter('user', $user)
+            ->setParameter('outgoing', 'OUTGOING')
+            ->setParameter('template', 'template')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        // Messages par mois (6 derniers mois)
+        $sixMonthsAgo = new \DateTime('-6 months');
+        $messagesByMonth = $this->getEntityManager()->createQueryBuilder()
+            ->select('DATE_FORMAT(m.timestamp, \'%Y-%m\') as month, COUNT(m.id) as count')
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber = :phoneNumber')
+            ->andWhere('m.oracleUser = :user')
+            ->andWhere('m.timestamp >= :sixMonthsAgo')
+            ->setParameter('phoneNumber', $phoneNumber)
+            ->setParameter('user', $user)
+            ->setParameter('sixMonthsAgo', $sixMonthsAgo)
+            ->groupBy('month')
+            ->orderBy('month', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // Nombre de conversations (groupées par jour)
+        $conversationCount = $this->getEntityManager()->createQueryBuilder()
+            ->select('COUNT(DISTINCT DATE(m.timestamp)) as count')
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber = :phoneNumber')
+            ->andWhere('m.oracleUser = :user')
+            ->setParameter('phoneNumber', $phoneNumber)
+            ->setParameter('user', $user)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        // Calcul des taux
+        $totalOutgoing = (int) $stats['outgoingMessages'];
+        $delivered = (int) $stats['deliveredMessages'];
+        $read = (int) $stats['readMessages'];
+        
+        $deliveryRate = $totalOutgoing > 0 ? ($delivered / $totalOutgoing) * 100 : 0;
+        $readRate = $totalOutgoing > 0 ? ($read / $totalOutgoing) * 100 : 0;
+
+        return [
+            'totalMessages' => (int) $stats['totalMessages'],
+            'outgoingMessages' => $totalOutgoing,
+            'incomingMessages' => (int) $stats['incomingMessages'],
+            'deliveredMessages' => $delivered,
+            'readMessages' => $read,
+            'failedMessages' => (int) $stats['failedMessages'],
+            'lastMessageDate' => $lastMessage ? $lastMessage->getTimestamp()->format('Y-m-d H:i:s') : null,
+            'lastMessageType' => $lastMessage ? $lastMessage->getType() : null,
+            'lastMessageContent' => $lastMessage ? $this->truncateContent($lastMessage->getContent()) : null,
+            'templatesUsed' => array_filter($templatesUsed),
+            'conversationCount' => (int) $conversationCount,
+            'messagesByType' => $this->formatGroupedResult($messagesByType),
+            'messagesByStatus' => $this->formatGroupedResult($messagesByStatus),
+            'messagesByMonth' => $this->formatMonthlyResult($messagesByMonth),
+            'deliveryRate' => round($deliveryRate, 2),
+            'readRate' => round($readRate, 2)
+        ];
+    }
+
+    /**
+     * Tronquer le contenu des messages pour l'aperçu
+     */
+    private function truncateContent(?string $content): ?string
+    {
+        if ($content === null) {
+            return null;
+        }
+        
+        return strlen($content) > 100 ? substr($content, 0, 100) . '...' : $content;
+    }
+
+    /**
+     * Formater les résultats mensuels
+     */
+    private function formatMonthlyResult(array $results): array
+    {
+        $formatted = [];
+        foreach ($results as $result) {
+            $formatted[$result['month']] = (int) $result['count'];
+        }
+        return $formatted;
+    }
+
+    /**
+     * Obtenir un résumé rapide des insights pour plusieurs contacts
+     */
+    public function getContactsInsightsSummary(array $contacts, User $user): array
+    {
+        if (empty($contacts)) {
+            return [];
+        }
+
+        $phoneNumbers = array_map(fn($contact) => $contact->getPhoneNumber(), $contacts);
+        
+        // Requête groupée pour obtenir les statistiques de base pour tous les contacts
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $results = $qb->select([
+                'm.phoneNumber',
+                'COUNT(m.id) as totalMessages',
+                'MAX(m.timestamp) as lastMessageDate'
+            ])
+            ->from(WhatsAppMessageHistory::class, 'm')
+            ->where('m.phoneNumber IN (:phoneNumbers)')
+            ->andWhere('m.oracleUser = :user')
+            ->setParameter('phoneNumbers', $phoneNumbers)
+            ->setParameter('user', $user)
+            ->groupBy('m.phoneNumber')
+            ->getQuery()
+            ->getResult();
+
+        // Reformater en tableau associatif par numéro de téléphone
+        $summary = [];
+        foreach ($results as $result) {
+            $summary[$result['phoneNumber']] = [
+                'totalMessages' => (int) $result['totalMessages'],
+                'lastMessageDate' => $result['lastMessageDate'] ? $result['lastMessageDate']->format('Y-m-d H:i:s') : null
+            ];
+        }
+
+        return $summary;
+    }
 }
