@@ -397,6 +397,24 @@ try {
                             $args['caption'] ?? null,
                             $context
                         );
+                    case 'importPhoneNumbers':
+                        $importExportController = $container->get(\App\GraphQL\Controllers\ImportExportController::class);
+                        return $importExportController->importPhoneNumbers(
+                            $args['numbers'],
+                            $args['skipInvalid'] ?? true,
+                            $args['segmentImmediately'] ?? true,
+                            $args['groupIds'] ?? null,
+                            $args['userId'] ?? null
+                        );
+                    case 'importPhoneNumbersWithData':
+                        $importExportController = $container->get(\App\GraphQL\Controllers\ImportExportController::class);
+                        return $importExportController->importPhoneNumbersWithData(
+                            $args['phoneData'],
+                            $args['skipInvalid'] ?? true,
+                            $args['segmentImmediately'] ?? true,
+                            $args['groupIds'] ?? null,
+                            $args['userId'] ?? null
+                        );
                 }
             }
 

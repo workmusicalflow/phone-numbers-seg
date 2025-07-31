@@ -4,6 +4,7 @@ namespace App\GraphQL\Controllers;
 
 use App\Services\CSVImportService;
 use App\Services\ExportService;
+use App\Repositories\Interfaces\ContactGroupRepositoryInterface;
 use TheCodingMachine\GraphQLite\Annotations\Mutation;
 use TheCodingMachine\GraphQLite\Annotations\Query;
 use TheCodingMachine\GraphQLite\Annotations\Type;
@@ -25,15 +26,64 @@ class ImportExportController
     private ExportService $exportService;
 
     /**
+     * @var ContactGroupRepositoryInterface
+     */
+    private ContactGroupRepositoryInterface $contactGroupRepository;
+
+    /**
      * Constructor
      * 
      * @param CSVImportService $csvImportService
      * @param ExportService $exportService
+     * @param ContactGroupRepositoryInterface $contactGroupRepository
      */
-    public function __construct(CSVImportService $csvImportService, ExportService $exportService)
-    {
+    public function __construct(
+        CSVImportService $csvImportService, 
+        ExportService $exportService,
+        ContactGroupRepositoryInterface $contactGroupRepository
+    ) {
         $this->csvImportService = $csvImportService;
         $this->exportService = $exportService;
+        $this->contactGroupRepository = $contactGroupRepository;
+    }
+
+    /**
+     * Validate that all provided group IDs exist and belong to the user
+     * 
+     * @param array $groupIds Array of group IDs to validate
+     * @param int|null $userId User ID (if null, validation is skipped)
+     * @return array Validation result with 'valid' boolean and 'errors' array
+     */
+    private function validateGroups(array $groupIds, ?int $userId = null): array
+    {
+        $errors = [];
+        
+        if (empty($groupIds)) {
+            return ['valid' => true, 'errors' => []];
+        }
+
+        foreach ($groupIds as $groupId) {
+            if (!is_numeric($groupId) || $groupId <= 0) {
+                $errors[] = "Invalid group ID: {$groupId}";
+                continue;
+            }
+
+            $group = $this->contactGroupRepository->findById((int)$groupId);
+            if (!$group) {
+                $errors[] = "Group with ID {$groupId} not found";
+                continue;
+            }
+
+            // If userId is provided, check ownership
+            if ($userId !== null && $group->getUserId() !== $userId) {
+                $errors[] = "Group with ID {$groupId} does not belong to user {$userId}";
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
     }
 
     /**
@@ -43,19 +93,40 @@ class ImportExportController
      * @param string[] $numbers
      * @param bool $skipInvalid
      * @param bool $segmentImmediately
+     * @param int[]|null $groupIds Array of group IDs to assign contacts to
+     * @param int|null $userId User ID to associate contacts with
      * @return array
      */
     public function importPhoneNumbers(
         array $numbers,
         bool $skipInvalid = true,
-        bool $segmentImmediately = true
+        bool $segmentImmediately = true,
+        ?array $groupIds = null,
+        ?int $userId = null
     ): array {
+        // Validate groups if provided
+        if (!empty($groupIds)) {
+            $validationResult = $this->validateGroups($groupIds, $userId);
+            if (!$validationResult['valid']) {
+                return [
+                    'status' => 'error',
+                    'errors' => $validationResult['errors'],
+                    'stats' => []
+                ];
+            }
+        }
+
         $options = [
             'skipInvalid' => $skipInvalid,
-            'segmentImmediately' => $segmentImmediately
+            'segmentImmediately' => $segmentImmediately,
+            'groupIds' => $groupIds ?? [],
+            'userId' => $userId
         ];
 
-        return $this->csvImportService->importFromArray($numbers, $options);
+        $result = $this->csvImportService->importFromArray($numbers, $options);
+        
+        // Transform the result to match GraphQL schema expectations
+        return $this->transformImportResult($result);
     }
 
     /**
@@ -65,13 +136,29 @@ class ImportExportController
      * @param array $phoneData Array of phone data objects
      * @param bool $skipInvalid
      * @param bool $segmentImmediately
+     * @param int[]|null $groupIds Array of group IDs to assign contacts to
+     * @param int|null $userId User ID to associate contacts with
      * @return array
      */
     public function importPhoneNumbersWithData(
         array $phoneData,
         bool $skipInvalid = true,
-        bool $segmentImmediately = true
+        bool $segmentImmediately = true,
+        ?array $groupIds = null,
+        ?int $userId = null
     ): array {
+        // Validate groups if provided
+        if (!empty($groupIds)) {
+            $validationResult = $this->validateGroups($groupIds, $userId);
+            if (!$validationResult['valid']) {
+                return [
+                    'status' => 'error',
+                    'errors' => $validationResult['errors'],
+                    'stats' => []
+                ];
+            }
+        }
+
         // Convert the input data to the format expected by the import service
         $numbers = [];
         $additionalData = [];
@@ -95,10 +182,39 @@ class ImportExportController
         $options = [
             'skipInvalid' => $skipInvalid,
             'segmentImmediately' => $segmentImmediately,
-            'additionalData' => $additionalData
+            'additionalData' => $additionalData,
+            'groupIds' => $groupIds ?? [],
+            'userId' => $userId
         ];
 
-        return $this->csvImportService->importFromArray($numbers, $options);
+        $result = $this->csvImportService->importFromArray($numbers, $options);
+        
+        // Transform the result to match GraphQL schema expectations
+        return $this->transformImportResult($result);
+    }
+
+    /**
+     * Transform import result from CSVImportService to GraphQL format
+     * 
+     * @param array $result Result from CSVImportService
+     * @return array GraphQL-compatible result
+     */
+    private function transformImportResult(array $result): array
+    {
+        $stats = $result['stats'] ?? [];
+        
+        return [
+            'status' => $result['status'] ?? 'error',
+            'errors' => $result['errors'] ?? [],
+            'stats' => [
+                'processed' => $stats['total'] ?? 0,
+                'successful' => $stats['valid'] ?? 0,
+                'failed' => $stats['invalid'] ?? 0,
+                'skipped' => 0, // CSVImportService doesn't track skipped separately
+                'duplicates' => $stats['duplicates'] ?? 0,
+                'groupAssignments' => $stats['groupAssignments'] ?? 0
+            ]
+        ];
     }
 
     /**

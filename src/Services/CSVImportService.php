@@ -6,6 +6,7 @@ use App\Entities\Contact; // Use Doctrine Entity
 use App\Entities\PhoneNumber; // Use Doctrine Entity
 use App\Repositories\Interfaces\ContactRepositoryInterface; // Use interface
 use App\Repositories\Interfaces\PhoneNumberRepositoryInterface; // Use interface
+use App\Repositories\Interfaces\ContactGroupMembershipRepositoryInterface; // Add membership repository
 use App\Services\Interfaces\PhoneSegmentationServiceInterface;
 use Psr\Log\LoggerInterface; // Import LoggerInterface
 
@@ -28,6 +29,11 @@ class CSVImportService
      * @var ContactRepositoryInterface
      */
     private ContactRepositoryInterface $contactRepository;
+
+    /**
+     * @var ContactGroupMembershipRepositoryInterface
+     */
+    private ContactGroupMembershipRepositoryInterface $membershipRepository;
 
     /**
      * @var LoggerInterface
@@ -74,7 +80,9 @@ class CSVImportService
         'duplicates' => 0,
         'processed' => 0,
         'contactsCreated' => 0,
-        'contactsDuplicates' => 0
+        'contactsDuplicates' => 0,
+        'groupAssignments' => 0,
+        'groupAssignmentErrors' => 0
     ];
 
     /**
@@ -83,17 +91,20 @@ class CSVImportService
      * @param PhoneNumberRepositoryInterface $phoneNumberRepository
      * @param PhoneSegmentationServiceInterface $segmentationService
      * @param ContactRepositoryInterface $contactRepository
+     * @param ContactGroupMembershipRepositoryInterface $membershipRepository
      * @param LoggerInterface $logger
      */
     public function __construct(
         PhoneNumberRepositoryInterface $phoneNumberRepository,
         PhoneSegmentationServiceInterface $segmentationService,
         ContactRepositoryInterface $contactRepository,
+        ContactGroupMembershipRepositoryInterface $membershipRepository,
         LoggerInterface $logger // Inject Logger
     ) {
         $this->phoneNumberRepository = $phoneNumberRepository;
         $this->segmentationService = $segmentationService;
         $this->contactRepository = $contactRepository;
+        $this->membershipRepository = $membershipRepository;
         $this->logger = $logger; // Store Logger
     }
 
@@ -151,7 +162,8 @@ class CSVImportService
             'segmentImmediately' => true,
             'createContacts' => true, // Create contacts by default
             'userId' => null, // User ID to associate contacts with
-            'defaultUserId' => 2 // Default to AfricaQSHE (ID 2)
+            'defaultUserId' => 2, // Default to AfricaQSHE (ID 2)
+            'groupIds' => [] // Array of group IDs to assign contacts to
         ], $options);
         $this->logger->debug("Options d'importation finales", ['options' => $this->options]);
 
@@ -356,7 +368,8 @@ class CSVImportService
             'segmentImmediately' => true,
             'createContacts' => true, // Create contacts by default
             'userId' => null, // User ID to associate contacts with
-            'defaultUserId' => 2 // Default to AfricaQSHE (ID 2)
+            'defaultUserId' => 2, // Default to AfricaQSHE (ID 2)
+            'groupIds' => [] // Array of group IDs to assign contacts to
         ], $options);
         $this->logger->debug("Options d'importation finales (tableau)", ['options' => $this->options]);
 
@@ -626,6 +639,12 @@ class CSVImportService
                     $this->logger->debug("Création de contact désactivée ou userId/phoneNumber manquant", ['createContacts' => $createContacts, 'userId' => $userId, 'hasPhoneNumber' => ($phoneNumber !== null)]);
                 }
 
+                // Assign to groups if groupIds are specified
+                $groupIds = $this->options['groupIds'] ?? [];
+                if (!empty($groupIds) && $createContacts && $userId && $phoneNumber) {
+                    $this->assignContactToGroups($number, $userId, $groupIds);
+                }
+
                 $this->stats['processed']++;
             } catch (\Exception $e) {
                 $errorMessage = "Erreur lors du traitement du numéro {$item['number']}: " . $e->getMessage();
@@ -693,6 +712,105 @@ class CSVImportService
     }
 
     /**
+     * Assign a contact to multiple groups
+     * 
+     * @param string $phoneNumber The phone number of the contact
+     * @param int $userId The user ID
+     * @param array $groupIds Array of group IDs to assign the contact to
+     * @return void
+     */
+    private function assignContactToGroups(string $phoneNumber, int $userId, array $groupIds): void
+    {
+        $this->logger->debug("Début de l'assignation aux groupes", ['phoneNumber' => $phoneNumber, 'userId' => $userId, 'groupIds' => $groupIds]);
+        
+        try {
+            // Find the contact by phone number and user ID
+            $contacts = $this->contactRepository->findByCriteria(
+                ['phoneNumber' => $phoneNumber, 'userId' => $userId],
+                1
+            );
+            
+            if (empty($contacts)) {
+                $this->logger->warning("Contact non trouvé pour l'assignation aux groupes", ['phoneNumber' => $phoneNumber, 'userId' => $userId]);
+                $this->stats['groupAssignmentErrors']++;
+                
+                if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                    $this->detailedErrors[] = [
+                        'line' => 'unknown',
+                        'value' => $phoneNumber,
+                        'message' => "Contact non trouvé pour l'assignation aux groupes"
+                    ];
+                }
+                return;
+            }
+            
+            $contact = $contacts[0];
+            $contactId = $contact->getId();
+            
+            // Assign to each group
+            foreach ($groupIds as $groupId) {
+                try {
+                    $this->logger->debug("Assignation du contact au groupe", ['contactId' => $contactId, 'groupId' => $groupId]);
+                    
+                    // Check if the membership already exists
+                    $existingMembership = $this->membershipRepository->findByContactIdAndGroupId($contactId, $groupId);
+                    
+                    if ($existingMembership === null) {
+                        // Add the contact to the group
+                        $success = $this->membershipRepository->addContactToGroup($contactId, $groupId);
+                        
+                        if ($success) {
+                            $this->stats['groupAssignments']++;
+                            $this->logger->info("Contact assigné au groupe avec succès", ['contactId' => $contactId, 'groupId' => $groupId]);
+                        } else {
+                            $this->stats['groupAssignmentErrors']++;
+                            $this->logger->warning("Échec de l'assignation au groupe", ['contactId' => $contactId, 'groupId' => $groupId]);
+                            
+                            if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                                $this->detailedErrors[] = [
+                                    'line' => 'unknown',
+                                    'value' => $phoneNumber,
+                                    'message' => "Échec de l'assignation au groupe ID: {$groupId}"
+                                ];
+                            }
+                        }
+                    } else {
+                        $this->logger->debug("Contact déjà assigné à ce groupe", ['contactId' => $contactId, 'groupId' => $groupId]);
+                        // Consider this as successful (idempotent operation)
+                        $this->stats['groupAssignments']++;
+                    }
+                } catch (\Exception $e) {
+                    $this->stats['groupAssignmentErrors']++;
+                    $errorMessage = "Erreur lors de l'assignation au groupe {$groupId}: " . $e->getMessage();
+                    $this->logger->error($errorMessage, ['contactId' => $contactId, 'groupId' => $groupId, 'exception' => $e]);
+                    
+                    if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                        $this->detailedErrors[] = [
+                            'line' => 'unknown',
+                            'value' => $phoneNumber,
+                            'message' => $errorMessage
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            $this->stats['groupAssignmentErrors']++;
+            $errorMessage = "Erreur générale lors de l'assignation aux groupes pour {$phoneNumber}: " . $e->getMessage();
+            $this->logger->error($errorMessage, ['phoneNumber' => $phoneNumber, 'userId' => $userId, 'exception' => $e]);
+            
+            if (count($this->detailedErrors) < $this->maxDetailedErrors) {
+                $this->detailedErrors[] = [
+                    'line' => 'unknown',
+                    'value' => $phoneNumber,
+                    'message' => $errorMessage
+                ];
+            }
+        }
+        
+        $this->logger->debug("Fin de l'assignation aux groupes", ['phoneNumber' => $phoneNumber]);
+    }
+
+    /**
      * Reset statistics and errors
      * 
      * @return void
@@ -706,7 +824,9 @@ class CSVImportService
             'duplicates' => 0,
             'processed' => 0,
             'contactsCreated' => 0,
-            'contactsDuplicates' => 0
+            'contactsDuplicates' => 0,
+            'groupAssignments' => 0,
+            'groupAssignmentErrors' => 0
         ];
         $this->errors = [];
         $this->detailedErrors = [];

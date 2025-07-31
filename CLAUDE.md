@@ -90,10 +90,50 @@ Oracle is a modern PHP 8.3 and Vue.js 3 SMS management platform with phone numbe
 - Backend is PHP 8.3 with Composer for dependencies
 - Frontend requires Node.js v22.14.0 (LTS) and npm
 
+## ✅ FONCTIONNALITÉS RÉCEMMENT COMPLETÉES
+
+### 🎯 Import CSV avec Auto-assignation aux Groupes (Janvier 2025)
+
+**Statut : ✅ TERMINÉ ET VALIDÉ**
+
+Implémentation complète de l'import CSV avec assignation automatique aux groupes de contacts, incluant :
+
+#### Backend (PHP)
+- **CSVImportService étendu** : Support des `groupIds` avec assignation automatique via `ContactGroupMembershipRepository`
+- **GraphQL API** : Extension d'`ImportExportController` avec validation et gestion des erreurs
+- **Transformation des données** : Méthode `transformImportResult()` pour compatibilité schema GraphQL
+
+#### Frontend (Vue.js/TypeScript) 
+- **Interface utilisateur** : Sélecteur de groupes multiples dans `ImportCSVForm.vue`
+- **Authentification automatique** : Suppression du sélecteur utilisateur, affectation automatique au compte actif
+- **Gestion d'erreurs** : Notifications améliorées et dialogue de résultats détaillé
+- **Corrections critiques** : Résolution boucle infinie récursive et erreurs d'import path
+
+#### Validation E2E
+- ✅ Interface fonctionnelle sans erreurs Vite
+- ✅ Authentification et navigation opérationnelles  
+- ✅ Chargement et sélection des groupes confirmés
+- ✅ Configuration automatique utilisateur validée
+- ✅ Prêt pour test CSV avec groupe QUALIPRO
+
+#### Fichiers Modifiés
+```
+Backend:
+- src/Services/CSVImportService.php
+- src/GraphQL/Controllers/ImportExportController.php
+- src/Repositories/ContactGroupMembershipRepository.php
+
+Frontend:
+- frontend/src/components/import-export/ImportCSVForm.vue
+- frontend/src/components/import-export/composables/useImport.ts
+- frontend/src/views/Import.vue
+- frontend/src/stores/authStore.ts (path correction)
+```
+
 ## Current Focus
 
 - Finalizing Doctrine ORM migration
-- Implementing URL constants system
+- Implementing URL constants system  
 - Enhancing the ContactCountBadge component
 - Fixing WhatsApp template issues related to API connectivity
 

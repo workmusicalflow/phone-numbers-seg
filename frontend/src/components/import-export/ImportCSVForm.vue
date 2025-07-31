@@ -48,17 +48,43 @@
           class="q-mt-sm"
         />
 
+
         <q-select
           v-if="options.createContacts"
-          v-model="options.userId"
-          :options="userOptions"
-          label="Associer les contacts à l'utilisateur"
+          v-model="options.groupIds"
+          :options="groupOptions"
+          label="Affecter automatiquement aux groupes (optionnel)"
           outlined
+          multiple
           emit-value
           map-options
+          use-chips
+          :loading="loadingGroups"
           class="q-mt-sm"
-          hint="Si non spécifié, les contacts seront associés à l'utilisateur par défaut (AfricaQSHE)"
-        />
+          hint="Sélectionnez un ou plusieurs groupes pour affecter automatiquement les contacts importés"
+        >
+          <template v-slot:no-option>
+            <q-item>
+              <q-item-section class="text-grey">
+                {{ loadingGroups ? 'Chargement des groupes...' : 'Aucun groupe disponible' }}
+              </q-item-section>
+            </q-item>
+          </template>
+          <template v-slot:before-options>
+            <q-item>
+              <q-item-section>
+                <q-btn 
+                  flat 
+                  dense 
+                  icon="refresh" 
+                  label="Actualiser les groupes" 
+                  @click="emit('refresh-groups')"
+                  :loading="loadingGroups"
+                />
+              </q-item-section>
+            </q-item>
+          </template>
+        </q-select>
 
         <q-input
           v-model="options.delimiter"
@@ -135,12 +161,13 @@
 <script setup lang="ts">
 import { ref, watch, toRefs } from 'vue';
 import { QForm } from 'quasar';
-import { ImportOptions, ColumnOption, UserOption } from './composables/useImport';
+import { ImportOptions, ColumnOption, GroupOption } from './composables/useImport';
 
 const props = defineProps<{
   options: ImportOptions;
   columnOptions: ColumnOption[];
-  userOptions: UserOption[];
+  groupOptions: GroupOption[];
+  loadingGroups: boolean;
   loading: boolean;
   formRef?: QForm | null;
 }>();
@@ -150,10 +177,11 @@ const emit = defineEmits<{
   (e: 'update:file', value: File | null): void;
   (e: 'submit'): void;
   (e: 'download-template'): void;
+  (e: 'refresh-groups'): void;
 }>();
 
 // Références locales
-const { options, loading } = toRefs(props);
+const { options, loading, groupOptions, loadingGroups } = toRefs(props);
 const formRef = ref<QForm | null>(null);
 const fileModel = ref<File | null>(null);
 
@@ -163,8 +191,11 @@ watch(fileModel, (newFile) => {
 });
 
 // Surveiller les changements d'options pour les émettre au parent
-watch(options, (newOptions) => {
-  emit('update:options', { ...newOptions });
+watch(options, (newOptions, oldOptions) => {
+  // Éviter la boucle infinie en comparant les valeurs
+  if (JSON.stringify(newOptions) !== JSON.stringify(oldOptions)) {
+    emit('update:options', { ...newOptions });
+  }
 }, { deep: true });
 
 // Gestionnaires d'événements

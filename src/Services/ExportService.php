@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Repositories\PhoneNumberRepository;
+use App\Repositories\Interfaces\PhoneNumberRepositoryInterface;
 use App\Models\PhoneNumber;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -13,9 +13,9 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 class ExportService
 {
     /**
-     * @var PhoneNumberRepository
+     * @var PhoneNumberRepositoryInterface
      */
-    private PhoneNumberRepository $phoneNumberRepository;
+    private PhoneNumberRepositoryInterface $phoneNumberRepository;
 
     /**
      * @var array Export statistics
@@ -34,9 +34,9 @@ class ExportService
     /**
      * Constructor
      * 
-     * @param PhoneNumberRepository $phoneNumberRepository
+     * @param PhoneNumberRepositoryInterface $phoneNumberRepository
      */
-    public function __construct(PhoneNumberRepository $phoneNumberRepository)
+    public function __construct(PhoneNumberRepositoryInterface $phoneNumberRepository)
     {
         $this->phoneNumberRepository = $phoneNumberRepository;
     }

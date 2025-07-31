@@ -154,6 +154,22 @@ type Mutation {
     groupId: ID!
   ): AddContactsToGroupResult!
   
+  # Import/Export mutations
+  importPhoneNumbers(
+    numbers: [String!]!
+    skipInvalid: Boolean = true
+    segmentImmediately: Boolean = true
+    groupIds: [Int!]
+    userId: Int
+  ): ImportResult!
+  importPhoneNumbersWithData(
+    phoneData: [PhoneDataInput!]!
+    skipInvalid: Boolean = true
+    segmentImmediately: Boolean = true
+    groupIds: [Int!]
+    userId: Int
+  ): ImportResult!
+
   # WhatsApp mutations
   sendWhatsAppMessage(message: WhatsAppMessageInput!): WhatsAppMessageHistory!
   sendWhatsAppTemplate(template: WhatsAppMessageInput!): WhatsAppMessageHistory!
@@ -527,4 +543,30 @@ type MessagesByMonthMap {
   october: Int
   november: Int
   december: Int
+}
+
+# Import/Export Types
+input PhoneDataInput {
+  number: String!
+  civility: String
+  firstName: String
+  name: String
+  company: String
+  sector: String
+  notes: String
+}
+
+type ImportResult {
+  status: String!
+  errors: [String!]!
+  stats: ImportStats!
+}
+
+type ImportStats {
+  processed: Int!
+  successful: Int!
+  failed: Int!
+  skipped: Int!
+  duplicates: Int!
+  groupAssignments: Int!
 }

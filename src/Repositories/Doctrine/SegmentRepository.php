@@ -3,6 +3,7 @@
 namespace App\Repositories\Doctrine;
 
 use App\Entities\Segment;
+use App\Entities\PhoneNumber;
 use App\Repositories\Interfaces\SegmentRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -31,7 +32,7 @@ class SegmentRepository extends BaseRepository implements SegmentRepositoryInter
      */
     public function findByPhoneNumberId(int $phoneNumberId): array
     {
-        return $this->findBy(['phoneNumberId' => $phoneNumberId]);
+        return $this->findBy(['phoneNumber' => $phoneNumberId]);
     }
 
     /**
@@ -42,9 +43,9 @@ class SegmentRepository extends BaseRepository implements SegmentRepositoryInter
      */
     public function deleteByPhoneNumberId(int $phoneNumberId): bool
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
-        $queryBuilder->delete($this->entityClass, 's')
-            ->where('s.phoneNumberId = :phoneNumberId')
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
+        $queryBuilder->delete(Segment::class, 's')
+            ->where('s.phoneNumber = :phoneNumberId')
             ->setParameter('phoneNumberId', $phoneNumberId);
 
         $result = $queryBuilder->getQuery()->execute();
@@ -62,10 +63,16 @@ class SegmentRepository extends BaseRepository implements SegmentRepositoryInter
      */
     public function create(string $segmentType, string $value, int $phoneNumberId): Segment
     {
+        // Load the PhoneNumber entity
+        $phoneNumber = $this->getEntityManager()->find(PhoneNumber::class, $phoneNumberId);
+        if (!$phoneNumber) {
+            throw new \InvalidArgumentException("PhoneNumber with ID $phoneNumberId not found");
+        }
+
         $segment = new Segment();
         $segment->setSegmentType($segmentType);
         $segment->setValue($value);
-        $segment->setPhoneNumberId($phoneNumberId);
+        $segment->setPhoneNumber($phoneNumber);
 
         return $this->save($segment);
     }

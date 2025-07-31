@@ -54,10 +54,6 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
 
         $phoneNumber = $this->findOneBy(['number' => $normalizedNumber]);
 
-        if ($phoneNumber !== null) {
-            $this->loadSegments($phoneNumber);
-        }
-
         return $phoneNumber;
     }
 
@@ -71,9 +67,9 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
      */
     public function findByCustomSegment(int $segmentId, int $limit = 100, int $offset = 0): array
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('p')
-            ->from($this->entityClass, 'p')
+            ->from(PhoneNumber::class, 'p')
             ->innerJoin('App\Entities\PhoneNumberSegment', 'pns', 'WITH', 'p.id = pns.phoneNumberId')
             ->where('pns.customSegmentId = :segmentId')
             ->setParameter('segmentId', $segmentId)
@@ -83,9 +79,6 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
 
         $phoneNumbers = $queryBuilder->getQuery()->getResult();
 
-        foreach ($phoneNumbers as $phoneNumber) {
-            $this->loadSegments($phoneNumber);
-        }
 
         return $phoneNumbers;
     }
@@ -98,9 +91,9 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
      */
     public function countByCustomSegment(int $segmentId): int
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('COUNT(p.id)')
-            ->from($this->entityClass, 'p')
+            ->from(PhoneNumber::class, 'p')
             ->innerJoin('App\Entities\PhoneNumberSegment', 'pns', 'WITH', 'p.id = pns.phoneNumberId')
             ->where('pns.customSegmentId = :segmentId')
             ->setParameter('segmentId', $segmentId);
@@ -120,9 +113,9 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
     {
         $searchQuery = '%' . $query . '%';
 
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('p')
-            ->from($this->entityClass, 'p')
+            ->from(PhoneNumber::class, 'p')
             ->where('p.number LIKE :query')
             ->orWhere('p.civility LIKE :query')
             ->orWhere('p.firstName LIKE :query')
@@ -137,9 +130,6 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
 
         $phoneNumbers = $queryBuilder->getQuery()->getResult();
 
-        foreach ($phoneNumbers as $phoneNumber) {
-            $this->loadSegments($phoneNumber);
-        }
 
         return $phoneNumbers;
     }
@@ -154,9 +144,9 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
      */
     public function findByFilters(array $filters, int $limit = 100, int $offset = 0): array
     {
-        $queryBuilder = $this->entityManager->createQueryBuilder();
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder();
         $queryBuilder->select('DISTINCT p')
-            ->from($this->entityClass, 'p');
+            ->from(PhoneNumber::class, 'p');
 
         // Join with technical_segments if filtering by operator or country
         if (isset($filters['operator']) || isset($filters['country'])) {
@@ -207,9 +197,6 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
 
         $phoneNumbers = $queryBuilder->getQuery()->getResult();
 
-        foreach ($phoneNumbers as $phoneNumber) {
-            $this->loadSegments($phoneNumber);
-        }
 
         return $phoneNumbers;
     }
@@ -255,8 +242,8 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
      */
     public function save($entity)
     {
-        $this->entityManager->persist($entity);
-        $this->entityManager->flush();
+        $this->getEntityManager()->persist($entity);
+        $this->getEntityManager()->flush();
 
         // Save technical segments if repository is available
         if ($this->technicalSegmentRepository !== null && $entity->getId() !== null) {
@@ -265,7 +252,7 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
 
             // Save new segments
             foreach ($entity->getTechnicalSegments() as $segment) {
-                $segment->setPhoneNumberId($entity->getId());
+                $segment->setPhoneNumber($entity);
                 $this->technicalSegmentRepository->save($segment);
             }
         }
@@ -301,23 +288,4 @@ class PhoneNumberRepository extends BaseRepository implements PhoneNumberReposit
         return $entity;
     }
 
-    /**
-     * Load segments for a phone number
-     * 
-     * @param PhoneNumber $phoneNumber The phone number
-     */
-    private function loadSegments(PhoneNumber $phoneNumber): void
-    {
-        // Load technical segments if repository is available
-        if ($this->technicalSegmentRepository !== null) {
-            $segments = $this->technicalSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
-            $phoneNumber->setTechnicalSegments($segments);
-        }
-
-        // Load custom segments if repository is available
-        if ($this->customSegmentRepository !== null) {
-            $segments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());
-            $phoneNumber->setCustomSegments($segments);
-        }
-    }
 }
