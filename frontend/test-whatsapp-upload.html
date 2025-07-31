@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Upload WhatsApp</title>
+</head>
+<body>
+    <h1>Test Upload WhatsApp</h1>
+    
+    <div>
+        <h2>Test CORS</h2>
+        <button onclick="testCors()">Tester CORS</button>
+        <pre id="cors-result"></pre>
+    </div>
+    
+    <div>
+        <h2>Test Upload</h2>
+        <input type="file" id="file-input" accept="image/*">
+        <button onclick="testUpload()">Tester Upload</button>
+        <pre id="upload-result"></pre>
+    </div>
+    
+    <script>
+    async function testCors() {
+        const resultDiv = document.getElementById('cors-result');
+        
+        try {
+            const response = await fetch('http://localhost:8000/api/whatsapp/test-cors.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+            
+            const data = await response.json();
+            resultDiv.textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+            resultDiv.textContent = 'Erreur CORS: ' + error.message;
+        }
+    }
+    
+    async function testUpload() {
+        const fileInput = document.getElementById('file-input');
+        const resultDiv = document.getElementById('upload-result');
+        
+        if (!fileInput.files[0]) {
+            alert('Veuillez sélectionner un fichier');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        try {
+            const response = await fetch('http://localhost:8000/api/whatsapp/upload.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            resultDiv.textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+            resultDiv.textContent = 'Erreur Upload: ' + error.message;
+        }
+    }
+    </script>
+</body>
+</html>

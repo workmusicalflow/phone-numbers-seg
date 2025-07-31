@@ -1,0 +1,5 @@
+"""
+Type scalaire pour représenter une date et une heure au format ISO 8601
+Exemple: 2025-05-21T14:30:00Z
+"""
+scalar DateTime

@@ -94,6 +94,27 @@
 #   }
 # }
 #
+# Récupérer tous les utilisateurs
+# {
+#   users {
+#     id
+#     username
+#     email
+#   }
+# }
+#
+# Récupérer l'historique des SMS (10 derniers)
+# {
+#   smsHistory(limit: 10, offset: 0) {
+#     id
+#     phoneNumber
+#     message
+#     status
+#     errorMessage
+#     createdAt
+#   }
+# }
+#
 # Créer un nouveau numéro de téléphone
 # mutation {
 #   createPhoneNumber(

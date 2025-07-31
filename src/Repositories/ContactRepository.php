@@ -38,13 +38,17 @@ class ContactRepository implements RepositoryInterface
 
     public function findAll(?int $limit = null, ?int $offset = null): array
     {
+        // Use default values if null is provided
+        $limitValue = $limit ?? 1000; // Default to 1000 if null
+        $offsetValue = $offset ?? 0;  // Default to 0 if null
+
         $stmt = $this->pdo->prepare("
             SELECT * FROM contacts
             ORDER BY name ASC
             LIMIT :limit OFFSET :offset
         ");
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->bindParam(':limit', $limitValue, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offsetValue, PDO::PARAM_INT);
         $stmt->execute();
 
         $contacts = [];
@@ -129,26 +133,21 @@ class ContactRepository implements RepositoryInterface
             ? "WHERE " . implode(" OR ", $whereConditions)
             : "";
 
-        $limitClause = $limit !== null ? "LIMIT :limit" : "";
-        $offsetClause = $offset !== null ? "OFFSET :offset" : "";
+        // Use default values for limit and offset
+        $limitValue = $limit ?? 1000; // Default to 1000 if null
+        $offsetValue = $offset ?? 0;  // Default to 0 if null
 
         $sql = "
             SELECT * FROM contacts
             $whereClause
             ORDER BY name ASC
-            $limitClause $offsetClause
+            LIMIT :limit OFFSET :offset
         ";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->bindParam(':search_term', $searchTerm, PDO::PARAM_STR);
-
-        if ($limit !== null) {
-            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        }
-
-        if ($offset !== null) {
-            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-        }
+        $stmt->bindParam(':limit', $limitValue, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offsetValue, PDO::PARAM_INT);
 
         $stmt->execute();
 
@@ -357,23 +356,19 @@ class ContactRepository implements RepositoryInterface
             $orderByClause = "ORDER BY name ASC";
         }
 
-        $limitClause = $limit !== null ? "LIMIT :limit" : "";
-        $offsetClause = $offset !== null ? "OFFSET :offset" : "";
+        // Use default values for limit and offset
+        $limitValue = $limit ?? 1000; // Default to 1000 if null
+        $offsetValue = $offset ?? 0;  // Default to 0 if null
 
-        $sql = "SELECT * FROM contacts $whereClause $orderByClause $limitClause $offsetClause";
+        $sql = "SELECT * FROM contacts $whereClause $orderByClause LIMIT :limit OFFSET :offset";
         $stmt = $this->pdo->prepare($sql);
 
         foreach ($params as $param => $value) {
             $stmt->bindValue($param, $value);
         }
 
-        if ($limit !== null) {
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        }
-
-        if ($offset !== null) {
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        }
+        $stmt->bindValue(':limit', $limitValue, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offsetValue, PDO::PARAM_INT);
 
         $stmt->execute();
 

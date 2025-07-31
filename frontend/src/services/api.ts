@@ -3,7 +3,8 @@ import { ApolloClient, InMemoryCache, gql } from '@apollo/client/core';
 
 // Créer une instance axios avec la configuration de base
 const api = axios.create({
-  baseURL: '/api', // URL de base pour toutes les requêtes
+  baseURL: '', // URL vide pour éviter les problèmes de chemin
+  withCredentials: true, // Important pour inclure les cookies
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -42,12 +43,23 @@ api.interceptors.response.use(
 
 // Apollo Client setup
 const apolloClient = new ApolloClient({
-  uri: '/graphql.php',
+  uri: '/graphql.php', // URL standard GraphQL
   cache: new InMemoryCache(),
   credentials: 'include', // Important pour inclure les cookies
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
+  },
+  defaultOptions: {
+    mutate: {
+      errorPolicy: 'all' // Return both errors and data in response
+    },
+    query: {
+      errorPolicy: 'all' // Return both errors and data in response
+    },
+    watchQuery: {
+      fetchPolicy: 'cache-and-network' // Toujours chercher les données fraîches
+    }
   }
 });
 

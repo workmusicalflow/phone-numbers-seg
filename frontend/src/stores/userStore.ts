@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+ import { defineStore } from 'pinia';
+import { ref, computed, watch } from 'vue'; // Added watch
 // Notification logic moved to components
 import { useDashboardStore } from './dashboardStore';
 import { apolloClient, gql } from '../services/api'; // Ensure apolloClient and gql are imported
@@ -42,12 +42,11 @@ export interface OrangeAPIConfig {
   isAdmin: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-// GraphQL queries and mutations
+} // Added missing closing brace
+// GraphQL queries and mutations - Updated GET_USERS
 const GET_USERS = `
-  query GetUsers {
-    users {
+  query GetUsers($limit: Int, $offset: Int, $search: String) {
+    users(limit: $limit, offset: $offset, search: $search) {
       id
       username
       email
@@ -137,7 +136,11 @@ export const useUserStore = defineStore('user', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const currentUser = ref<User | null>(null);
-  
+  const totalCount = ref(0); // Added for pagination
+  const currentPage = ref(1); // Added for pagination
+  const itemsPerPage = ref(10); // Added for pagination
+  const searchTerm = ref(''); // Added for search
+
 // Getters
 const getUserById = computed(() => {
   return (id: number) => users.value.find(user => user.id === id);
@@ -147,47 +150,69 @@ const totalUsers = computed(() => users.value.length);
 
 const totalSmsCredits = computed(() => {
   return users.value.reduce((total, user) => total + user.smsCredit, 0);
-});
+}); // Added missing closing brace
 
 const isAdmin = computed(() => {
   return currentUser.value?.isAdmin === true;
-});
-  
-  // Actions
+}); // Added missing closing brace
+  // Actions - Modified fetchUsers
   async function fetchUsers() {
     loading.value = true;
     error.value = null;
-    
+
     try {
-      console.log('Fetching users...');
-      const response = await fetch('/graphql.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: GET_USERS
-        }),
-      });
-      
-      const result = await response.json();
-      console.log('GraphQL response:', result);
-      
-      if (result.errors) {
-        throw new Error(result.errors[0].message);
+      const offset = (currentPage.value - 1) * itemsPerPage.value;
+      const variables: { limit: number; offset: number; search?: string } = {
+        limit: itemsPerPage.value,
+        offset: offset,
+      };
+      if (searchTerm.value) {
+        variables.search = searchTerm.value;
       }
-      
-      users.value = result.data.users;
-      console.log('Users fetched:', users.value);
+
+      console.log('Fetching users with variables:', variables);
+      // Use apolloClient for consistency
+      const { data, errors } = await apolloClient.query({
+        query: gql(GET_USERS), // Use updated GET_USERS query
+        variables: variables,
+        fetchPolicy: 'network-only' // Ensure fresh data
+      });
+
+      if (errors) {
+        throw new Error(errors[0].message);
+      }
+
+      users.value = data.users;
+      // Assuming the backend doesn't yet return total count for users query
+      // We might need another query or modify the existing one later
+      // For now, let's estimate totalCount based on whether a full page was returned
+      // TODO: Implement backend usersCount(search: String) query for accurate total count.
+      // For now, the pagination component should rely on the number of items returned
+      // to determine if it's on the last page (if results < itemsPerPage).
+      // We only set totalCount definitively if we are on the first page and get less than itemsPerPage.
+      if (currentPage.value === 1 && users.value.length < itemsPerPage.value) {
+        totalCount.value = users.value.length;
+      } else {
+        // Otherwise, we don't have an accurate total count.
+        // Set a placeholder or let the component handle it.
+        // Setting a large placeholder allows pagination controls to appear,
+        // but the "last page" logic relies on the component seeing fewer results.
+        totalCount.value = (currentPage.value -1) * itemsPerPage.value + users.value.length + (users.value.length === itemsPerPage.value ? 1 : 0); // Estimate slightly higher if full page returned
+      }
+
+
+      console.log('Users fetched:', users.value.length, 'Estimated Total Count:', totalCount.value);
+
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la récupération des utilisateurs';
-      // notifyError(error.value); // Removed
-      console.error(error.value); // Log error instead
+      console.error('Error fetching users:', error.value);
     } finally {
       loading.value = false;
     }
   }
-  
+
+  // Removed placeholder fetchUsersCount function
+
   async function fetchUser(id: number) {
     loading.value = true;
     error.value = null;
@@ -468,14 +493,53 @@ const isAdmin = computed(() => {
   async function updateUserLimit(id: number, smsLimit: number | undefined) {
     return updateUser(id, undefined, smsLimit);
   }
-  
+
+  // --- Pagination & Search Actions ---
+
+  function setPage(page: number) {
+    if (page > 0) {
+      currentPage.value = page;
+      fetchUsers(); // Refetch users for the new page
+    }
+  }
+
+  function setItemsPerPage(count: number) {
+    if (count > 0) {
+      itemsPerPage.value = count;
+      currentPage.value = 1; // Reset to first page when changing items per page
+      fetchUsers(); // Refetch users with new limit
+    }
+  }
+
+  // Debounced search function
+  let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+  function searchUsers(term: string) {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    searchTimeout = setTimeout(() => {
+      searchTerm.value = term || ''; // Ensure empty string if null/undefined
+      currentPage.value = 1; // Reset to first page on new search
+      fetchUsers(); // Fetch users with the new search term
+    }, 300); // 300ms debounce
+  }
+
+  // Watch for changes that require refetching - uncomment if needed after testing
+  // watch([currentPage, itemsPerPage], () => fetchUsers());
+  // watch(searchTerm, () => { currentPage.value = 1; fetchUsers(); });
+
+
   return {
     // State
     users,
     loading,
     error,
     currentUser,
-    
+    totalCount,     // Added
+    currentPage,    // Added
+    itemsPerPage,   // Added
+    searchTerm,     // Added
+
     // Getters
     getUserById,
     totalUsers,
@@ -490,8 +554,12 @@ const isAdmin = computed(() => {
     changePassword,
     addCredits,
     deleteUser,
-    
     // Nouvelle méthode
-    updateUserLimit
+    updateUserLimit,
+
+    // New Pagination/Search Actions
+    setPage,
+    setItemsPerPage,
+    searchUsers
   };
 });

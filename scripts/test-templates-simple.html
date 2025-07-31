@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Simple Templates WhatsApp</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Simple Templates WhatsApp</h1>
+    
+    <div class="section">
+        <h2>Test Direct GraphQL</h2>
+        <button onclick="testGraphQL()">Tester GraphQL</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/graphql.php';
+        
+        async function testGraphQL() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Requête simple sans arguments
+                const query = `
+                    query {
+                        getWhatsAppUserTemplates {
+                            id
+                            name
+                            language
+                            category
+                            status
+                            bodyText
+                            isActive
+                        }
+                    }
+                `;
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query })
+                });
+                
+                const data = await response.json();
+                
+                if (data.errors) {
+                    resultDiv.innerHTML = `<p class="error">Erreurs GraphQL:</p><pre>${JSON.stringify(data.errors, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="success">Succès!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Erreur: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

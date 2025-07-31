@@ -1,0 +1,9 @@
+{
+    "default_user_id": 1,
+    "create_missing_contacts": true,
+    "phone_number_patterns": {
+        "whatsapp_business": [
+            "\/^225\\d{10}$\/"
+        ]
+    }
+}

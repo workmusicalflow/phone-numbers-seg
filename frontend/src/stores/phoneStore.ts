@@ -14,6 +14,7 @@ export interface PhoneNumber {
   sector?: string;
   notes?: string;
   segments: Segment[];
+  contactCount: number;
 }
 
 export interface Segment {
@@ -48,6 +49,7 @@ export const usePhoneStore = defineStore("phone", () => {
               company
               sector
               notes
+              contactCount
               segments {
                 id
                 type
@@ -88,6 +90,7 @@ export const usePhoneStore = defineStore("phone", () => {
               company
               sector
               notes
+              contactCount
               segments {
                 id
                 type
@@ -153,6 +156,7 @@ export const usePhoneStore = defineStore("phone", () => {
               company
               sector
               notes
+              contactCount
               segments {
                 id
                 type

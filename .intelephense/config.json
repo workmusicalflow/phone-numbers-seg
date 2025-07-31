@@ -1,0 +1,41 @@
+{
+  "environment": {
+    "includePaths": [
+      "src",
+      "scripts",
+      "public",
+      "tests"
+    ],
+    "excludePaths": [
+      "vendor/**",
+      "node_modules/**",
+      "frontend/node_modules/**",
+      "var/**",
+      "logs/**",
+      "backup_whatsapp_obsolete_20250516_095121/**",
+      "cleanup_backup_20250521/**"
+    ]
+  },
+  "files": {
+    "exclude": [
+      "**/vendor/**",
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/var/**",
+      "**/logs/**"
+    ]
+  },
+  "completion": {
+    "insertUseDeclaration": true,
+    "fullyQualifyGlobalConstantsAndFunctions": false
+  },
+  "diagnostics": {
+    "enable": true,
+    "run": "onType",
+    "debounce": 250,
+    "maxItems": 100
+  },
+  "format": {
+    "enable": true
+  }
+}

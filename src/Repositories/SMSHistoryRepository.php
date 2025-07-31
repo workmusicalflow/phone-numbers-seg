@@ -3,13 +3,16 @@
 namespace App\Repositories;
 
 use App\Models\SMSHistory;
-use App\Repositories\Interfaces\SMSHistoryRepositoryInterface;
 use PDO;
 
 /**
  * Repository pour la gestion des enregistrements d'historique SMS
+ * 
+ * Note: Cette classe est la version legacy du repository SMSHistory.
+ * Pour les nouvelles fonctionnalités, utilisez l'implémentation Doctrine via
+ * l'interface SMSHistoryRepositoryInterface.
  */
-class SMSHistoryRepository implements SMSHistoryRepositoryInterface
+class SMSHistoryRepository
 {
     /**
      * @var PDO Instance de PDO
@@ -122,7 +125,7 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
         ?string $messageId = null,
         ?string $errorMessage = null,
         string $senderAddress = 'tel:+2250595016840',
-        string $senderName = 'Qualitas CI',
+        string $senderName = '225HBC',
         ?int $segmentId = null,
         ?int $phoneNumberId = null,
         ?int $userId = null
@@ -167,15 +170,32 @@ class SMSHistoryRepository implements SMSHistoryRepositoryInterface
     /**
      * Trouver tous les enregistrements d'historique SMS
      *
-     * @param int $limit Limite de résultats
-     * @param int $offset Offset pour la pagination
+     * @param int|null $limit Limite de résultats
+     * @param int|null $offset Offset pour la pagination
      * @return array
      */
-    public function findAll(int $limit = 100, int $offset = 0): array
+    public function findAll(?int $limit = null, ?int $offset = null): array
     {
-        $stmt = $this->db->prepare('SELECT * FROM sms_history ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $sql = 'SELECT * FROM sms_history ORDER BY created_at DESC';
+
+        // Ajouter LIMIT et OFFSET si spécifiés
+        if ($limit !== null) {
+            $sql .= ' LIMIT :limit';
+            if ($offset !== null) {
+                $sql .= ' OFFSET :offset';
+            }
+        }
+
+        $stmt = $this->db->prepare($sql);
+
+        // Lier les paramètres seulement s'ils sont spécifiés
+        if ($limit !== null) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            if ($offset !== null) {
+                $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            }
+        }
+
         $stmt->execute();
 
         $results = [];

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Templates WhatsApp Frontend</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        .info {
+            color: blue;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Templates WhatsApp Frontend</h1>
+    
+    <div class="test-section">
+        <h2>1. Connexion</h2>
+        <button onclick="login()">Se connecter en tant qu'admin</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Récupération des templates</h2>
+        <button onclick="getTemplates()">Charger les templates</button>
+        <div id="templates-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Synchronisation avec Meta</h2>
+        <button onclick="syncTemplates()">Synchroniser les templates</button>
+        <div id="sync-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Envoyer un template</h2>
+        <label>Numéro de téléphone:
+            <input type="text" id="phone-number" value="+33612345678">
+        </label>
+        <br><br>
+        <label>Template:
+            <select id="template-select">
+                <option value="">-- Sélectionner --</option>
+            </select>
+        </label>
+        <br><br>
+        <div id="template-variables"></div>
+        <br>
+        <button onclick="sendTemplate()">Envoyer le template</button>
+        <div id="send-result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080/graphql.php';
+        let authToken = null;
+        let templates = [];
+        
+        async function graphqlRequest(query, variables = {}) {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                },
+                body: JSON.stringify({ query, variables })
+            });
+            
+            const data = await response.json();
+            if (data.errors) {
+                throw new Error(data.errors[0].message);
+            }
+            return data.data;
+        }
+        
+        async function login() {
+            const resultDiv = document.getElementById('login-result');
+            try {
+                const query = `
+                    mutation Login($username: String!, $password: String!) {
+                        login(username: $username, password: $password) {
+                            token
+                            user {
+                                id
+                                username
+                                isAdmin
+                            }
+                        }
+                    }
+                `;
+                
+                const result = await graphqlRequest(query, {
+                    username: 'admin',
+                    password: 'admin123'
+                });
+                
+                authToken = result.login.token;
+                resultDiv.innerHTML = `
+                    <p class="success">✓ Connecté en tant que ${result.login.user.username}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Erreur: ${error.message}</p>`;
+            }
+        }
+        
+        async function getTemplates() {
+            const resultDiv = document.getElementById('templates-result');
+            if (!authToken) {
+                resultDiv.innerHTML = '<p class="error">Veuillez vous connecter d\'abord</p>';
+                return;
+            }
+            
+            try {
+                const query = `
+                    query GetTemplates {
+                        getWhatsAppTemplates {
+                            id
+                            name
+                            language
+                            category
+                            status
+                            bodyText
+                            headerText
+                            footerText
+                            isActive
+                        }
+                    }
+                `;
+                
+                const result = await graphqlRequest(query);
+                templates = result.getWhatsAppTemplates;
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✓ ${templates.length} templates trouvés</p>
+                    <pre>${JSON.stringify(templates, null, 2)}</pre>
+                `;
+                
+                // Remplir le sélecteur de templates
+                const select = document.getElementById('template-select');
+                select.innerHTML = '<option value="">-- Sélectionner --</option>';
+                templates.forEach(t => {
+                    const option = document.createElement('option');
+                    option.value = t.id;
+                    option.textContent = `${t.name} (${t.language}) - ${t.status}`;
+                    select.appendChild(option);
+                });
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Erreur: ${error.message}</p>`;
+            }
+        }
+        
+        async function syncTemplates() {
+            const resultDiv = document.getElementById('sync-result');
+            if (!authToken) {
+                resultDiv.innerHTML = '<p class="error">Veuillez vous connecter d\'abord</p>';
+                return;
+            }
+            
+            try {
+                const query = `
+                    mutation SyncTemplates {
+                        syncWhatsAppTemplates {
+                            success
+                            count
+                            message
+                        }
+                    }
+                `;
+                
+                const result = await graphqlRequest(query);
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✓ ${result.syncWhatsAppTemplates.message}</p>
+                    <p class="info">${result.syncWhatsAppTemplates.count} templates synchronisés</p>
+                `;
+                
+                // Recharger les templates
+                await getTemplates();
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Erreur: ${error.message}</p>`;
+            }
+        }
+        
+        function onTemplateChange() {
+            const select = document.getElementById('template-select');
+            const variablesDiv = document.getElementById('template-variables');
+            
+            const selectedTemplate = templates.find(t => t.id == select.value);
+            if (!selectedTemplate) {
+                variablesDiv.innerHTML = '';
+                return;
+            }
+            
+            // Chercher les variables dans le bodyText
+            const variables = selectedTemplate.bodyText.match(/{{(\d+)}}/g) || [];
+            if (variables.length === 0) {
+                variablesDiv.innerHTML = '<p class="info">Ce template n\'a pas de variables</p>';
+                return;
+            }
+            
+            variablesDiv.innerHTML = '<h4>Variables du template:</h4>';
+            variables.forEach((v, index) => {
+                const varNum = v.match(/\d+/)[0];
+                variablesDiv.innerHTML += `
+                    <div>
+                        <label>Variable ${varNum}:
+                            <input type="text" id="var-${varNum}" placeholder="Valeur pour {{${varNum}}}">
+                        </label>
+                    </div>
+                `;
+            });
+        }
+        
+        document.getElementById('template-select').addEventListener('change', onTemplateChange);
+        
+        async function sendTemplate() {
+            const resultDiv = document.getElementById('send-result');
+            const phoneNumber = document.getElementById('phone-number').value;
+            const templateId = document.getElementById('template-select').value;
+            
+            if (!authToken) {
+                resultDiv.innerHTML = '<p class="error">Veuillez vous connecter d\'abord</p>';
+                return;
+            }
+            
+            if (!phoneNumber || !templateId) {
+                resultDiv.innerHTML = '<p class="error">Veuillez remplir tous les champs</p>';
+                return;
+            }
+            
+            const selectedTemplate = templates.find(t => t.id == templateId);
+            if (!selectedTemplate) {
+                resultDiv.innerHTML = '<p class="error">Template non trouvé</p>';
+                return;
+            }
+            
+            try {
+                // Récupérer les valeurs des variables
+                const variables = selectedTemplate.bodyText.match(/{{(\d+)}}/g) || [];
+                const bodyParams = [];
+                
+                variables.forEach(v => {
+                    const varNum = v.match(/\d+/)[0];
+                    const value = document.getElementById(`var-${varNum}`)?.value || '';
+                    bodyParams.push(value);
+                });
+                
+                const query = `
+                    mutation SendTemplateMessage(
+                        $recipient: String!,
+                        $templateName: String!,
+                        $languageCode: String!,
+                        $bodyParams: [String!]
+                    ) {
+                        sendWhatsAppTemplateMessage(
+                            recipient: $recipient,
+                            templateName: $templateName,
+                            languageCode: $languageCode,
+                            bodyParams: $bodyParams
+                        ) {
+                            id
+                            wabaMessageId
+                            status
+                            type
+                            phoneNumber
+                        }
+                    }
+                `;
+                
+                const result = await graphqlRequest(query, {
+                    recipient: phoneNumber,
+                    templateName: selectedTemplate.name,
+                    languageCode: selectedTemplate.language,
+                    bodyParams: bodyParams
+                });
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✓ Template envoyé avec succès!</p>
+                    <pre>${JSON.stringify(result.sendWhatsAppTemplateMessage, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Erreur: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

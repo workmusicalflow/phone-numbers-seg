@@ -2,8 +2,8 @@
 
 namespace App\Services\Strategies;
 
-use App\Models\PhoneNumber;
-use App\Models\Segment;
+use App\Entities\PhoneNumber; // Use Doctrine Entity
+use App\Entities\Segment; // Use Doctrine Entity
 use App\Services\Interfaces\SegmentationStrategyInterface;
 
 /**
@@ -14,30 +14,30 @@ class IvoryCoastSegmentationStrategy implements SegmentationStrategyInterface
     /**
      * Segment a phone number
      * 
-     * @param PhoneNumber $phoneNumber
-     * @return PhoneNumber
+     * @param PhoneNumber $phoneNumber // Use Doctrine Entity
+     * @return PhoneNumber // Return Doctrine Entity
      */
-    public function segment(PhoneNumber $phoneNumber): PhoneNumber
+    public function segment(PhoneNumber $phoneNumber): PhoneNumber // Use Doctrine Entity
     {
         // Get the normalized number
         $number = $phoneNumber->getNumber();
 
         // Extract country code
         $countryCode = $this->extractCountryCode($number);
-        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_COUNTRY_CODE, $countryCode));
+        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_COUNTRY_CODE, $countryCode)); // Use Doctrine Entity
 
         // Extract operator code
         $operatorCode = $this->extractOperatorCode($number);
-        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_OPERATOR_CODE, $operatorCode));
+        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_OPERATOR_CODE, $operatorCode)); // Use Doctrine Entity
 
         // Extract subscriber number
         $subscriberNumber = $this->extractSubscriberNumber($number);
-        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_SUBSCRIBER_NUMBER, $subscriberNumber));
+        $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_SUBSCRIBER_NUMBER, $subscriberNumber)); // Use Doctrine Entity
 
         // Extract operator name (if known)
         $operatorName = $this->identifyOperator($operatorCode);
         if ($operatorName) {
-            $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_OPERATOR_NAME, $operatorName));
+            $phoneNumber->addTechnicalSegment(new Segment(Segment::TYPE_OPERATOR_NAME, $operatorName)); // Use Doctrine Entity
         }
 
         return $phoneNumber;

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WhatsApp Message List</title>
+    <script>
+        // Test automatique des fonctionnalités
+        async function testWhatsAppMessageList() {
+            console.log('🧪 Début des tests WhatsApp Message List');
+            
+            const baseUrl = 'http://localhost:5173';
+            const results = {
+                passed: [],
+                failed: []
+            };
+            
+            // Test 1: Vérifier que la page se charge
+            try {
+                const response = await fetch(baseUrl);
+                if (response.ok) {
+                    results.passed.push('✅ Page principale accessible');
+                } else {
+                    results.failed.push('❌ Page principale inaccessible');
+                }
+            } catch (error) {
+                results.failed.push(`❌ Erreur de connexion: ${error.message}`);
+            }
+            
+            // Test 2: Vérifier l'API GraphQL
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    results.failed.push('❌ Pas de token d\'authentification');
+                } else {
+                    results.passed.push('✅ Token d\'authentification présent');
+                }
+            } catch (error) {
+                results.failed.push(`❌ Erreur localStorage: ${error.message}`);
+            }
+            
+            // Afficher les résultats
+            console.log('\n📊 Résultats des tests:');
+            console.log(`Réussis: ${results.passed.length}`);
+            console.log(`Échoués: ${results.failed.length}`);
+            
+            results.passed.forEach(test => console.log(test));
+            results.failed.forEach(test => console.log(test));
+            
+            return results;
+        }
+        
+        // Lancer les tests au chargement
+        window.addEventListener('load', () => {
+            setTimeout(testWhatsAppMessageList, 1000);
+        });
+    </script>
+</head>
+<body>
+    <h1>Test d'intégration WhatsApp Message List</h1>
+    <p>Ouvrez la console pour voir les résultats des tests.</p>
+    
+    <h2>Tests manuels à effectuer:</h2>
+    <ol>
+        <li>Ouvrir <a href="http://localhost:5173" target="_blank">http://localhost:5173</a></li>
+        <li>Se connecter avec les identifiants admin</li>
+        <li>Naviguer vers la section WhatsApp</li>
+        <li>Vérifier que la liste des messages s'affiche</li>
+        <li>Tester chaque fonctionnalité selon la checklist</li>
+    </ol>
+    
+    <h2>Points de vérification:</h2>
+    <ul>
+        <li>Console du navigateur sans erreur</li>
+        <li>Tous les composants visibles</li>
+        <li>Interactions fonctionnelles</li>
+        <li>Performance acceptable</li>
+    </ul>
+</body>
+</html>

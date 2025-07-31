@@ -4,9 +4,14 @@
     :columns="columns"
     row-key="id"
     :loading="loading"
-    :pagination="pagination"
+    v-model:pagination="paginationModel"
+    @request="onRequestInternal" 
+    :rows-per-page-options="[5, 10, 20, 50]"
     :filter="filter"
     binary-state-sort
+    flat
+    bordered
+    class="users-table"
   >
     <!-- Slot pour les actions -->
     <template v-slot:body-cell-actions="props">
@@ -93,14 +98,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue'; // Added computed
 import { date } from 'quasar';
 import { User } from '../../stores/userStore';
+
+// Define the structure for the pagination prop more explicitly
+interface Pagination {
+  sortBy: string;
+  descending: boolean;
+  page: number;
+  rowsPerPage: number;
+  rowsNumber?: number | undefined; // Total number of rows from the server (optional)
+}
 
 const props = defineProps<{
   users: User[];
   loading: boolean;
-  filter: string;
+  pagination: Pagination; // Updated pagination prop type
+  filter?: string; // Made filter optional as it might not always be used directly by q-table
 }>();
 
 // Log users when they change
@@ -113,12 +128,25 @@ const emit = defineEmits<{
   (e: 'add-credits', user: User): void;
   (e: 'change-password', user: User): void;
   (e: 'delete-user', user: User): void;
+  (e: 'request', pagination: any): void; // Added request event
 }>();
 
-// Pagination
-const pagination = ref({
-  rowsPerPage: 10
+// Computed property for v-model:pagination
+const paginationModel = computed({
+  get: () => props.pagination,
+  set: (value) => {
+    // Emit the 'request' event when Quasar tries to update pagination internally
+    // The parent component (Users.vue) will handle the update via the store
+    emit('request', value);
+  }
 });
+
+// Internal handler for q-table's @request event
+const onRequestInternal = (requestProps: { pagination: Pagination }) => {
+  // Emit the request event with the pagination payload from q-table
+  emit('request', requestProps.pagination);
+};
+
 
 // Colonnes du tableau
 const columns = [
@@ -143,3 +171,9 @@ function getCreditStatusClass(credits: number): string {
   return 'text-positive';
 }
 </script>
+
+<style scoped>
+.users-table {
+  width: 100%;
+}
+</style>

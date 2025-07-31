@@ -3,23 +3,24 @@
 namespace App\GraphQL\Resolvers;
 
 use App\Services\Interfaces\AuthServiceInterface;
-use App\Models\User;
-// GraphQLFormatterInterface removed again
+use App\Entities\User;
+use App\GraphQL\Formatters\GraphQLFormatterInterface;
 use Exception;
 use Psr\Log\LoggerInterface;
 
 class AuthResolver
 {
     private AuthServiceInterface $authService;
-    // Formatter property removed again
+    private GraphQLFormatterInterface $formatter;
     private LoggerInterface $logger;
 
     public function __construct(
         AuthServiceInterface $authService,
-        // Formatter injection removed again
+        GraphQLFormatterInterface $formatter,
         LoggerInterface $logger
     ) {
         $this->authService = $authService;
+        $this->formatter = $formatter;
         $this->logger = $logger;
     }
 
@@ -76,8 +77,8 @@ class AuthResolver
     {
         $this->logger->info('Executing AuthResolver::mutateLogout');
         try {
-            // --- Session Handling ---
-            if (session_status() === PHP_SESSION_NONE) {
+            // Get the current user ID for logging
+            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
                 session_start();
             }
 
@@ -88,28 +89,9 @@ class AuthResolver
                 $this->logger->info('Logout called but no user was logged in.');
             }
 
-            // Unset all session variables
-            $_SESSION = [];
-
-            // Destroy the session cookie if it exists
-            if (ini_get("session.use_cookies")) {
-                $params = session_get_cookie_params();
-                setcookie(
-                    session_name(),
-                    '',
-                    time() - 42000,
-                    $params["path"],
-                    $params["domain"],
-                    $params["secure"],
-                    $params["httponly"]
-                );
-                $this->logger->debug('Session cookie destroyed.');
-            }
-
-            // Destroy the session
-            session_destroy();
-            $this->logger->info('Session destroyed.');
-            // --- End Session Handling ---
+            // Use the AuthService to destroy the session
+            $this->authService->destroyUserSession();
+            $this->logger->info('Session destroyed via AuthService.');
 
             return true;
         } catch (Exception $e) {
@@ -170,4 +152,48 @@ class AuthResolver
 
     // --- Helper Methods ---
     // No helper methods needed here now
+
+    /**
+     * Resolver for the 'me' query.
+     * Retrieves the currently authenticated user's details.
+     *
+     * @param array<string, mixed> $args
+     * @param mixed $context
+     * @return array<string, mixed>|null User data as an array or null if not authenticated.
+     */
+    public function resolveMe(array $args, $context): ?array
+    {
+        $this->logger->info('Executing AuthResolver::resolveMe');
+
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user_id'])) {
+            $this->logger->info('No active session found for "me" query.');
+            return null;
+        }
+
+        $userId = $_SESSION['user_id'];
+        $this->logger->info('Active session found for user ID: ' . $userId . '. Attempting to fetch user details.');
+
+        try {
+            $user = $this->authService->getUserById((int)$userId); // Corrected method name
+            if (!$user) {
+                $this->logger->warning('User ID ' . $userId . ' found in session, but no user found in database.');
+                // This case might indicate a stale session, so clear it.
+                $this->authService->destroyUserSession();
+                return null;
+            }
+
+            $this->logger->info('User details fetched successfully for user ID: ' . $userId);
+            // Use the formatter to convert the User entity to the expected array structure for GraphQL
+            return $this->formatter->formatUser($user);
+        } catch (Exception $e) {
+            $this->logger->error('Error fetching user details for "me" query (User ID: ' . $userId . '): ' . $e->getMessage(), ['exception' => $e]);
+            // Optionally, destroy session if user retrieval fails critically
+            // $this->authService->destroyUserSession();
+            return null; // Or throw an exception to be caught by GraphQL error handler
+        }
+    }
 }

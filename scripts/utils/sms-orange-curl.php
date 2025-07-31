@@ -73,7 +73,7 @@ $access_token = getAccessToken($client_id, $client_secret);
 // Configuration des paramètres pour l'envoi de SMS
 $sender_address = 'tel:+2250595016840';  // Remplacez par votre numéro d'expéditeur
 $receiver_address = 'tel:+2250777104936'; // Remplacez par le numéro de destinataire
-$sender_name = 'Qualitas CI';
+$sender_name = '225HBC';
 $message = "Bénéficiez gratuitement du pack de démarrage e-entrepreneur.";
 
 // Envoyer le SMS et récupérer la `resourceURL`
@@ -104,7 +104,7 @@ Array
                 )
 
             [senderAddress] => tel:+2250595016840
-            [senderName] => Qualitas CI
+            [senderName] => 225HBC
             [outboundSMSTextMessage] => Array
                 (
                     [message] => Bénéficiez gratuitement du pack de démarrage e-entrepreneur.

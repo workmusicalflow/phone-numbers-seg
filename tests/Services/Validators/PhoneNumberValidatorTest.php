@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 class PhoneNumberValidatorTest extends TestCase
 {
-    private $phoneNumberRepository;
+    private \PHPUnit\Framework\MockObject\MockObject&\App\Repositories\PhoneNumberRepository $phoneNumberRepository;
     private $phoneNumberValidator;
 
     protected function setUp(): void
@@ -40,15 +40,15 @@ class PhoneNumberValidatorTest extends TestCase
         $notes = 'Notes de test';
 
         // Exécuter la méthode à tester
-        $result = $this->phoneNumberValidator->validateCreate(
-            $number,
-            $civility,
-            $firstName,
-            $name,
-            $company,
-            $sector,
-            $notes
-        );
+        $result = $this->phoneNumberValidator->validateCreate([
+            'number' => $number,
+            'civility' => $civility,
+            'firstName' => $firstName,
+            'name' => $name,
+            'company' => $company,
+            'sector' => $sector,
+            'notes' => $notes
+        ]);
 
         // Vérifier que le résultat est correct
         $this->assertEquals([
@@ -71,7 +71,7 @@ class PhoneNumberValidatorTest extends TestCase
         $this->expectException(ValidationException::class);
 
         // Exécuter la méthode à tester
-        $this->phoneNumberValidator->validateCreate($number);
+        $this->phoneNumberValidator->validateCreate(['number' => $number]);
     }
 
     public function testValidateCreateWithExistingNumber()
@@ -90,7 +90,7 @@ class PhoneNumberValidatorTest extends TestCase
         $this->expectException(ValidationException::class);
 
         // Exécuter la méthode à tester
-        $this->phoneNumberValidator->validateCreate($number);
+        $this->phoneNumberValidator->validateCreate(['number' => $number]);
     }
 
     public function testValidateCreateWithInvalidCivility()
@@ -107,7 +107,7 @@ class PhoneNumberValidatorTest extends TestCase
         $this->expectException(ValidationException::class);
 
         // Exécuter la méthode à tester
-        $this->phoneNumberValidator->validateCreate($number, $civility);
+        $this->phoneNumberValidator->validateCreate(['number' => $number, 'civility' => $civility]);
     }
 
     public function testValidateUpdateWithValidData()
@@ -131,12 +131,14 @@ class PhoneNumberValidatorTest extends TestCase
         // Exécuter la méthode à tester
         $result = $this->phoneNumberValidator->validateUpdate(
             $id,
-            $civility,
-            $firstName,
-            $name,
-            $company,
-            $sector,
-            $notes
+            [
+                'civility' => $civility,
+                'firstName' => $firstName,
+                'name' => $name,
+                'company' => $company,
+                'sector' => $sector,
+                'notes' => $notes
+            ]
         );
 
         // Vérifier que le résultat est correct
@@ -164,7 +166,7 @@ class PhoneNumberValidatorTest extends TestCase
         $this->expectException(ValidationException::class);
 
         // Exécuter la méthode à tester
-        $this->phoneNumberValidator->validateUpdate($id);
+        $this->phoneNumberValidator->validateUpdate($id, []);
     }
 
     public function testValidateDeleteWithValidId()

@@ -1,0 +1,30 @@
+{
+    "timestamp": "2025-05-16_12-13-04",
+    "type": "status",
+    "method": "POST",
+    "data": {
+        "action": "status_update",
+        "status": {
+            "id": "wamid.HBgLMjI1NzcxMDQ5MzYVAgARGBIxRjgzNUFFNzY2MDc4QkRGOTYA",
+            "status": "read",
+            "timestamp": "1747397572",
+            "recipient_id": "22577104936"
+        }
+    },
+    "headers": {
+        "x-forwarded-for": "173.252.95.36",
+        "x-forwarded-port": "443",
+        "host": "olive-meals-win.loca.lt",
+        "x-forwarded-proto": "https, https",
+        "content-length": "384",
+        "x-hub-signature-256": "sha256=b58771782bd70b25bb7fcbd5ea9a1ed051283478142cdc381e91a7cc4316a2bb",
+        "x-hub-signature": "sha1=8aaf0eeef1ebbba8e29afe8ad01dac148066fac4",
+        "content-type": "application\/json",
+        "user-agent": "facebookexternalua",
+        "accept-encoding": "deflate, gzip",
+        "accept": "*\/*",
+        "x-forwarded-host": "olive-meals-win.loca.lt",
+        "connection": "keep-alive"
+    },
+    "query": []
+}

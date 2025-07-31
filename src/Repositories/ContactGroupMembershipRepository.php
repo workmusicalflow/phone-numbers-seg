@@ -38,12 +38,16 @@ class ContactGroupMembershipRepository implements RepositoryInterface
 
     public function findAll(?int $limit = null, ?int $offset = null): array
     {
+        // Set default values if null
+        $limitValue = $limit ?? 1000; // Default to 1000 if null
+        $offsetValue = $offset ?? 0;  // Default to 0 if null
+
         $stmt = $this->pdo->prepare("
             SELECT * FROM contact_group_memberships
             LIMIT :limit OFFSET :offset
         ");
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limitValue, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offsetValue, PDO::PARAM_INT);
         $stmt->execute();
 
         $memberships = [];
@@ -368,5 +372,31 @@ class ContactGroupMembershipRepository implements RepositoryInterface
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * Find membership by contact ID and group ID
+     * 
+     * @param int $contactId The contact ID
+     * @param int $groupId The group ID
+     * @return ContactGroupMembership|null The membership or null if not found
+     */
+    public function findByContactIdAndGroupId(int $contactId, int $groupId): ?ContactGroupMembership
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM contact_group_memberships
+            WHERE contact_id = :contact_id AND group_id = :group_id
+            LIMIT 1
+        ");
+        $stmt->bindParam(':contact_id', $contactId, PDO::PARAM_INT);
+        $stmt->bindParam(':group_id', $groupId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+
+        return ContactGroupMembership::fromPDO($this->pdo, $row);
     }
 }

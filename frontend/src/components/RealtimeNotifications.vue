@@ -103,12 +103,15 @@ function connect() {
   }, 1000);
 }
 
+// Variable pour stocker l'intervalle de notification
+let notificationInterval: number | null = null;
+
 function setupNotificationListeners() {
   // Dans une implémentation réelle, nous utiliserions Pusher ou une autre bibliothèque
   // pour écouter les événements en temps réel
   
   // Simuler la réception d'une notification toutes les 30 secondes
-  const interval = setInterval(() => {
+  notificationInterval = window.setInterval(() => {
     // Générer un type aléatoire
     const types = ['info', 'success', 'warning', 'error', 'admin_event'];
     const randomType = types[Math.floor(Math.random() * types.length)] as 'info' | 'success' | 'warning' | 'error' | 'admin_event';
@@ -135,11 +138,6 @@ function setupNotificationListeners() {
       }
     });
   }, 30000);
-  
-  // Nettoyer l'intervalle lors du démontage du composant
-  onUnmounted(() => {
-    clearInterval(interval);
-  });
 }
 
 function addNotification(notification: Notification) {
@@ -211,6 +209,12 @@ onUnmounted(() => {
   if (pusherInstance.value) {
     // Déconnecter Pusher
     // pusherInstance.value.disconnect();
+  }
+  
+  // Nettoyer l'intervalle de notification
+  if (notificationInterval !== null) {
+    clearInterval(notificationInterval);
+    notificationInterval = null;
   }
 });
 

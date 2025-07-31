@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WhatsApp Templates - Protection Null</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f8fa;
+            color: #333;
+        }
+        
+        h1 {
+            color: #1976d2;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #1565c0;
+        }
+        
+        pre {
+            background-color: #f7f7f7;
+            border-radius: 4px;
+            padding: 12px;
+            overflow: auto;
+            max-height: 300px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+            display: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #ccc;
+        }
+        
+        .log-info {
+            border-left-color: #2196f3;
+        }
+        
+        .log-success {
+            border-left-color: #4caf50;
+        }
+        
+        .log-warning {
+            border-left-color: #ff9800;
+        }
+        
+        .log-error {
+            border-left-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test WhatsApp Templates - Protection Null</h1>
+        
+        <div class="card">
+            <h2>Tests GraphQL</h2>
+            <p>Ces tests vérifient que les protections contre les valeurs nulles fonctionnent correctement dans les requêtes GraphQL pour les templates WhatsApp.</p>
+            
+            <div class="button-container">
+                <button id="runAllBtn">Exécuter tous les tests</button>
+                <button id="fetchApprovedBtn">Test fetchApprovedWhatsAppTemplates</button>
+                <button id="getUserTemplatesBtn">Test getWhatsAppUserTemplates</button>
+                <button id="clearBtn">Effacer les logs</button>
+                <span id="loader" class="loader"></span>
+            </div>
+            
+            <h3>Logs</h3>
+            <div id="logContainer" class="log-container"></div>
+            
+            <h3>Requête actuelle</h3>
+            <pre id="queryContainer">// La requête GraphQL apparaîtra ici</pre>
+            
+            <h3>Résultats</h3>
+            <pre id="resultContainer">// Les résultats apparaîtront ici</pre>
+        </div>
+        
+        <div class="card">
+            <h2>Tests de simulation locale</h2>
+            <p>Ces tests simulent localement le comportement du code de protection contre les valeurs nulles.</p>
+            
+            <button id="runSimulationBtn">Exécuter la simulation</button>
+            
+            <h3>Simulation</h3>
+            <pre id="simulationContainer">// Les résultats de la simulation apparaîtront ici</pre>
+        </div>
+    </div>
+    
+    <script>
+        // Éléments DOM
+        const runAllBtn = document.getElementById('runAllBtn');
+        const fetchApprovedBtn = document.getElementById('fetchApprovedBtn');
+        const getUserTemplatesBtn = document.getElementById('getUserTemplatesBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const runSimulationBtn = document.getElementById('runSimulationBtn');
+        
+        const logContainer = document.getElementById('logContainer');
+        const queryContainer = document.getElementById('queryContainer');
+        const resultContainer = document.getElementById('resultContainer');
+        const simulationContainer = document.getElementById('simulationContainer');
+        const loader = document.getElementById('loader');
+        
+        // Fonction de journalisation
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = message;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            console.log(`%c${message}`, `color: ${type === 'info' ? '#2196f3' : type === 'success' ? '#4caf50' : type === 'warning' ? '#ff9800' : '#f44336'}`);
+        }
+        
+        // Fonction d'affichage de la requête
+        function displayQuery(query) {
+            queryContainer.textContent = query;
+        }
+        
+        // Fonction d'affichage des résultats
+        function displayResult(result) {
+            if (typeof result === 'object') {
+                resultContainer.textContent = JSON.stringify(result, null, 2);
+            } else {
+                resultContainer.textContent = result;
+            }
+        }
+        
+        // Fonction de simulation locale
+        function runLocalSimulation() {
+            log('Démarrage de la simulation locale...', 'info');
+            simulationContainer.textContent = 'Simulation en cours...';
+            
+            // Classe de simulation de WhatsAppTemplateSafeType
+            class MockTemplateSafeType {
+                constructor(template = null) {
+                    // Protection contre null
+                    if (template === null) {
+                        template = {
+                            id: 'empty_' + Math.random().toString(36).substring(2, 11),
+                            name: 'Empty Template'
+                        };
+                    }
+                    
+                    // Valeurs par défaut sûres
+                    this.id = String(template.id || 'id_' + Math.random().toString(36).substring(2, 11));
+                    this.name = String(template.name || 'Unnamed Template');
+                    this.category = String(template.category || '');
+                    this.status = String(template.status || 'UNKNOWN');
+                }
+            }
+            
+            // Simulations des différents cas
+            let simulationOutput = '';
+            
+            // Cas 1: Service retourne null
+            simulationOutput += '=== TEST 1: Service retourne null ===\n';
+            try {
+                // Simuler un service qui retourne null
+                const serviceResult = null;
+                simulationOutput += 'Service retourne: null\n';
+                
+                // Protection niveau 1: null -> tableau vide
+                const templates = serviceResult ?? [];
+                simulationOutput += `Après protection niveau 1: ${Array.isArray(templates) ? 'Array[' + templates.length + ']' : templates}\n`;
+                
+                // Protection niveau 2: Vérification du type
+                const validTemplates = Array.isArray(templates) ? templates : [];
+                simulationOutput += `Après protection niveau 2: Array[${validTemplates.length}]\n`;
+                
+                // Protection niveau 3: Création d'objets sûrs
+                const templateObjects = validTemplates.map(t => new MockTemplateSafeType(t));
+                simulationOutput += `Après protection niveau 3: Array[${templateObjects.length}]\n`;
+                
+                // Protection niveau 4: Garantir un tableau
+                const result = templateObjects.length ? templateObjects : [];
+                simulationOutput += `Résultat final: Array[${result.length}]\n`;
+                simulationOutput += 'Résultat attendu: Array[0]\n';
+                simulationOutput += `Résultat: ${Array.isArray(result) && result !== null ? 'SUCCÈS' : 'ÉCHEC'}\n\n`;
+            } catch (e) {
+                simulationOutput += `ERREUR: ${e.message}\n\n`;
+            }
+            
+            // Cas 2: Exception dans le service
+            simulationOutput += '=== TEST 2: Exception dans le service ===\n';
+            try {
+                // Simuler une exception dans le service
+                simulationOutput += 'Service lance une exception\n';
+                try {
+                    throw new Error('Erreur simulée dans le service');
+                } catch (serviceError) {
+                    simulationOutput += `Exception capturée: ${serviceError.message}\n`;
+                    // Protection: retourner un tableau vide
+                    const templates = [];
+                    simulationOutput += `Après protection: Array[${templates.length}]\n`;
+                    simulationOutput += 'Résultat attendu: Array[0]\n';
+                    simulationOutput += `Résultat: ${Array.isArray(templates) && templates !== null ? 'SUCCÈS' : 'ÉCHEC'}\n\n`;
+                }
+            } catch (e) {
+                simulationOutput += `ERREUR: ${e.message}\n\n`;
+            }
+            
+            // Cas 3: WhatsAppTemplateSafeType avec entrée null
+            simulationOutput += '=== TEST 3: WhatsAppTemplateSafeType avec null ===\n';
+            try {
+                const safeType = new MockTemplateSafeType(null);
+                simulationOutput += `ID généré: ${safeType.id}\n`;
+                simulationOutput += `Nom par défaut: ${safeType.name}\n`;
+                simulationOutput += `Résultat: ${safeType.id && safeType.name ? 'SUCCÈS' : 'ÉCHEC'}\n\n`;
+            } catch (e) {
+                simulationOutput += `ERREUR: ${e.message}\n\n`;
+            }
+            
+            // Afficher les résultats
+            simulationContainer.textContent = simulationOutput;
+            log('Simulation locale terminée avec succès', 'success');
+        }
+        
+        // Fonction de test fetchApprovedWhatsAppTemplates
+        async function testFetchApprovedTemplates() {
+            log('Test de la requête fetchApprovedWhatsAppTemplates', 'info');
+            loader.style.display = 'inline-block';
+            
+            const query = `
+                query {
+                    fetchApprovedWhatsAppTemplates {
+                        id
+                        name
+                        category
+                        language
+                        status
+                    }
+                }
+            `;
+            
+            displayQuery(query);
+            
+            try {
+                const response = await fetch('/graphql.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    log(`Erreur HTTP: ${response.status} ${response.statusText}`, 'error');
+                    displayResult(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                    loader.style.display = 'none';
+                    return;
+                }
+                
+                const result = await response.json();
+                displayResult(result);
+                
+                if (result.errors) {
+                    log('Erreurs GraphQL détectées:', 'error');
+                    result.errors.forEach(error => {
+                        log(`- ${error.message}`, 'error');
+                    });
+                } else {
+                    const templates = result.data?.fetchApprovedWhatsAppTemplates;
+                    
+                    if (templates === undefined) {
+                        log('La clé fetchApprovedWhatsAppTemplates est absente de la réponse', 'error');
+                    } else if (templates === null) {
+                        log('La valeur de fetchApprovedWhatsAppTemplates est null - ÉCHEC!', 'error');
+                    } else if (!Array.isArray(templates)) {
+                        log(`fetchApprovedWhatsAppTemplates n'est pas un tableau (type: ${typeof templates})`, 'error');
+                    } else {
+                        log(`Requête réussie: ${templates.length} templates récupérés`, 'success');
+                        
+                        if (templates.length === 0) {
+                            log('Aucun template retourné (tableau vide)', 'warning');
+                        }
+                    }
+                }
+            } catch (error) {
+                log(`Erreur: ${error.message}`, 'error');
+                displayResult(`Erreur: ${error.message}`);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+        
+        // Fonction de test getWhatsAppUserTemplates
+        async function testGetWhatsAppUserTemplates() {
+            log('Test de la requête getWhatsAppUserTemplates', 'info');
+            loader.style.display = 'inline-block';
+            
+            const query = `
+                query {
+                    getWhatsAppUserTemplates {
+                        id
+                        template_id
+                        name
+                        language
+                        status
+                    }
+                }
+            `;
+            
+            displayQuery(query);
+            
+            try {
+                const response = await fetch('/graphql.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    log(`Erreur HTTP: ${response.status} ${response.statusText}`, 'error');
+                    displayResult(`Erreur HTTP: ${response.status} ${response.statusText}`);
+                    loader.style.display = 'none';
+                    return;
+                }
+                
+                const result = await response.json();
+                displayResult(result);
+                
+                if (result.errors) {
+                    log('Erreurs GraphQL détectées:', 'error');
+                    result.errors.forEach(error => {
+                        log(`- ${error.message}`, 'error');
+                    });
+                } else {
+                    const templates = result.data?.getWhatsAppUserTemplates;
+                    
+                    if (templates === undefined) {
+                        log('La clé getWhatsAppUserTemplates est absente de la réponse', 'error');
+                    } else if (templates === null) {
+                        log('La valeur de getWhatsAppUserTemplates est null - ÉCHEC!', 'error');
+                    } else if (!Array.isArray(templates)) {
+                        log(`getWhatsAppUserTemplates n'est pas un tableau (type: ${typeof templates})`, 'error');
+                    } else {
+                        log(`Requête réussie: ${templates.length} templates récupérés`, 'success');
+                        
+                        if (templates.length === 0) {
+                            log('Aucun template retourné (tableau vide)', 'warning');
+                        }
+                    }
+                }
+            } catch (error) {
+                log(`Erreur: ${error.message}`, 'error');
+                displayResult(`Erreur: ${error.message}`);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+        
+        // Exécuter tous les tests
+        async function runAllTests() {
+            log('--- DÉBUT DES TESTS ---', 'info');
+            
+            await testFetchApprovedTemplates();
+            await testGetWhatsAppUserTemplates();
+            
+            log('--- FIN DES TESTS ---', 'info');
+        }
+        
+        // Événements des boutons
+        runAllBtn.addEventListener('click', runAllTests);
+        fetchApprovedBtn.addEventListener('click', testFetchApprovedTemplates);
+        getUserTemplatesBtn.addEventListener('click', testGetWhatsAppUserTemplates);
+        clearBtn.addEventListener('click', () => {
+            logContainer.innerHTML = '';
+            log('Logs effacés', 'info');
+        });
+        runSimulationBtn.addEventListener('click', runLocalSimulation);
+        
+        // Initialisation
+        log('Page de test chargée', 'info');
+        log('Cliquez sur un bouton pour exécuter un test', 'info');
+    </script>
+</body>
+</html>

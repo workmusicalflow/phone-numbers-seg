@@ -2,8 +2,8 @@
 
 namespace App\Services\Validators;
 
-use App\Repositories\AdminContactRepository;
-use App\Repositories\CustomSegmentRepository;
+use App\Repositories\Interfaces\AdminContactRepositoryInterface; // Use the interface
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface; // Use the interface
 use App\Exceptions\ValidationException;
 
 /**
@@ -15,24 +15,24 @@ use App\Exceptions\ValidationException;
 class AdminContactValidator extends AbstractValidator
 {
     /**
-     * @var AdminContactRepository
+     * @var AdminContactRepositoryInterface
      */
     private $adminContactRepository;
 
     /**
-     * @var CustomSegmentRepository
+     * @var CustomSegmentRepositoryInterface // Use the interface
      */
-    private $customSegmentRepository;
+    private CustomSegmentRepositoryInterface $customSegmentRepository; // Use the interface
 
     /**
      * Constructeur
      * 
-     * @param AdminContactRepository $adminContactRepository
-     * @param CustomSegmentRepository $customSegmentRepository
+     * @param AdminContactRepositoryInterface $adminContactRepository
+     * @param CustomSegmentRepositoryInterface $customSegmentRepository // Use the interface
      */
     public function __construct(
-        AdminContactRepository $adminContactRepository,
-        CustomSegmentRepository $customSegmentRepository
+        AdminContactRepositoryInterface $adminContactRepository, // Use the interface
+        CustomSegmentRepositoryInterface $customSegmentRepository // Use the interface
     ) {
         $this->adminContactRepository = $adminContactRepository;
         $this->customSegmentRepository = $customSegmentRepository;
@@ -259,7 +259,7 @@ class AdminContactValidator extends AbstractValidator
         }
 
         // Vérifier que le contact est bien dans le segment
-        if ($adminContact && $customSegment && $adminContact->getSegmentId() !== $segmentId) {
+        if ($adminContact && $customSegment && ($adminContact->getSegment() === null || $adminContact->getSegment()->getId() !== $segmentId)) {
             $errors['contactId'] = "Le contact n'est pas dans ce segment";
         }
 

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Complet Templates WhatsApp</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Complet Templates WhatsApp</h1>
+    
+    <div class="section">
+        <h2>1. Test de la requête GraphQL</h2>
+        <button onclick="testUserTemplates()">Tester getWhatsAppUserTemplates</button>
+        <div id="user-templates-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Test de connexion et templates</h2>
+        <button onclick="loginAndGetTemplates()">Se connecter et récupérer templates</button>
+        <div id="login-templates-result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/graphql.php';
+        
+        async function testUserTemplates() {
+            const resultDiv = document.getElementById('user-templates-result');
+            
+            try {
+                // Test simple sans authentification
+                const query = `
+                    query {
+                        getWhatsAppUserTemplates {
+                            id
+                            name
+                            language
+                            status
+                        }
+                    }
+                `;
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query })
+                });
+                
+                const data = await response.json();
+                
+                if (data.errors) {
+                    resultDiv.innerHTML = `<p class="error">Erreurs GraphQL:</p><pre>${JSON.stringify(data.errors, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="success">Succès!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Erreur: ${error.message}</p>`;
+            }
+        }
+        
+        async function loginAndGetTemplates() {
+            const resultDiv = document.getElementById('login-templates-result');
+            
+            try {
+                // 1. Se connecter
+                const loginQuery = `
+                    mutation {
+                        login(username: "admin", password: "admin123")
+                    }
+                `;
+                
+                const loginResponse = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: loginQuery })
+                });
+                
+                const loginData = await loginResponse.json();
+                if (loginData.errors || !loginData.data.login) {
+                    resultDiv.innerHTML = `<p class="error">Erreur de connexion</p>`;
+                    return;
+                }
+                
+                resultDiv.innerHTML = `<p class="success">Connexion réussie!</p>`;
+                
+                // 2. Récupérer les templates (avec session)
+                const templatesQuery = `
+                    query {
+                        getWhatsAppUserTemplates {
+                            id
+                            name
+                            language
+                            status
+                        }
+                    }
+                `;
+                
+                const templatesResponse = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: templatesQuery }),
+                    credentials: 'include'  // Inclure les cookies de session
+                });
+                
+                const templatesData = await templatesResponse.json();
+                
+                if (templatesData.errors) {
+                    resultDiv.innerHTML += `<p class="error">Erreurs lors de la récupération des templates:</p><pre>${JSON.stringify(templatesData.errors, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML += `<p class="success">Templates récupérés:</p><pre>${JSON.stringify(templatesData, null, 2)}</pre>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Erreur: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

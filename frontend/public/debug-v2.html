@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification des modules WhatsApp V2</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        .module-status {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .pending {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #0069d9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Vérification des modules WhatsApp V2</h1>
+    
+    <div id="module-checks">
+        <!-- Les résultats de vérification seront affichés ici -->
+        <div class="module-status pending">
+            Vérification des modules en cours...
+        </div>
+    </div>
+
+    <div>
+        <button id="check-button">Vérifier les modules</button>
+    </div>
+
+    <h2>Console</h2>
+    <pre id="console-output"></pre>
+
+    <script>
+        // Fonction pour logger les messages
+        function log(message) {
+            const consoleOutput = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            consoleOutput.textContent += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+
+        // Fonction pour vérifier un module
+        async function checkModule(name, path) {
+            const modulesDiv = document.getElementById('module-checks');
+            const moduleDiv = document.createElement('div');
+            moduleDiv.className = 'module-status pending';
+            moduleDiv.innerHTML = `Vérification de ${name}...`;
+            modulesDiv.appendChild(moduleDiv);
+
+            try {
+                // Essayer d'importer le module
+                const module = await import(path);
+                log(`Module ${name} importé avec succès`);
+                log(`Contenu du module: ${Object.keys(module).join(', ')}`);
+                
+                moduleDiv.className = 'module-status success';
+                moduleDiv.innerHTML = `✅ Module ${name} importé avec succès!<br>Exports: ${Object.keys(module).join(', ')}`;
+                
+                return { success: true, module };
+            } catch (error) {
+                log(`Erreur lors de l'importation de ${name}: ${error.message}`);
+                
+                moduleDiv.className = 'module-status error';
+                moduleDiv.innerHTML = `❌ Erreur lors de l'importation de ${name}: ${error.message}`;
+                
+                return { success: false, error };
+            }
+        }
+
+        // Fonction principale
+        async function checkAllModules() {
+            document.getElementById('module-checks').innerHTML = '';
+            document.getElementById('console-output').textContent = '';
+            
+            log('Démarrage de la vérification des modules...');
+            
+            // Liste des modules à vérifier
+            const modules = [
+                { name: 'templateParserV2', path: '../src/services/whatsapp/templateParserV2.ts' },
+                { name: 'templateDataNormalizerV2', path: '../src/services/whatsapp/templateDataNormalizerV2.ts' },
+                { name: 'index-v2', path: '../src/services/whatsapp/index-v2.ts' },
+                { name: 'whatsappRestClientV2', path: '../src/services/whatsappRestClientV2.ts' }
+            ];
+            
+            // Vérifier chaque module
+            for (const module of modules) {
+                await checkModule(module.name, module.path);
+            }
+            
+            log('Vérification des modules terminée');
+        }
+        
+        // Événement au clic sur le bouton
+        document.getElementById('check-button').addEventListener('click', checkAllModules);
+        
+        // Vérifier les modules au chargement de la page
+        window.addEventListener('DOMContentLoaded', checkAllModules);
+    </script>
+</body>
+</html>

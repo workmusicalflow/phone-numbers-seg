@@ -93,7 +93,15 @@ class UserType
     {
         return $user->isAdmin();
     }
-
+    
+    /**
+     * @Field
+     */
+    public function apiKey(User $user): ?string
+    {
+        return $user->getApiKey();
+    }
+    
     /**
      * @Field
      * @return \App\Models\SenderName[]

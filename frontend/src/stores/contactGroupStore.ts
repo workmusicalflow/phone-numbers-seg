@@ -1,163 +1,489 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api } from '../services/api';
-
-interface ContactGroup {
-  id: string;
-  name: string;
-  description: string | null;
-  contactCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ContactGroupCreateData {
-  name: string;
-  description: string | null;
-}
+import { gql } from '@apollo/client/core'; // Or your preferred GraphQL client library
+import { useApolloClient } from '@vue/apollo-composable'; // Adjust if using a different client setup
+import { notificationHelper } from '../helpers/notificationHelper'; // Use the new helper
+import type {
+  ContactGroup,
+  CreateContactGroupInput,
+  UpdateContactGroupInput,
+  AddContactsToGroupResult,
+} from '../types/contactGroup';
+import type { Contact } from '../types/contact';
 
 export const useContactGroupStore = defineStore('contactGroup', () => {
-  // État
-  const groups = ref<ContactGroup[]>([]);
-  const loading = ref(false);
-  const error = ref<string | null>(null);
-  const currentPage = ref(1);
-  const itemsPerPage = ref(10);
-  const totalCount = ref(0);
-  const searchTerm = ref('');
+  const { client } = useApolloClient(); // Get Apollo client instance
+  const { showSuccess: notifySuccess, showError: notifyError } = notificationHelper; // Use the helper's methods
 
-  // Getters
-  const filteredGroups = computed(() => {
-    if (!searchTerm.value) {
-      return groups.value;
-    }
-    
-    const term = searchTerm.value.toLowerCase();
-    return groups.value.filter(group => 
-      group.name.toLowerCase().includes(term) ||
-      (group.description && group.description.toLowerCase().includes(term))
-    );
-  });
+  // --- State ---
+  const contactGroups = ref<ContactGroup[]>([]);
+  const currentGroup = ref<ContactGroup | null>(null);
+  const currentGroupContacts = ref<Contact[]>([]);
+  const isLoading = ref(false);
+  const isLoadingContacts = ref(false);
+  const error = ref<Error | null>(null);
+  const totalGroups = ref(0);
+  const totalContactsInGroup = ref(0);
 
-  const paginatedGroups = computed(() => {
-    const start = (currentPage.value - 1) * itemsPerPage.value;
-    const end = start + itemsPerPage.value;
-    return filteredGroups.value.slice(start, end);
-  });
+  // --- Getters ---
+  const groupsForSelect = computed(() =>
+    contactGroups.value.map((group) => ({
+      id: group.id,
+      name: group.name,
+    })),
+  );
 
-  const pageCount = computed(() => {
-    return Math.ceil(filteredGroups.value.length / itemsPerPage.value);
-  });
+  // --- Actions ---
 
-  // Actions
-  async function fetchGroups() {
-    loading.value = true;
+  // Fetch all contact groups for the current user
+  async function fetchContactGroups(limit = 100, offset = 0) {
+    isLoading.value = true;
     error.value = null;
-    
     try {
-      const response = await api.get('/contact-groups', {
-        params: {
-          page: currentPage.value,
-          limit: itemsPerPage.value
-        }
+      const { data, errors } = await client.query<{
+        contactGroups: ContactGroup[];
+        contactGroupsCount: number;
+      }>({
+        query: gql`
+          query GetContactGroups($limit: Int, $offset: Int) {
+            contactGroups(limit: $limit, offset: $offset) {
+              id
+              name
+              description
+              contactCount
+              createdAt
+              updatedAt
+            }
+            contactGroupsCount
+          }
+        `,
+        variables: { limit, offset },
+        fetchPolicy: 'network-only', // Ensure fresh data
       });
-      
-      groups.value = response.data.groups;
-      totalCount.value = response.data.totalCount;
-    } catch (err: any) {
-      console.error('Erreur lors de la récupération des groupes de contacts:', err);
-      error.value = err.message || 'Erreur lors de la récupération des groupes de contacts';
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (!data) throw new Error('Aucune donnée reçue du serveur.'); // Check if data is null/undefined
+
+      contactGroups.value = data.contactGroups;
+      totalGroups.value = data.contactGroupsCount;
+      // notifySuccess('Groupes de contacts chargés.'); // Notification might be too noisy here
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors du chargement des groupes: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error fetching contact groups:', err);
     } finally {
-      loading.value = false;
+      isLoading.value = false;
     }
   }
 
-  async function createGroup(groupData: ContactGroupCreateData) {
-    loading.value = true;
+  // Fetch a single contact group by ID
+  async function fetchContactGroupById(id: string) {
+    isLoading.value = true;
     error.value = null;
-    
+    currentGroup.value = null;
     try {
-      const response = await api.post('/contact-groups', groupData);
-      groups.value.push(response.data);
-      totalCount.value++;
-      return response.data;
-    } catch (err: any) {
-      console.error('Erreur lors de la création du groupe de contacts:', err);
-      error.value = err.message || 'Erreur lors de la création du groupe de contacts';
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  }
+      const { data, errors } = await client.query<{
+        contactGroup: ContactGroup | null;
+      }>({
+        query: gql`
+          query GetContactGroup($id: ID!) {
+            contactGroup(id: $id) {
+              id
+              name
+              description
+              contactCount
+              createdAt
+              updatedAt
+            }
+          }
+        `,
+        variables: { id },
+        fetchPolicy: 'network-only',
+      });
 
-  async function updateGroup(id: string, groupData: Partial<ContactGroupCreateData>) {
-    loading.value = true;
-    error.value = null;
-    
-    try {
-      const response = await api.put(`/contact-groups/${id}`, groupData);
-      const index = groups.value.findIndex(g => g.id === id);
-      if (index !== -1) {
-        groups.value[index] = response.data;
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (!data) throw new Error('Aucune donnée reçue du serveur.'); // Check if data is null/undefined
+
+      if (data.contactGroup) {
+        currentGroup.value = data.contactGroup;
+      } else {
+        // Don't throw an error if not found, just set to null
+        currentGroup.value = null;
+        // notifyError('Groupe non trouvé.'); // Maybe not needed? Depends on UX
       }
-      return response.data;
-    } catch (err: any) {
-      console.error('Erreur lors de la mise à jour du groupe de contacts:', err);
-      error.value = err.message || 'Erreur lors de la mise à jour du groupe de contacts';
-      throw err;
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors du chargement du groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error fetching contact group by ID:', err);
     } finally {
-      loading.value = false;
+      isLoading.value = false;
     }
   }
 
-  async function deleteGroup(id: string) {
-    loading.value = true;
+  // Fetch contacts within a specific group
+  async function fetchContactsInGroup(groupId: string, limit = 50, offset = 0) {
+    isLoadingContacts.value = true;
     error.value = null;
-    
+    currentGroupContacts.value = [];
     try {
-      await api.delete(`/contact-groups/${id}`);
-      groups.value = groups.value.filter(g => g.id !== id);
-      totalCount.value--;
-    } catch (err: any) {
-      console.error('Erreur lors de la suppression du groupe de contacts:', err);
-      error.value = err.message || 'Erreur lors de la suppression du groupe de contacts';
-      throw err;
+      const { data, errors } = await client.query<{
+        contactsInGroup: Contact[];
+        contactsInGroupCount: number;
+      }>({
+        query: gql`
+          query GetContactsInGroup($groupId: ID!, $limit: Int, $offset: Int) {
+            contactsInGroup(groupId: $groupId, limit: $limit, offset: $offset) {
+              id
+              name
+              phoneNumber
+              email
+              notes
+              createdAt
+              updatedAt
+            }
+            contactsInGroupCount(groupId: $groupId)
+          }
+        `,
+        variables: { groupId, limit, offset },
+        fetchPolicy: 'network-only',
+      });
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (!data) throw new Error('Aucune donnée reçue du serveur.'); // Check if data is null/undefined
+
+      currentGroupContacts.value = data.contactsInGroup;
+      totalContactsInGroup.value = data.contactsInGroupCount;
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors du chargement des contacts du groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error fetching contacts in group:', err);
     } finally {
-      loading.value = false;
+      isLoadingContacts.value = false;
     }
   }
 
-  function searchGroups(term: string) {
-    searchTerm.value = term;
-    currentPage.value = 1; // Réinitialiser à la première page lors d'une recherche
+  // Create a new contact group
+  async function createContactGroup(input: CreateContactGroupInput): Promise<ContactGroup | null> {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const { data, errors } = await client.mutate<{
+        createContactGroup: ContactGroup;
+      }>({
+        mutation: gql`
+          mutation CreateContactGroup($name: String!, $description: String) {
+            createContactGroup(name: $name, description: $description) {
+              id
+              name
+              description
+              contactCount
+              createdAt
+              updatedAt
+            }
+          }
+        `,
+        variables: input,
+      });
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (!data?.createContactGroup) throw new Error('Réponse invalide du serveur lors de la création du groupe.'); // Check data and nested property
+
+      const newGroup = data.createContactGroup;
+      // Create a new array instead of modifying the existing one
+      contactGroups.value = [...contactGroups.value, newGroup];
+      totalGroups.value++;
+      notifySuccess(`Groupe "${newGroup.name}" créé avec succès.`);
+      return newGroup;
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors de la création du groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error creating contact group:', err);
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
   }
 
-  function setPage(page: number) {
-    currentPage.value = page;
-    fetchGroups();
+  // Update an existing contact group
+  async function updateContactGroup(input: UpdateContactGroupInput): Promise<ContactGroup | null> {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const { data, errors } = await client.mutate<{
+        updateContactGroup: ContactGroup;
+      }>({
+        mutation: gql`
+          mutation UpdateContactGroup($id: ID!, $name: String, $description: String) {
+            updateContactGroup(id: $id, name: $name, description: $description) {
+              id
+              name
+              description
+              contactCount
+              createdAt
+              updatedAt
+            }
+          }
+        `,
+        variables: input,
+      });
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (!data?.updateContactGroup) throw new Error('Réponse invalide du serveur lors de la mise à jour du groupe.'); // Check data and nested property
+
+      const updatedGroup = data.updateContactGroup;
+      // Update local state by creating a new array
+      if (contactGroups.value.findIndex((g) => g.id === updatedGroup.id) !== -1) {
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === updatedGroup.id ? updatedGroup : group
+        );
+      }
+      if (currentGroup.value?.id === updatedGroup.id) {
+        currentGroup.value = updatedGroup;
+      }
+      notifySuccess(`Groupe "${updatedGroup.name}" mis à jour.`);
+      return updatedGroup;
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors de la mise à jour du groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error updating contact group:', err);
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
   }
 
-  function setItemsPerPage(limit: number) {
-    itemsPerPage.value = limit;
-    fetchGroups();
+  // Delete a contact group
+  async function deleteContactGroup(id: string): Promise<boolean> {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const { data, errors } = await client.mutate<{
+        deleteContactGroup: boolean;
+      }>({
+        mutation: gql`
+          mutation DeleteContactGroup($id: ID!) {
+            deleteContactGroup(id: $id)
+          }
+        `,
+        variables: { id },
+      });
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (data === null || data === undefined || typeof data.deleteContactGroup !== 'boolean') throw new Error('Réponse invalide du serveur lors de la suppression du groupe.'); // Check data and nested property type
+
+      if (data.deleteContactGroup) {
+        // Remove from local state
+        contactGroups.value = contactGroups.value.filter((g) => g.id !== id);
+        totalGroups.value--;
+        if (currentGroup.value?.id === id) {
+          currentGroup.value = null;
+          currentGroupContacts.value = [];
+          totalContactsInGroup.value = 0;
+        }
+        notifySuccess('Groupe supprimé avec succès.');
+        return true;
+      } else {
+        // If deleteContactGroup returned false from backend
+        throw new Error('La suppression du groupe a échoué côté serveur.');
+      }
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors de la suppression du groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error deleting contact group:', err);
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
   }
+
+  // Add a single contact to a group
+  async function addContactToGroup(contactId: string, groupId: string): Promise<boolean> {
+    isLoading.value = true; // Or a specific loading state?
+    error.value = null;
+    try {
+      const { data, errors } = await client.mutate<{
+        addContactToGroup: { id: string }; // Assuming it returns the membership ID
+      }>({
+        mutation: gql`
+          mutation AddContactToGroup($contactId: ID!, $groupId: ID!) {
+            addContactToGroup(contactId: $contactId, groupId: $groupId) {
+              id # Request membership ID
+            }
+          }
+        `,
+        variables: { contactId, groupId },
+      });
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (!data?.addContactToGroup) throw new Error('Réponse invalide du serveur lors de l\'ajout du contact au groupe.'); // Check data and nested property
+
+      if (data.addContactToGroup) {
+        notifySuccess('Contact ajouté au groupe.');
+        // Optionally refetch group details or contacts in group if needed
+        // Update the contact groups array by creating a new array
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === groupId 
+            ? { ...group, contactCount: group.contactCount + 1 } 
+            : group
+        );
+        
+        if (currentGroup.value?.id === groupId) {
+          currentGroup.value = {
+            ...currentGroup.value,
+            contactCount: currentGroup.value.contactCount + 1
+          };
+        }
+        return true;
+      } else {
+        // This case should ideally be handled by the check above, but as a fallback:
+        throw new Error("L'ajout du contact au groupe a échoué (réponse invalide).");
+      }
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors de l'ajout du contact au groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error adding contact to group:', err);
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Remove a single contact from a group
+  async function removeContactFromGroup(contactId: string, groupId: string): Promise<boolean> {
+    isLoading.value = true; // Or a specific loading state?
+    error.value = null;
+    try {
+      const { data, errors } = await client.mutate<{
+        removeContactFromGroup: boolean;
+      }>({
+        mutation: gql`
+          mutation RemoveContactFromGroup($contactId: ID!, $groupId: ID!) {
+            removeContactFromGroup(contactId: $contactId, groupId: $groupId)
+          }
+        `,
+        variables: { contactId, groupId },
+      });
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (data === null || data === undefined || typeof data.removeContactFromGroup !== 'boolean') throw new Error('Réponse invalide du serveur lors du retrait du contact du groupe.'); // Check data and nested property type
+
+      if (data.removeContactFromGroup) {
+        notifySuccess('Contact retiré du groupe.');
+        // Update local state if necessary
+        currentGroupContacts.value = currentGroupContacts.value.filter((c) => c.id !== contactId);
+        totalContactsInGroup.value--;
+        
+        // Update the contact groups array by creating a new array
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === groupId 
+            ? { ...group, contactCount: group.contactCount - 1 } 
+            : group
+        );
+        
+        if (currentGroup.value?.id === groupId) {
+          currentGroup.value = {
+            ...currentGroup.value,
+            contactCount: currentGroup.value.contactCount - 1
+          };
+        }
+        return true;
+      } else {
+        // This might happen if the contact wasn't in the group or backend returned false
+        notifyError('Le contact n\'était pas dans ce groupe ou la suppression a échoué.');
+        return false;
+      }
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors du retrait du contact du groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error removing contact from group:', err);
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+   // Add multiple contacts to a group
+  async function addContactsToGroup(contactIds: string[], groupId: string): Promise<AddContactsToGroupResult | null> {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const { data, errors } = await client.mutate<{
+        addContactsToGroup: AddContactsToGroupResult;
+      }>({
+        mutation: gql`
+          mutation AddContactsToGroup($contactIds: [ID!]!, $groupId: ID!) {
+            addContactsToGroup(contactIds: $contactIds, groupId: $groupId) {
+              status
+              message
+              successful
+              failed
+              # memberships { id contact { id name } group { id name } } # Optionally fetch details
+              errors { contactId message }
+            }
+          }
+        `,
+        variables: { contactIds, groupId },
+      });
+
+      if (errors) throw new Error(errors.map((e) => e.message).join(', '));
+      if (!data?.addContactsToGroup) throw new Error('Réponse invalide du serveur lors de l\'ajout des contacts au groupe.'); // Check data and nested property
+
+      const result = data.addContactsToGroup;
+      if (result.status === 'success' || result.status === 'partial') {
+        notifySuccess(result.message);
+         // Update counts
+        // Update the contact groups array by creating a new array
+        contactGroups.value = contactGroups.value.map(group => 
+          group.id === groupId 
+            ? { ...group, contactCount: group.contactCount + result.successful } 
+            : group
+        );
+        
+        if (currentGroup.value?.id === groupId) {
+          currentGroup.value = {
+            ...currentGroup.value,
+            contactCount: currentGroup.value.contactCount + result.successful
+          };
+        }
+      } else {
+         notifyError(result.message || 'Erreur lors de l\'ajout des contacts.');
+      }
+      return result;
+
+    } catch (err) {
+      error.value = err as Error;
+      notifyError(`Erreur lors de l'ajout des contacts au groupe: ${error.value?.message || 'Inconnue'}`);
+      console.error('Error adding contacts to group:', err);
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
 
   return {
-    groups,
-    loading,
+    // State
+    contactGroups,
+    currentGroup,
+    currentGroupContacts,
+    isLoading,
+    isLoadingContacts,
     error,
-    currentPage,
-    itemsPerPage,
-    totalCount,
-    filteredGroups,
-    paginatedGroups,
-    pageCount,
-    fetchGroups,
-    createGroup,
-    updateGroup,
-    deleteGroup,
-    searchGroups,
-    setPage,
-    setItemsPerPage
+    totalGroups,
+    totalContactsInGroup,
+
+    // Getters
+    groupsForSelect,
+
+    // Actions
+    fetchContactGroups,
+    fetchContactGroupById,
+    fetchContactsInGroup,
+    createContactGroup,
+    updateContactGroup,
+    deleteContactGroup,
+    addContactToGroup,
+    removeContactFromGroup,
+    addContactsToGroup,
   };
 });

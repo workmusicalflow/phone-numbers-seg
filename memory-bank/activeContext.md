@@ -1,104 +1,154 @@
-# Active Context - Feature: Send SMS to All Contacts
+# Active Context - Finalisation de la Migration Doctrine ORM et Implémentation des URL Constants
 
-**Current Focus:** Implement the "Send SMS to All User Contacts" feature as per the User Story defined in the previous planning phase.
+**Current Focus:** Finaliser la migration Doctrine ORM et implémenter le système de URL constants en parallèle.
 
-**Recent Accomplishment:** Fixed the Import.vue component display issue, refactorized the Import.vue component, added a contacts count badge to the SMS interface, and resolved issue with imported phone numbers not appearing in the Contacts interface.
+## Plan d'Implémentation Détaillé pour Doctrine ORM
 
-**Import/Export Component Fixes and Refactorization:**
+Nous avons établi un plan détaillé pour finaliser la migration vers Doctrine ORM, avec un calendrier précis et des étapes clairement définies. Le plan complet est documenté dans `docs/doctrine-orm-migration-tracker.md`.
 
-- **Enhancement:** Refactorized the `Import.vue` component following SOLID principles and Vue.js best practices
+### État Actuel de la Migration
 
-  - Separated business logic into dedicated composables (`useImport.ts` and `useExport.ts`)
-  - Created specialized UI components (`ImportCSVForm.vue`, `ExportDataForm.vue`, `ImportResultDialog.vue`)
-  - Made the main `Import.vue` component an orchestrator that assembles the components
-  - Fixed TypeScript linting issue by explicitly declaring components in `defineComponent`
-  - Improved maintainability with smaller files having single responsibilities
-  - Enhanced reusability of both business logic and UI components
-  - Improved testability with isolated components
+- ✅ Module Utilisateurs (User)
+- ✅ Module Contacts (Contact)
+- ✅ Module Groupes de Contacts (ContactGroup, ContactGroupMembership)
+- ✅ Module SMS (SMSHistory)
+- ✅ Module Commandes SMS (SMSOrder)
+- ✅ Module Segments (Segment, CustomSegment, PhoneNumberSegment)
+- ✅ Module Configuration API Orange (OrangeAPIConfig)
+- ⬜ Module Numéros de Téléphone (Legacy) (PhoneNumber)
+- ⬜ Repository TechnicalSegmentRepository
 
-- **Bug Fix:** Resolved issue with the import CSV form not being visible in the UI
-  - Identified runtime errors related to asynchronous operations in the component
-  - Fixed Vue compiler warnings by removing unnecessary imports of `defineProps` and `defineEmits`
-  - Implemented direct form rendering in the `Import.vue` component to bypass component communication issues
-  - Added error handling to capture and manage runtime errors
-  - Applied explicit CSS styles to ensure form visibility
-  - Cleaned up debugging elements for a professional UI appearance
+### Prochaines Phases d'Implémentation (18/04/2025)
 
-**Contacts Count Badge Implementation:**
+1. **Phase 1: Complétion des Entités et Repositories (Semaines 1-2)**
 
-- **Enhancement:** Added a badge displaying the total number of contacts available for SMS sending
-  - Implemented backend GraphQL query `contactsCount` in schema and resolver
-  - Added `fetchContactsCount` method to the contactStore
-  - Placed badge next to existing SMS credits badge in the SMS interface
-  - Added automatic refresh of contact count after successful SMS sends
-  - Improves user experience by providing immediate visibility of available contacts
+   - Priorité immédiate: Module Numéros de Téléphone (Legacy)
+     - Analyser la structure actuelle du modèle PhoneNumber
+     - Créer l'entité PhoneNumber avec annotations Doctrine
+     - Implémenter le repository PhoneNumberRepository
+   - Implémenter le TechnicalSegmentRepository
 
-**Phone Numbers to Contacts Conversion:**
+2. **Phase 2: Mise à jour du Conteneur DI (Semaine 3)**
 
-- **Problem Identified:** Discovered architectural divergence between phone numbers and contacts:
-  - Phone numbers imported via CSV are stored in `phone_numbers` table without user association
-  - Contacts UI displays data from `contacts` table which requires `user_id` association
-  - This caused 858 imported numbers to be "invisible" in the Contacts interface
-- **Solution Implemented:**
-  - Created command-line script `convert_phone_numbers_to_contacts.php` to convert phone numbers to contacts
-  - Developed web interface `convert-phone-numbers.php` for browser-based conversion
-  - Added comprehensive documentation in `scripts/utils/README_convert_phone_numbers.md`
-  - Both solutions support simulation mode, user selection, and detailed reporting
-- **Future Improvements:**
-  - Integrate automatic conversion during CSV import process
-  - Add support for contact group association during conversion
+   - Compléter les mises à jour du conteneur DI pour tous les repositories
+   - Créer un pattern cohérent pour l'enregistrement des repositories
 
-**Previous Context:**
+3. **Phase 3: Adaptation des Services (Semaines 3-4)**
 
-- Completed GraphQL backend refactoring (Phases 1-4 + improvements).
-- Resolved persistent frontend login issue:
-  - Identified cause: Frontend query (`LOGIN` in `authStore.ts`) was inconsistent with the backend schema (`login` mutation returning `User`). Frontend expected `login { user { ... } }` but backend returned `User` directly. Also, frontend called a non-existent `checkAuth` query.
-  - Initial workaround: Modified `AuthResolver::mutateLogin` to return a formatted array.
-  - Final Solution: Corrected the `LOGIN` query in `authStore.ts` to match the schema. Removed the `checkAuth` query/function calls from frontend. Reverted `AuthResolver::mutateLogin` to return the `User` object directly (type hint `?User`). Removed the unnecessary formatter injection from `AuthResolver`. Login and redirection now work correctly via the browser.
-- Frontend login flow is now working.
-- Fixed GraphQL type mismatch issues in userStore.ts:
-  - Identified cause: GraphQL queries/mutations in userStore.ts were using `Int!` type for ID parameters, but the backend schema expected `ID!` type (which is treated as a string).
-  - Solution: Changed all GraphQL queries/mutations in userStore.ts to use `ID!` instead of `Int!` for ID parameters, and modified all methods to convert numeric IDs to strings using `id.toString()`.
-- Implemented proper notification service with separation of concerns:
-  - Created a new `NotificationService.ts` file with a `useNotification` composable that returns functions like `showSuccess`, `showError`, etc.
-  - Modified stores (`senderNameStore.ts`, `smsOrderStore.ts`) to remove notification calls and return clear results.
-  - Updated components to handle UI concerns like showing notifications based on the results returned by stores.
-  - This follows the best practice of separating responsibilities: stores handle state and business logic, components handle UI concerns.
-- Fixed validation messages persisting after successful SMS submission:
-  - Identified cause: Form validation messages were still displayed after successful form submission because the validation reset was happening before Vue had finished updating the DOM.
-  - Solution: Modified the `reset()` method in all SMS form components (`SingleSmsForm.vue`, `BulkSmsForm.vue`, `SegmentSmsForm.vue`, `AllContactsSmsForm.vue`) to use Vue's `nextTick()` function to ensure proper sequencing:
-    1. Reset form data values
-    2. Wait for Vue to update the DOM using `await nextTick()`
-    3. Reset form validation with `formRef.value?.resetValidation()`
-  - This ensures that validation is reset only after Vue has processed the data changes, preventing validation messages from persisting.
+   - Mettre à jour les services pour utiliser les repositories Doctrine
+   - Implémenter le pattern Adapter où nécessaire
 
-**User Story Summary:** As a logged-in user, I want to send a single SMS message to all my contacts at once, after checking for sufficient credits.
+4. **Phase 4: Migration des Données (Semaines 5-6)**
 
-**Implementation Plan:**
+   - Créer des scripts de migration de données
+   - Implémenter la validation de l'intégrité des données
+   - Développer une stratégie pour la période de transition
 
-1.  **Backend:**
-    - Define new GraphQL mutation `sendSmsToAllContacts(message: String!): BulkSMSResult!` in `schema.graphql`.
-    - Implement the corresponding resolver method `mutateSendSmsToAllContacts` in `SMSResolver.php`.
-    - Add a new method (e.g., `sendToAllContacts`) to `SMSService.php` (or potentially `SMSBusinessService.php` if more appropriate) that:
-      - Gets the current user ID (via injected `AuthService`).
-      - Retrieves all contacts for that user (`ContactRepository::findByUserId`).
-      - Extracts valid, unique phone numbers from the contacts.
-      - Checks user credits against the number of contacts (`UserRepository`).
-      - Throws an exception if credits are insufficient.
-      - Calls `SMSService::sendBulkSMS` (or iterates `sendSMS`) with the list of numbers and the message.
-      - Deducts credits based on the number of attempted/successful sends.
-      - Returns a result compatible with `BulkSMSResult`.
-    - Ensure necessary dependencies (`ContactRepository`, `UserRepository`, `AuthService`) are injected into the service handling the logic. Update DI configuration (`di.php`) if needed.
-2.  **Frontend:**
-    - Update the SMS sending view (`SMS.vue` or similar) to add an option (e.g., checkbox, dropdown item) for "Send to all contacts".
-    - When selected, disable manual number input and potentially display the contact count/estimated cost.
-    - Define the new GraphQL mutation string in the relevant store (likely `smsStore.ts` or `contactStore.ts`).
-    - Implement an action in the store to call the `sendSmsToAllContacts` mutation.
-    - Update the component's submit logic to call this new action when the "all contacts" option is selected.
-    - Display the summary result (success/failure count) from the mutation response.
-3.  **Testing:**
-    - Backend: Add unit/integration tests for the new service method. Test the GraphQL mutation via `curl`.
-    - Frontend: Test the UI option and the end-to-end flow manually or with Playwright.
-4.  **Documentation:** Update user guide and technical documentation.
+5. **Phase 5: Tests d'Intégration (Semaines 7-8)**
 
-**Current Step:** Start backend implementation - Define the new mutation in `schema.graphql`.
+   - Développer des tests d'intégration complets
+   - Créer une suite de tests automatisés
+
+6. **Phase 6: Documentation (Semaine 8)**
+
+   - Documenter les entités et leurs relations
+   - Documenter les repositories
+   - Créer un guide de migration pour les développeurs
+
+7. **Phase 7: Déploiement (Semaine 9-10)**
+   - Créer des scripts de mise à jour du schéma de base de données
+   - Développer une stratégie de déploiement par phases
+   - Implémenter la surveillance pour la transition
+   - Créer un plan de rollback
+
+## Implémentation des URL Constants
+
+En parallèle avec la finalisation de la migration Doctrine ORM, nous allons implémenter un système de URL constants pour remplacer les URLs codées en dur dans le projet.
+
+### Plan d'Implémentation
+
+1. **Audit Complet des URLs (1-2 jours)**
+
+   - Identifier toutes les URLs codées en dur dans le frontend et le backend
+   - Catégoriser les URLs par fonction et contexte
+   - Prioriser les URLs à remplacer
+
+2. **Système de Configuration Adapté à l'Environnement (2-3 jours)**
+
+   - Créer un système robuste qui lit les variables d'environnement
+   - Implémenter des valeurs par défaut sécurisées
+   - Valider les configurations requises
+
+3. **Structure des URL Constants (1-2 jours)**
+
+   - Créer une structure hiérarchique avec regroupement logique
+   - Implémenter des conventions de nommage claires
+   - Assurer la sécurité des types en TypeScript
+
+4. **Remplacement Module par Module (5-7 jours)**
+
+   - Commencer par le module SMS (priorité la plus élevée)
+   - Remplacer les URLs codées en dur par les constantes
+   - Documenter chaque remplacement
+
+5. **Tests Automatisés (2-3 jours)**
+
+   - Créer des tests pour vérifier la résolution des URLs
+   - Implémenter des helpers de test spéciaux
+
+6. **Documentation (1-2 jours)**
+
+   - Mettre à jour la documentation développeur
+   - Créer des diagrammes d'architecture
+
+7. **Surveillance et Validation (en continu)**
+   - Implémenter des hooks pre-commit pour détecter les URLs codées en dur
+   - Valider le refactoring à travers les environnements
+
+## Intégration des Deux Initiatives
+
+Nous avons identifié des points d'intégration clés entre la migration Doctrine ORM et l'implémentation des URL constants:
+
+1. **Mise à jour Coordonnée des Services**
+
+   - Lors de l'adaptation des services pour utiliser Doctrine, nous mettrons également à jour la gestion des URLs
+   - Les nouvelles constantes URL seront utilisées dans tout le nouveau code lié à Doctrine
+
+2. **Tests Combinés**
+
+   - Nous testerons les deux changements ensemble pour assurer la compatibilité
+   - Des cas de test spécifiques vérifieront l'interaction entre les deux systèmes
+
+3. **Documentation Partagée**
+   - Les deux initiatives seront documentées de manière coordonnée
+   - Des références croisées seront créées entre les deux ensembles de documentation
+
+## Dernières Réalisations
+
+### Résolution du Problème GraphQLFormatterService (17/04/2025)
+
+Nous avons résolu un problème dans le fichier di.php qui causait une erreur "Expected 4 arguments. Found 2" dans la factory GraphQLFormatterService:
+
+1. **Modifications du GraphQLFormatterService**
+
+   - Ajout d'imports pour les deux classes CustomSegment avec des alias
+   - Modification du type hint dans la méthode formatCustomSegment pour accepter tout type de segment
+   - Mise à jour de l'implémentation pour gérer les deux types en toute sécurité
+
+2. **Mise à jour de GraphQLFormatterInterface**
+
+   - Modification du type hint dans l'interface pour correspondre à l'implémentation
+
+3. **Tests**
+   - Connexion réussie à l'API GraphQL avec les identifiants administrateur
+   - Création d'un contact de test via mutation GraphQL
+   - Récupération réussie du contact via requête GraphQL
+   - Exécution du script de test Doctrine segment qui a passé tous les tests
+
+## Contexte Précédent
+
+**Module Configuration API Orange (17/04/2025):** Nous avons terminé la migration du module Configuration API Orange vers Doctrine ORM, incluant la création de l'entité, du repository, et la mise à jour du conteneur DI.
+
+**Fonctionnalité "Envoi SMS à Tous les Contacts":** Nous avons implémenté la fonctionnalité permettant d'envoyer un SMS à tous les contacts d'un utilisateur, incluant la vérification des crédits et la mise à jour de l'historique.
+
+**Conversion des Numéros de Téléphone en Contacts:** Nous avons résolu un problème architectural où les numéros importés via CSV n'étaient pas visibles dans l'interface Contacts.

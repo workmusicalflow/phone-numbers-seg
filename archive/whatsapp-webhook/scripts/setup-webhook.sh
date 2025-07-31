@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Configuration du webhook WhatsApp
+
+echo "=== Configuration du webhook WhatsApp ==="
+echo ""
+echo "1. Assurez-vous que localtunnel est en cours d'exécution sur le port 8080"
+echo "   Si ce n'est pas le cas, exécutez :"
+echo "   lt --port 8080 --subdomain oracle-whatsapp"
+echo ""
+echo "2. URL du webhook (remplacez XXXXX par votre sous-domaine localtunnel) :"
+echo "   https://XXXXX.loca.lt/whatsapp/webhook-simple.php"
+echo ""
+echo "3. Token de vérification :"
+echo "   oracle_whatsapp_verify_token_2025"
+echo ""
+echo "4. Pour configurer dans Meta :"
+echo "   - Allez sur https://developers.facebook.com"
+echo "   - Sélectionnez votre app"
+echo "   - Allez dans WhatsApp > Configuration"
+echo "   - Dans la section Webhook, cliquez sur 'Modifier'"
+echo "   - Collez l'URL du webhook"
+echo "   - Entrez le token de vérification"
+echo "   - Abonnez-vous à 'messages'"
+echo ""
+echo "5. Pour tester la vérification :"
+echo ""
+
+# Test de vérification
+echo "curl -X GET \"https://XXXXX.loca.lt/whatsapp/webhook-simple.php?hub_mode=subscribe&hub_verify_token=oracle_whatsapp_verify_token_2025&hub_challenge=test_challenge\""
+echo ""
+echo "Si tout est correct, vous devriez voir : test_challenge"
+echo ""
+echo "=== Logs ==="
+echo "Les logs seront créés dans : var/logs/whatsapp/"
+echo ""
+echo "Pour suivre les logs en temps réel :"
+echo "tail -f var/logs/whatsapp/webhook_*.json"

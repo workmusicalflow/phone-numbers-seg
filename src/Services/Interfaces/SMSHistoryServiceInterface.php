@@ -2,7 +2,7 @@
 
 namespace App\Services\Interfaces;
 
-use App\Models\SMSHistory;
+use App\Entities\SMSHistory; // Use Doctrine Entity
 
 /**
  * Interface for SMS history service
@@ -33,7 +33,7 @@ interface SMSHistoryServiceInterface
         ?string $errorMessage = null,
         ?int $phoneNumberId = null,
         ?int $segmentId = null
-    ): SMSHistory;
+    ): SMSHistory; // Return Doctrine Entity
 
     /**
      * Update segment ID for recent SMS history entries

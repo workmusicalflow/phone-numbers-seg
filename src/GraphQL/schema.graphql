@@ -1,10 +1,25 @@
+# Scalar type for DateTime values
+scalar DateTime
+
 type Query {
-  smsHistory(limit: Int, offset: Int, userId: ID): [SMSHistory!]!
-  smsHistoryCount(userId: ID): Int!
+  smsHistory(
+    limit: Int
+    offset: Int
+    userId: ID
+    status: String
+    search: String
+    segmentId: ID
+  ): [SMSHistory!]! # Added status, search, segmentId filters
+  smsHistoryCount(
+    userId: ID
+    status: String
+    search: String
+    segmentId: ID
+  ): Int! # Added status, search, segmentId filters
   test: String!
   hello: String!
   segmentsForSMS: [Segment!]!
-  users: [User!]!
+  users(limit: Int, offset: Int, search: String): [User!]! # Added limit, offset, search
   user(id: ID!): User
   userByUsername(username: String!): User
   verifyToken(token: String!): TokenVerificationResult!
@@ -12,10 +27,59 @@ type Query {
   dashboardStats: DashboardStats!
 
   # Contact queries
-  contacts(limit: Int, offset: Int): [Contact!]!
+  contacts(limit: Int, offset: Int, search: String, groupId: ID): [Contact!]! # Added search and groupId filters
   contact(id: ID!): Contact
-  searchContacts(query: String!, limit: Int, offset: Int): [Contact!]!
-  contactsCount: Int!
+  searchContacts(query: String!, limit: Int, offset: Int): [Contact!]! # This might become redundant or be merged with contacts query
+  contactsCount(search: String, groupId: ID): Int! # Added search and groupId filters
+  # Contact Group queries
+  contactGroups(limit: Int, offset: Int): [ContactGroup!]!
+  contactGroup(id: ID!): ContactGroup
+  contactGroupsCount: Int!
+  contactsInGroup(groupId: ID!, limit: Int, offset: Int): [Contact!]!
+  contactsInGroupCount(groupId: ID!): Int!
+  groupsForContact(contactId: ID!): [ContactGroup!]! # Query to get groups for a contact
+  
+  # WhatsApp queries
+  getWhatsAppMessages(
+    limit: Int
+    offset: Int
+    phoneNumber: String
+    status: String
+    type: String
+    direction: String
+    startDate: String
+    endDate: String
+  ): WhatsAppMessagesResult!
+  getWhatsAppUserTemplates: [WhatsAppUserTemplate!]!
+  
+  # WhatsApp Monitoring queries
+  getWhatsAppTemplateUsageMetrics(
+    startDate: DateTime
+    endDate: DateTime
+  ): TemplateMetricsResult!
+  getWhatsAppApiPerformanceMetrics(
+    startDate: DateTime
+    endDate: DateTime
+  ): ApiPerformanceResult!
+  getWhatsAppApiErrorMetrics(
+    startDate: DateTime
+    endDate: DateTime
+  ): ApiErrorResult!
+  getWhatsAppMonitoringDashboard(
+    period: String = "week"
+  ): MonitoringDashboardResult!
+  getWhatsAppActiveAlerts: [AlertResult!]!
+  getWhatsAppMediaUrl(mediaId: String!): String!
+  fetchApprovedWhatsAppTemplates(filter: TemplateFilterInput): [WhatsAppTemplate!]!
+  searchWhatsAppTemplates(filter: TemplateFilterInput, limit: Int, offset: Int): [WhatsAppTemplate!]!
+  whatsAppTemplateCategories: [String!]!
+  whatsAppTemplateLanguages: [String!]!
+  whatsAppTemplatesByHeaderFormat(headerFormat: String!, status: String): [WhatsAppTemplate!]!
+  mostUsedWhatsAppTemplates(limit: Int): [WhatsAppTemplate!]!
+  
+  # WhatsApp Contact Insights queries
+  getContactWhatsAppInsights(contactId: String!): WhatsAppContactInsights
+  getContactsWhatsAppSummary(contactIds: [String!]!): [WhatsAppContactSummary!]!
 }
 
 type Segment {
@@ -67,6 +131,7 @@ type Mutation {
     phoneNumber: String!
     email: String
     notes: String
+    groupIds: [ID!] # Add group IDs argument
   ): Contact!
   updateContact(
     id: ID!
@@ -74,8 +139,32 @@ type Mutation {
     phoneNumber: String!
     email: String
     notes: String
+    groupIds: [ID!] # Add group IDs argument
   ): Contact!
   deleteContact(id: ID!): Boolean!
+
+  # Contact Group mutations
+  createContactGroup(name: String!, description: String): ContactGroup!
+  updateContactGroup(id: ID!, name: String, description: String): ContactGroup!
+  deleteContactGroup(id: ID!): Boolean!
+  addContactToGroup(contactId: ID!, groupId: ID!): ContactGroupMembership!
+  removeContactFromGroup(contactId: ID!, groupId: ID!): Boolean!
+  addContactsToGroup(
+    contactIds: [ID!]!
+    groupId: ID!
+  ): AddContactsToGroupResult!
+  
+  # WhatsApp mutations
+  sendWhatsAppMessage(message: WhatsAppMessageInput!): WhatsAppMessageHistory!
+  sendWhatsAppTemplate(template: WhatsAppMessageInput!): WhatsAppMessageHistory!
+  # Nouvelle mutation avec le type d'entrée SendTemplateInput
+  sendWhatsAppTemplateV2(input: SendTemplateInput!): SendTemplateResult!
+  sendWhatsAppMediaMessage(
+    recipient: String!
+    type: String!
+    mediaIdOrUrl: String!
+    caption: String
+  ): WhatsAppMessageHistory!
 }
 
 type SMSHistory {
@@ -88,6 +177,9 @@ type SMSHistory {
   senderAddress: String
   senderName: String
   createdAt: String!
+  sentAt: String
+  deliveredAt: String
+  failedAt: String
   segment: SegmentInfo
   userId: ID
 }
@@ -141,6 +233,7 @@ type User {
   createdAt: String!
   updatedAt: String!
   isAdmin: Boolean!
+  apiKey: String
 }
 
 type DashboardStats {
@@ -170,4 +263,268 @@ type Contact {
   notes: String
   createdAt: String!
   updatedAt: String!
+  groups: [ContactGroup!] # Added field for contact groups
+  # New fields for SMS history and score
+  smsHistory: [SMSHistory!] # List of SMS sent to this number
+  smsTotalCount: Int! # Total number of SMS sent to this number
+  smsSentCount: Int! # Number of SENT SMS to this number
+  smsFailedCount: Int! # Number of FAILED SMS to this number
+  smsScore: Float! # Score based on the SENT / Total ratio
+}
+
+# Type for Contact Groups
+type ContactGroup {
+  id: ID!
+  userId: ID!
+  name: String!
+  description: String
+  createdAt: String!
+  updatedAt: String!
+  contactCount: Int! # Added field for number of contacts
+}
+
+# Type for Contact Group Membership
+type ContactGroupMembership {
+  id: ID!
+  contact: Contact!
+  group: ContactGroup!
+  createdAt: String!
+}
+
+# Type for result of adding multiple contacts to a group
+type AddContactsToGroupResult {
+  status: String! # e.g., 'success', 'partial'
+  message: String!
+  successful: Int!
+  failed: Int!
+  memberships: [ContactGroupMembership!]! # Memberships successfully created
+  errors: [AddContactsToGroupError!] # Errors encountered
+}
+
+type AddContactsToGroupError {
+  contactId: ID!
+  message: String!
+}
+
+# WhatsApp Types
+type WhatsAppMessageHistory {
+  id: ID
+  wabaMessageId: String
+  phoneNumber: String!
+  direction: String!
+  type: String!
+  content: String
+  status: String!
+  errorCode: Int
+  errorMessage: String
+  timestamp: String!
+  messageId: String
+  contactPhone: String
+  queueId: String
+  sentAt: String
+  deliveredAt: String
+  readAt: String
+  conversationId: String
+  pricingCategory: String
+  mediaId: String
+  templateName: String
+  templateLanguage: String
+  contextData: String
+  createdAt: String!
+  updatedAt: String
+}
+
+type WhatsAppMessagesResult {
+  messages: [WhatsAppMessageHistory!]!
+  totalCount: Int!
+  hasMore: Boolean!
+}
+
+type SendTemplateResult {
+  success: Boolean!
+  messageId: String
+  error: String
+}
+
+# Types de résultats pour le monitoring WhatsApp (versions simplifiées)
+type TemplateMetricsResult {
+  totalUsage: Int!
+  uniqueTemplates: Int!
+  error: String
+}
+
+type ApiPerformanceResult {
+  totalOperations: Int!
+  overallSuccessRate: Float!
+  avgDuration: Float!
+  error: String
+}
+
+type ApiErrorResult {
+  totalErrors: Int!
+  errorRate: Float!
+  criticalErrors: Int!
+  error: String
+}
+
+type MonitoringDashboardResult {
+  period: String!
+  startDate: String!
+  endDate: String!
+  error: String
+}
+
+type AlertResult {
+  type: String!
+  level: String!
+  message: String!
+}
+
+input WhatsAppMessageInput {
+  recipient: String!
+  type: String!
+  content: String
+  mediaUrl: String
+  templateName: String
+  languageCode: String
+  components: [TemplateComponent]
+}
+
+input SendTemplateInput {
+  recipientPhoneNumber: String!
+  templateName: String!
+  templateLanguage: String!
+  templateComponentsJsonString: String
+  headerMediaUrl: String
+  headerMediaId: String
+  bodyVariables: [String]
+  buttonVariables: [String]
+}
+
+input TemplateComponent {
+  type: String!
+  parameters: [ComponentParameter]
+}  
+
+input ComponentParameter {
+  type: String!
+  text: String
+  image: ImageParameter
+}
+
+input ImageParameter {
+  link: String!
+}
+
+type WhatsAppUserTemplate {
+  id: ID!
+  template_id: String!
+  name: String!
+  language: String!
+  status: String!
+}
+
+type WhatsAppTemplate {
+  id: String!
+  name: String!
+  category: String!
+  language: String!
+  status: String!
+  componentsJson: String!
+  description: String!
+  hasMediaHeader: Boolean!
+  headerType: String
+  bodyVariablesCount: Int!
+  hasButtons: Boolean!
+  buttonsCount: Int!
+  hasFooter: Boolean!
+  qualityScore: Float
+  headerFormat: String
+  fullBodyText: String
+  footerText: String
+  buttonsDetailsJson: String
+  rejectionReason: String
+  usageCount: Int!
+  lastUsedAt: String
+  isPopular: Boolean!
+}
+
+input TemplateFilterInput {
+  name: String
+  language: String
+  category: String
+  status: String
+  headerFormat: String
+  hasHeaderMedia: Boolean
+  minVariables: Int
+  maxVariables: Int
+  hasButtons: Boolean
+  buttonCount: Int
+  hasFooter: Boolean
+  bodyText: String
+  minUsageCount: Int
+  orderBy: String
+  orderDirection: String
+}
+
+# WhatsApp Contact Insights Types
+type WhatsAppContactInsights {
+  totalMessages: Int!
+  outgoingMessages: Int!
+  incomingMessages: Int!
+  deliveredMessages: Int!
+  readMessages: Int!
+  failedMessages: Int!
+  lastMessageDate: String
+  lastMessageType: String
+  lastMessageContent: String
+  templatesUsed: [String!]!
+  conversationCount: Int!
+  messagesByType: MessagesByTypeMap!
+  messagesByStatus: MessagesByStatusMap!
+  messagesByMonth: MessagesByMonthMap!
+  deliveryRate: Float!
+  readRate: Float!
+}
+
+type WhatsAppContactSummary {
+  contactId: String!
+  phoneNumber: String!
+  totalMessages: Int!
+  lastMessageDate: String
+}
+
+# Map types for structured data
+type MessagesByTypeMap {
+  text: Int
+  template: Int
+  image: Int
+  video: Int
+  audio: Int
+  document: Int
+  interactive: Int
+}
+
+type MessagesByStatusMap {
+  sent: Int
+  delivered: Int
+  read: Int
+  failed: Int
+  received: Int
+  pending: Int
+}
+
+type MessagesByMonthMap {
+  january: Int
+  february: Int
+  march: Int
+  april: Int
+  may: Int
+  june: Int
+  july: Int
+  august: Int
+  september: Int
+  october: Int
+  november: Int
+  december: Int
 }

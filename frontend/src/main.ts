@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
-import { Quasar } from "quasar";
+import { Quasar, Notify, Dialog } from "quasar";
 import {
   ApolloClient,
   InMemoryCache,
@@ -14,15 +14,27 @@ import "quasar/src/css/index.sass";
 
 // Import icon libraries
 import "@quasar/extras/material-icons/material-icons.css";
+import "@quasar/extras/fontawesome-v6/fontawesome-v6.css";
 
 // Import global CSS
 import "./assets/global.css";
 
 import App from "./App.vue";
+import { useAuthStore } from "./stores/authStore"; // Import the auth store
+
+// Import des composants globaux
+import WhatsAppTemplateSelector from "./components/whatsapp/WhatsAppTemplateSelector.vue";
+import EnhancedTemplateSelector from "./components/whatsapp/EnhancedTemplateSelector.vue";
+import TemplateCard from "./components/whatsapp/TemplateCard.vue";
+
+// Configuration du client GraphQL
+// Dans la future architecture, nous allons utiliser un client mixte REST/GraphQL
+// Mais pour l'instant, nous restaurons la configuration standard
 
 // Create Apollo client
 const httpLink = createHttpLink({
-  uri: "/graphql.php",
+  uri: "/graphql.php", // Endpoint GraphQL standard
+  credentials: 'include'
 });
 
 const apolloClient = new ApolloClient({
@@ -47,13 +59,44 @@ const pinia = createPinia();
 // Create Vue app
 const app = createApp(App);
 
-// Use plugins
-app.use(Quasar);
+// Enregistrer les composants globaux
+app.component('WhatsAppTemplateSelector', WhatsAppTemplateSelector);
+app.component('EnhancedTemplateSelector', EnhancedTemplateSelector);
+app.component('TemplateCard', TemplateCard);
+console.log('Composants globaux enregistrés:', Object.keys(app._context.components));
+
+// Use Pinia plugin first, so stores can be instantiated
 app.use(pinia);
-app.use(router);
 
-// Provide Apollo client
-app.provide(DefaultApolloClient, apolloClient);
+// Get AuthStore instance
+const authStore = useAuthStore(); // No need to pass pinia if app.use(pinia) is called before
 
-// Mount app
-app.mount("#app");
+// Asynchronous function to initialize critical services and then mount the app
+async function initializeAndMountApp() {
+  try {
+    // Initialize authentication: this will call checkAuth and update isAuthenticated
+    await authStore.init();
+    console.log('Auth store initialized from main.ts. isAuthenticated:', authStore.isAuthenticated);
+    
+    
+  } catch (error) {
+    console.error("Error during auth initialization in main.ts:", error);
+    // App will still mount, router guards will handle redirection if auth failed
+  } finally {
+    // Setup other plugins and mount the app AFTER auth init attempt
+    app.use(Quasar, {
+      plugins: { Notify, Dialog }
+    });
+    app.use(router); // Router is used after authStore.init has resolved
+
+    // Provide Apollo client
+    app.provide(DefaultApolloClient, apolloClient);
+
+    // Mount app
+    app.mount("#app");
+    console.log('Vue app mounted.');
+  }
+}
+
+// Call the initialization function
+initializeAndMountApp();

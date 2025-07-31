@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api } from 'src/services/api';
+import { api } from '../services/api';
 
 export interface SMSHistoryItem {
   id: number;

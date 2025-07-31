@@ -8,6 +8,11 @@
       "App\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
   "require": {
     "php": ">=8.0",
     "thecodingmachine/graphqlite": "^8.0",
@@ -16,10 +21,15 @@
     "vlucas/phpdotenv": "^5.6",
     "php-di/php-di": "^7.0",
     "phpmailer/phpmailer": "^6.9",
-    "firebase/php-jwt": "^6.11"
+    "firebase/php-jwt": "^6.11",
+    "doctrine/orm": "^3.3",
+    "doctrine/migrations": "^3.9",
+    "symfony/cache": "^6.3",
+    "guzzlehttp/guzzle": "^7.9"
   },
   "require-dev": {
-    "phpunit/phpunit": "^9.5"
+    "phpunit/phpunit": "^9.5",
+    "phpspec/prophecy-phpunit": "^2.3"
   },
   "scripts": {
     "test": "phpunit",

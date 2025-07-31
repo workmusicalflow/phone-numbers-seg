@@ -1,147 +1,105 @@
-# Tests pour le Frontend Vue.js
+# Tests Frontend pour Oracle SMS
 
-Ce dossier contient les tests unitaires et d'intégration pour le frontend Vue.js de l'application de segmentation de numéros de téléphone.
+Ce répertoire contient les tests pour le frontend de l'application Oracle SMS. Il comprend à la fois des tests automatisés et un plan de tests manuels pour valider les fonctionnalités essentielles de l'application.
 
-## Structure des tests
+## Structure des Tests
 
 ```
 tests/
-├── components/           # Tests des composants Vue
-│   ├── PhoneNumberCard.spec.ts
-│   ├── SearchBar.spec.ts
-│   └── NotificationService.spec.ts
-├── stores/               # Tests des stores Pinia
-│   └── phoneStore.spec.ts
+├── e2e/                  # Tests end-to-end avec Playwright
+│   └── essential-operations.spec.js  # Tests des opérations essentielles
+├── manual-test-plan.md   # Plan de tests manuels
 └── README.md             # Ce fichier
 ```
 
-## Exécution des tests
+## Tests Automatisés (E2E)
 
-### Tests unitaires
+Les tests E2E utilisent [Playwright](https://playwright.dev/) pour automatiser les interactions utilisateur et valider le comportement de l'application dans un navigateur réel.
 
-Pour exécuter tous les tests unitaires :
+### Prérequis
 
-```bash
-npm test
-```
+- Node.js (v14 ou supérieur)
+- npm (v6 ou supérieur)
 
-Pour exécuter les tests avec un rapport de couverture :
-
-```bash
-npm run test:coverage
-```
-
-Pour exécuter un fichier de test spécifique :
+### Installation
 
 ```bash
-npm test -- tests/components/PhoneNumberCard.spec.ts
+# Installer les dépendances
+npm install --save-dev @playwright/test
+
+# Installer les navigateurs nécessaires
+npx playwright install --with-deps
 ```
 
-### Tests d'intégration
-
-Pour tester l'intégration avec le backend GraphQL :
+### Exécution des Tests
 
 ```bash
-npm run test:integration
+# Exécuter tous les tests E2E
+npx playwright test
+
+# Exécuter un test spécifique
+npx playwright test essential-operations.spec.js
+
+# Exécuter les tests en mode UI
+npx playwright test --ui
+
+# Exécuter les tests et générer un rapport HTML
+npx playwright test --reporter=html
 ```
 
-> **Note :** Assurez-vous que le backend PHP est en cours d'exécution et accessible à l'URL configurée dans le script de test d'intégration.
+### Opérations Testées
 
-## Ajout de nouveaux tests
+Les tests E2E couvrent les opérations essentielles suivantes:
 
-### Tests de composants
+1. **Gestion de l'historique SMS**
+   - Vider l'historique SMS
 
-Les tests de composants utilisent Vue Test Utils et Vitest. Voici un exemple de structure pour un test de composant :
+2. **Gestion des contacts**
+   - Ajouter un contact
+   - Modifier un contact
+   - Supprimer un contact
 
-```typescript
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
-import MonComposant from "../../src/components/MonComposant.vue";
+3. **Gestion des groupes**
+   - Créer un groupe
+   - Modifier un groupe
+   - Supprimer un groupe
 
-describe("MonComposant", () => {
-  it("se rend correctement", () => {
-    const wrapper = mount(MonComposant);
-    expect(wrapper.exists()).toBe(true);
-  });
+4. **Gestion des contacts dans les groupes**
+   - Ajouter un contact à un groupe
+   - Supprimer un contact d'un groupe
 
-  it("réagit aux props", () => {
-    const wrapper = mount(MonComposant, {
-      props: {
-        maProp: "valeur",
-      },
-    });
-    expect(wrapper.text()).toContain("valeur");
-  });
-});
-```
+Ces tests sont exécutés pour les deux utilisateurs principaux: Admin et AfricaQSHE.
 
-### Tests de stores
+## Tests Manuels
 
-Les tests de stores utilisent Pinia et Vitest. Voici un exemple de structure pour un test de store :
+Le fichier `manual-test-plan.md` contient un plan détaillé pour tester manuellement les mêmes fonctionnalités. Ce plan est utile pour:
 
-```typescript
-import { describe, it, expect, beforeEach } from "vitest";
-import { setActivePinia, createPinia } from "pinia";
-import { useMonStore } from "../../src/stores/monStore";
+- Valider les fonctionnalités qui sont difficiles à automatiser
+- Effectuer des tests exploratoires
+- Vérifier l'expérience utilisateur globale
+- Compléter les tests automatisés avec des vérifications visuelles
 
-describe("monStore", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
+## Intégration avec les Tests Backend
 
-  it("initialise avec l'état par défaut", () => {
-    const store = useMonStore();
-    expect(store.maValeur).toBe("valeur par défaut");
-  });
+Ces tests frontend complètent les tests backend qui valident l'implémentation Doctrine ORM. Ensemble, ils assurent que:
 
-  it("met à jour l'état", () => {
-    const store = useMonStore();
-    store.mettreAJour("nouvelle valeur");
-    expect(store.maValeur).toBe("nouvelle valeur");
-  });
-});
-```
+1. Les opérations CRUD fonctionnent correctement au niveau de la base de données
+2. Les API GraphQL exposent correctement ces opérations
+3. L'interface utilisateur permet d'effectuer ces opérations de manière intuitive
 
-## Mocking
+## Maintenance des Tests
 
-### Mocking des dépendances externes
+Pour maintenir les tests à jour:
 
-Pour les tests qui dépendent de services externes (comme Apollo Client pour GraphQL), utilisez Vitest pour mocker ces dépendances :
+1. Mettre à jour les sélecteurs CSS dans les tests E2E lorsque la structure HTML change
+2. Ajouter de nouveaux tests lorsque de nouvelles fonctionnalités sont ajoutées
+3. Mettre à jour le plan de tests manuels pour refléter les changements dans l'interface utilisateur
 
-```typescript
-import { vi } from "vitest";
+## Résolution des Problèmes
 
-// Mock Apollo Client
-vi.mock("@vue/apollo-composable", () => ({
-  useApolloClient: () => ({
-    client: {
-      query: vi.fn(),
-      mutate: vi.fn(),
-    },
-  }),
-}));
-```
+Si les tests échouent, vérifier:
 
-### Mocking des composants Quasar
-
-Pour les tests de composants qui utilisent des composants Quasar, vous pouvez les stubber :
-
-```typescript
-const wrapper = mount(MonComposant, {
-  global: {
-    stubs: {
-      QBtn: true,
-      QInput: true,
-      QCard: true,
-    },
-  },
-});
-```
-
-## Bonnes pratiques
-
-1. **Isolez les tests** : Chaque test doit être indépendant des autres.
-2. **Testez les comportements, pas l'implémentation** : Concentrez-vous sur ce que le composant ou le store doit faire, pas sur comment il le fait.
-3. **Utilisez des mocks pour les dépendances externes** : Ne dépendez pas de services externes dans les tests unitaires.
-4. **Gardez les tests simples et lisibles** : Un test doit tester une seule chose à la fois.
-5. **Utilisez des assertions claires** : Les assertions doivent être explicites et faciles à comprendre.
+1. Que le serveur frontend est en cours d'exécution sur le port 8080
+2. Que le serveur backend est en cours d'exécution et accessible
+3. Que la base de données contient les données nécessaires
+4. Que les utilisateurs de test (Admin et AfricaQSHE) existent avec les bons mots de passe

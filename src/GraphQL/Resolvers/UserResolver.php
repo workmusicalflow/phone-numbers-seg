@@ -2,7 +2,7 @@
 
 namespace App\GraphQL\Resolvers;
 
-use App\Repositories\UserRepository;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\Interfaces\AuthServiceInterface;
 use App\GraphQL\Formatters\GraphQLFormatterInterface; // Import Formatter interface
 use Exception;
@@ -10,13 +10,13 @@ use Psr\Log\LoggerInterface;
 
 class UserResolver
 {
-    private UserRepository $userRepository;
+    private UserRepositoryInterface $userRepository;
     private AuthServiceInterface $authService;
     private GraphQLFormatterInterface $formatter; // Add Formatter property
     private LoggerInterface $logger;
 
     public function __construct(
-        UserRepository $userRepository,
+        UserRepositoryInterface $userRepository,
         AuthServiceInterface $authService,
         GraphQLFormatterInterface $formatter, // Inject Formatter
         LoggerInterface $logger
@@ -29,24 +29,51 @@ class UserResolver
 
     /**
      * Resolver for the 'users' query.
-     * Fetches all users.
+     * Fetches users with optional pagination and search.
      *
+     * @param array<string, mixed> $args Contains optional 'limit', 'offset', 'search'
      * @return array<int, array<string, mixed>>
      * @throws Exception
      */
-    public function resolveUsers(): array
+    public function resolveUsers(array $args): array
     {
-        $this->logger->info('Executing UserResolver::resolveUsers');
+        $this->logger->info('Executing UserResolver::resolveUsers', ['args' => $args]);
         try {
-            $users = $this->userRepository->findAll();
-            $this->logger->info('Found ' . count($users) . ' users');
+            // Extract arguments
+            $limit = isset($args['limit']) ? (int)$args['limit'] : null;
+            $offset = isset($args['offset']) ? (int)$args['offset'] : 0;
+            $search = $args['search'] ?? null;
+
+            // Build criteria array
+            $criteria = [];
+            if ($search !== null && !empty($search)) {
+                // Assuming search targets username and email
+                $criteria['search'] = $search;
+            }
+            $this->logger->debug('Constructed criteria for users query', ['criteria' => $criteria]);
+
+            // Call repository method that handles criteria, limit, and offset
+            // Assuming findByCriteria exists or will be created in the repository
+            $users = $this->userRepository->findByCriteria($criteria, $limit, $offset);
+            $this->logger->info('Found ' . count($users) . ' users matching criteria');
 
             // Convert User objects to arrays using the formatter service
             $result = [];
             foreach ($users as $user) {
-                $result[] = $this->formatter->formatUser($user); // Use formatter
+                // Add detailed logging and type check
+                $userId = 'N/A';
+                if ($user instanceof \App\Entities\User) {
+                    $userId = $user->getId() ?? 'NULL_ID';
+                    $this->logger->debug('Formatting user ID: ' . $userId);
+                    $formattedUser = $this->formatter->formatUser($user); // Call formatter
+                    $result[] = $formattedUser;
+                } else {
+                    $this->logger->error('Item retrieved by findByCriteria is not a User entity!', ['item_type' => get_debug_type($user)]);
+                    // Decide how to handle: skip, throw, return partial? For now, skip.
+                    continue;
+                }
             }
-            $this->logger->info('Formatted users for GraphQL response.');
+            $this->logger->info('Finished formatting users for GraphQL response.');
             return $result;
         } catch (Exception $e) {
             $this->logger->error('Error in UserResolver::resolveUsers: ' . $e->getMessage(), ['exception' => $e]);
@@ -179,7 +206,7 @@ class UserResolver
             $email = $args['email'] ?? null;
 
             // Note: The User model constructor might need adjustment if it expects ID=0 or null
-            $user = new \App\Models\User(
+            $user = new \App\Entities\User(
                 0, // Assuming ID is auto-generated
                 $username,
                 $hashedPassword,

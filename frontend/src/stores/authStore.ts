@@ -91,6 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     
     try {
+      console.log('Attempting login for user:', username);
       const response = await fetch('/graphql.php', {
         method: 'POST',
         headers: {
@@ -103,9 +104,16 @@ export const useAuthStore = defineStore('auth', () => {
         credentials: 'include' // Important pour inclure les cookies
       });
       
+      if (!response.ok) {
+        console.error('Network response was not ok:', response.status, response.statusText);
+        throw new Error(`Network error: ${response.status} ${response.statusText}`);
+      }
+      
       const result = await response.json();
+      console.log('Login response:', result);
       
       if (result.errors) {
+        console.error('GraphQL errors:', result.errors);
         throw new Error(result.errors[0].message);
       }
       
@@ -114,6 +122,7 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = loginSuccess; 
       
       if (loginSuccess) {
+        console.log('Login successful, fetching user info');
         // Si le login réussit, récupérer les infos utilisateur avec une query 'me'
         try {
           const meResponse = await fetch('/graphql.php', {
@@ -122,21 +131,34 @@ export const useAuthStore = defineStore('auth', () => {
              body: JSON.stringify({ query: ME_QUERY }),
              credentials: 'include' 
           });
+          
+          if (!meResponse.ok) {
+            console.error('Network response for me query was not ok:', meResponse.status, meResponse.statusText);
+            throw new Error(`Network error: ${meResponse.status} ${meResponse.statusText}`);
+          }
+          
           const meResult = await meResponse.json();
+          console.log('Me query response:', meResult);
+          
           if (meResult.errors) {
+             console.error('GraphQL errors in me query:', meResult.errors);
              throw new Error(meResult.errors[0].message);
           }
+          
           if (meResult.data.me) {
              userStore.currentUser = meResult.data.me;
              isAdmin.value = meResult.data.me.isAdmin;
+             console.log('User info retrieved successfully:', meResult.data.me);
              // notification.success('Connexion réussie'); // Removed
              return true;
           } else {
              // Should not happen if login succeeded and session is set
+             console.error('Me query returned null user after successful login');
              throw new Error("Impossible de récupérer les informations utilisateur après connexion.");
           }
         } catch (meErr) {
            // Échec de la récupération des infos utilisateur, annuler le login
+           console.error('Error fetching user info after login:', meErr);
            isAuthenticated.value = false;
            isAdmin.value = false;
            userStore.currentUser = null;
@@ -148,9 +170,11 @@ export const useAuthStore = defineStore('auth', () => {
         }
       } else {
          // Login a retourné false (échec d'authentification)
+         console.error('Login returned false (authentication failed)');
          throw new Error("Nom d'utilisateur ou mot de passe incorrect");
       }
     } catch (err) {
+      console.error('Login error:', err);
       error.value = err instanceof Error ? err.message : 'Une erreur est survenue lors de la connexion';
       // notification.error(error.value); // Removed
       // Let the component handle displaying the error based on the thrown exception
@@ -200,8 +224,51 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
   
-  // Removed checkAuth function as the query doesn't exist
-  // async function checkAuth(): Promise<boolean> { ... } 
+  // Check authentication using the 'me' query
+  async function checkAuth(): Promise<boolean> {
+    loading.value = true;
+    error.value = null;
+    
+    try {
+      const response = await fetch('/graphql.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: ME_QUERY }),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Network error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+      
+      if (result.data.me) {
+        userStore.currentUser = result.data.me;
+        isAuthenticated.value = true;
+        isAdmin.value = result.data.me.isAdmin;
+        return true;
+      }
+      
+      isAuthenticated.value = false;
+      isAdmin.value = false;
+      userStore.currentUser = null;
+      return false;
+    } catch (err) {
+      isAuthenticated.value = false;
+      isAdmin.value = false;
+      userStore.currentUser = null;
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
   
   async function requestPasswordReset(email: string): Promise<boolean> {
     loading.value = true;
@@ -280,10 +347,8 @@ export const useAuthStore = defineStore('auth', () => {
   
   // Initialiser l'authentification au chargement de l'application
   async function init(): Promise<void> {
-    // await checkAuth(); // Removed as checkAuth function was removed
-    // We could potentially try a 'me' query here if a session cookie might exist,
-    // but for now, let the navigation guard handle redirection if needed.
-    console.log('Auth store initialized.');
+    await checkAuth(); // Call checkAuth to verify session on app load
+    console.log('Auth store initialized and checkAuth attempted.');
   }
   
   return {

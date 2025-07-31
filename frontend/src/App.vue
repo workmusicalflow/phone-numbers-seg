@@ -43,8 +43,7 @@
       </q-toolbar>
     </q-header>
 
-    <!-- Composant de notifications en temps réel -->
-    <RealtimeNotifications v-if="authStore.isAuthenticated" />
+    <!-- Removed RealtimeNotifications component temporarily -->
 
     <q-drawer v-if="authStore.isAuthenticated" v-model="leftDrawerOpen" show-if-above bordered>
       <q-list>
@@ -92,6 +91,13 @@
           <q-item-section>Contacts</q-item-section>
         </q-item>
 
+        <q-item clickable v-ripple to="/contact-groups">
+          <q-item-section avatar>
+            <q-icon name="group_work" />
+          </q-item-section>
+          <q-item-section>Groupes de contacts</q-item-section>
+        </q-item>
+
         <q-item clickable v-ripple to="/sms">
           <q-item-section avatar>
             <q-icon name="message" />
@@ -111,6 +117,20 @@
             <q-icon name="description" />
           </q-item-section>
           <q-item-section>Modèles SMS</q-item-section>
+        </q-item>
+
+        <q-item clickable v-ripple to="/whatsapp">
+          <q-item-section avatar>
+            <q-icon name="fab fa-whatsapp" />
+          </q-item-section>
+          <q-item-section>Messages WhatsApp</q-item-section>
+        </q-item>
+
+        <q-item clickable v-ripple to="/whatsapp-templates">
+          <q-item-section avatar>
+            <q-icon name="fab fa-whatsapp" />
+          </q-item-section>
+          <q-item-section>Templates WhatsApp</q-item-section>
         </q-item>
 
         <q-item clickable v-ripple to="/import">
@@ -172,7 +192,7 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "./stores/userStore";
 import { useAuthStore } from "./stores/authStore";
-import RealtimeNotifications from "./components/RealtimeNotifications.vue";
+// Removed RealtimeNotifications import
 
 const router = useRouter();
 const leftDrawerOpen = ref(true);
@@ -186,13 +206,16 @@ const logout = async () => {
 };
 
 // Initialiser l'authentification au démarrage de l'application
-onMounted(async () => {
-  // Initialiser l'authentification
-  // Cela va également charger les informations de l'utilisateur connecté dans userStore.currentUser
-  await authStore.init();
-});
+// onMounted(async () => { // Removed: authStore.init() is now called in main.ts before app mount
+//   // Initialiser l'authentification
+//   // Cela va également charger les informations de l'utilisateur connecté dans userStore.currentUser
+//   // await authStore.init(); 
+// });
 </script>
 
 <style>
 /* Global styles */
+.q-icon[name="fab fa-whatsapp"] {
+  color: #25D366; /* WhatsApp brand color */
+}
 </style>

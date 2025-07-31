@@ -165,11 +165,22 @@ class RealtimeNotificationService implements RealtimeNotificationServiceInterfac
                 $smsTemplate = $eventConfig['sms_template'] ?? null;
                 // Récupérer les informations de configuration SMS
                 $smsConfig = require __DIR__ . '/../config/sms.php';
-                $smsService = new SMSService(
+                // Create a simple OrangeAPIClient
+                $orangeApiClient = new OrangeAPIClient(
                     $smsConfig['orange_api']['client_id'],
                     $smsConfig['orange_api']['client_secret'],
                     $smsConfig['sender_address'],
                     $smsConfig['sender_name']
+                );
+                
+                // Create a simple logger
+                $logger = new \App\Services\SimpleLogger('notification-sms');
+                
+                // Create SMS service
+                $smsService = new SMSService(
+                    $orangeApiClient,
+                    $logger
+                    // Note: Other parameters are left as null (which is allowed by the constructor)
                 ); // Idéalement, injecté via le constructeur
 
                 if ($smsTemplate) {

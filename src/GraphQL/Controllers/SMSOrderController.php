@@ -2,10 +2,10 @@
 
 namespace App\GraphQL\Controllers;
 
-use App\Models\SMSOrder;
-use App\Models\User;
-use App\Repositories\SMSOrderRepository;
-use App\Repositories\UserRepository;
+use App\Entities\SMSOrder; // Use Doctrine Entity
+use App\Entities\User; // Use Doctrine Entity
+use App\Repositories\Interfaces\SMSOrderRepositoryInterface; // Use Interface
+use App\Repositories\Interfaces\UserRepositoryInterface; // Use Interface
 use App\Services\Validators\SMSOrderValidator;
 use App\Exceptions\ValidationException;
 use TheCodingMachine\GraphQLite\Annotations\Query;
@@ -21,14 +21,14 @@ use TheCodingMachine\GraphQLite\Annotations\Right;
 class SMSOrderController
 {
     /**
-     * @var SMSOrderRepository
+     * @var SMSOrderRepositoryInterface
      */
-    private $smsOrderRepository;
+    private $smsOrderRepository; // Use Interface
 
     /**
-     * @var UserRepository
+     * @var UserRepositoryInterface
      */
-    private $userRepository;
+    private $userRepository; // Use Interface
 
     /**
      * @var SMSOrderValidator
@@ -38,13 +38,13 @@ class SMSOrderController
     /**
      * Constructeur
      * 
-     * @param SMSOrderRepository $smsOrderRepository
-     * @param UserRepository $userRepository
+     * @param SMSOrderRepositoryInterface $smsOrderRepository // Use Interface
+     * @param UserRepositoryInterface $userRepository // Use Interface
      * @param SMSOrderValidator $smsOrderValidator
      */
     public function __construct(
-        SMSOrderRepository $smsOrderRepository,
-        UserRepository $userRepository,
+        SMSOrderRepositoryInterface $smsOrderRepository, // Use Interface
+        UserRepositoryInterface $userRepository, // Use Interface
         SMSOrderValidator $smsOrderValidator
     ) {
         $this->smsOrderRepository = $smsOrderRepository;
@@ -57,9 +57,9 @@ class SMSOrderController
      * 
      * @Query
      * @param int $id
-     * @return SMSOrder
+     * @return ?SMSOrder // Return Doctrine Entity
      */
-    public function smsOrder(int $id): ?SMSOrder
+    public function smsOrder(int $id): ?SMSOrder // Return Doctrine Entity
     {
         return $this->smsOrderRepository->findById($id);
     }
@@ -68,7 +68,7 @@ class SMSOrderController
      * Récupérer toutes les commandes de crédits SMS
      * 
      * @Query
-     * @return SMSOrder[]
+     * @return SMSOrder[] // Return array of Doctrine Entities
      */
     public function smsOrders(): array
     {
@@ -80,7 +80,7 @@ class SMSOrderController
      * 
      * @Query
      * @param int $userId
-     * @return SMSOrder[]
+     * @return SMSOrder[] // Return array of Doctrine Entities
      */
     public function userSMSOrders(int $userId): array
     {
@@ -103,22 +103,22 @@ class SMSOrderController
      * @Mutation
      * @param int $userId
      * @param int $quantity
-     * @return SMSOrder
+     * @return SMSOrder // Return Doctrine Entity
      */
-    public function createSMSOrder(int $userId, int $quantity): SMSOrder
+    public function createSMSOrder(int $userId, int $quantity): SMSOrder // Return Doctrine Entity
     {
         try {
             // Valider les données
             $validatedData = $this->smsOrderValidator->validateOrderCreation($userId, $quantity);
 
-            // Créer la commande
-            $smsOrder = new SMSOrder(
-                $validatedData['userId'],
-                $validatedData['quantity'],
-                'pending'
-            );
+            // Créer la commande (Instantiate Entity and use setters)
+            $smsOrder = new SMSOrder();
+            $smsOrder->setUserId($validatedData['userId']);
+            $smsOrder->setQuantity($validatedData['quantity']);
+            $smsOrder->setStatus('pending');
+            $smsOrder->setCreatedAt(new \DateTime()); // Assuming createdAt is set here or in save
 
-            // Sauvegarder la commande
+            // Sauvegarder la commande (Save Entity)
             return $this->smsOrderRepository->save($smsOrder);
         } catch (ValidationException $e) {
             throw new \Exception($e->getMessage() . ': ' . json_encode($e->getErrors()));
@@ -130,9 +130,9 @@ class SMSOrderController
      * 
      * @Mutation
      * @param int $id
-     * @return SMSOrder
+     * @return SMSOrder // Return Doctrine Entity
      */
-    public function completeSMSOrder(int $id): SMSOrder
+    public function completeSMSOrder(int $id): SMSOrder // Return Doctrine Entity
     {
         try {
             // Valider les données
@@ -190,7 +190,7 @@ class SMSOrderController
      * Récupérer les commandes de crédits SMS en attente
      * 
      * @Query
-     * @return SMSOrder[]
+     * @return SMSOrder[] // Return array of Doctrine Entities
      */
     public function pendingSMSOrders(): array
     {
@@ -201,7 +201,7 @@ class SMSOrderController
      * Récupérer les commandes de crédits SMS complétées
      * 
      * @Query
-     * @return SMSOrder[]
+     * @return SMSOrder[] // Return array of Doctrine Entities
      */
     public function completedSMSOrders(): array
     {
@@ -214,9 +214,9 @@ class SMSOrderController
      * @Mutation
      * @param int $id
      * @param int $quantity
-     * @return SMSOrder
+     * @return SMSOrder // Return Doctrine Entity
      */
-    public function updateSMSOrderQuantity(int $id, int $quantity): SMSOrder
+    public function updateSMSOrderQuantity(int $id, int $quantity): SMSOrder // Return Doctrine Entity
     {
         try {
             // Valider les données

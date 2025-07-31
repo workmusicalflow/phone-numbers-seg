@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\PhoneNumber;
+use App\Entities\PhoneNumber; // Use Entity
 use App\Repositories\PhoneNumberRepository;
 use App\Repositories\TechnicalSegmentRepository;
 use App\Services\Factories\SegmentationHandlerFactory;
@@ -65,14 +65,17 @@ class ChainOfResponsibilityPhoneSegmentationService implements PhoneSegmentation
     /**
      * Segment a phone number.
      *
-     * @param PhoneNumber $phoneNumber The phone number to segment
-     * @return PhoneNumber The segmented phone number
+     * @param PhoneNumber $phoneNumber The phone number entity to segment
+     * @return PhoneNumber The segmented phone number entity
      */
-    public function segmentPhoneNumber(PhoneNumber $phoneNumber): PhoneNumber
+    public function segmentPhoneNumber(PhoneNumber $phoneNumber): PhoneNumber // Ensure signature uses Entity
     {
-        // Validate the phone number
-        if (!$this->validator->validate($phoneNumber)) {
-            return $phoneNumber;
+        // Validate the phone number string using the correct interface method
+        if (!$this->validator->isValid($phoneNumber->getNumber())) {
+            // Optionally log invalid number based on validator result
+            // We need a logger instance here if we want to log. Let's assume it's injected.
+            // if ($this->logger) { $this->logger->warning('Phone number failed validation.', ['number' => $phoneNumber->getNumber()]); }
+            return $phoneNumber; // Return unmodified if invalid
         }
 
         // Process the phone number through the chain of handlers

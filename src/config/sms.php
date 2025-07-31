@@ -18,7 +18,7 @@ return [
         'enabled' => true,
 
         // Nom d'expéditeur par défaut pour les notifications
-        'default_sender_name' => 'Qualitas CI',
+        'default_sender_name' => '225HBC',
 
         // Délai minimum entre deux notifications du même type (en secondes)
         'throttle' => 300, // 5 minutes

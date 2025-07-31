@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Repositories\CustomSegmentRepository;
-use App\Repositories\PhoneNumberRepository;
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface; // Use interface
+use App\Repositories\Interfaces\PhoneNumberRepositoryInterface; // Use interface
 use App\Services\Interfaces\SMSBusinessServiceInterface;
 use App\Services\Interfaces\SMSHistoryServiceInterface;
 use App\Services\Interfaces\SMSSenderServiceInterface;
@@ -25,28 +25,28 @@ class SMSBusinessService implements SMSBusinessServiceInterface
     private SMSHistoryServiceInterface $historyService;
 
     /**
-     * @var CustomSegmentRepository
+     * @var CustomSegmentRepositoryInterface
      */
-    private CustomSegmentRepository $customSegmentRepository;
+    private CustomSegmentRepositoryInterface $customSegmentRepository; // Use interface
 
     /**
-     * @var PhoneNumberRepository
+     * @var PhoneNumberRepositoryInterface
      */
-    private PhoneNumberRepository $phoneNumberRepository;
+    private PhoneNumberRepositoryInterface $phoneNumberRepository; // Use interface
 
     /**
      * Constructor
      * 
      * @param SMSSenderServiceInterface $senderService
      * @param SMSHistoryServiceInterface $historyService
-     * @param CustomSegmentRepository $customSegmentRepository
-     * @param PhoneNumberRepository $phoneNumberRepository
+     * @param CustomSegmentRepositoryInterface $customSegmentRepository // Use interface
+     * @param PhoneNumberRepositoryInterface $phoneNumberRepository // Use interface
      */
     public function __construct(
         SMSSenderServiceInterface $senderService,
         SMSHistoryServiceInterface $historyService,
-        CustomSegmentRepository $customSegmentRepository,
-        PhoneNumberRepository $phoneNumberRepository
+        CustomSegmentRepositoryInterface $customSegmentRepository, // Use interface
+        PhoneNumberRepositoryInterface $phoneNumberRepository // Use interface
     ) {
         $this->senderService = $senderService;
         $this->historyService = $historyService;

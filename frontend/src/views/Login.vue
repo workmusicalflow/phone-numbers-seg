@@ -3,6 +3,14 @@
     <div class="login-container">
       <h1 class="text-h4 q-mb-md">Connexion</h1>
       
+      <!-- Notification component -->
+      <notification-toast
+        v-model:show="showNotification"
+        :message="notificationMessage"
+        :type="notificationType"
+        :timeout="3000"
+      />
+      
       <q-form @submit="onSubmit" class="q-gutter-md">
         <q-input
           v-model="username"
@@ -77,9 +85,13 @@
 import { defineComponent, ref, nextTick } from 'vue'; // Import nextTick
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
+import NotificationToast from '../components/common/NotificationToast.vue';
 
 export default defineComponent({
   name: 'LoginPage',
+  components: {
+    NotificationToast
+  },
   
   setup() {
     const router = useRouter();
@@ -90,6 +102,11 @@ export default defineComponent({
     const rememberMe = ref(false);
     const loading = ref(false);
     const isPwdVisible = ref(false);
+    
+    // Notification state
+    const showNotification = ref(false);
+    const notificationMessage = ref('');
+    const notificationType = ref('negative');
     
     const forgotPassword = ref(false);
     const email = ref('');
@@ -111,6 +128,16 @@ export default defineComponent({
             router.push('/');
           }
         }
+      } catch (error) {
+        // Handle the error gracefully
+        console.error('Login error:', error);
+        
+        // Display error notification
+        notificationMessage.value = error instanceof Error 
+          ? error.message 
+          : "Une erreur est survenue lors de la connexion";
+        notificationType.value = 'negative';
+        showNotification.value = true;
       } finally {
         loading.value = false;
       }
@@ -141,7 +168,11 @@ export default defineComponent({
       resetLoading,
       onSubmit,
       onResetPassword,
-      isPwdVisible
+      isPwdVisible,
+      // Notification props
+      showNotification,
+      notificationMessage,
+      notificationType
     };
   }
 });

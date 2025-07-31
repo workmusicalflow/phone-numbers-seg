@@ -38,13 +38,17 @@ class ContactGroupRepository implements RepositoryInterface
 
     public function findAll(?int $limit = null, ?int $offset = null): array
     {
+        // Set default values if null
+        $limitValue = $limit ?? 1000; // Default to 1000 if null
+        $offsetValue = $offset ?? 0;  // Default to 0 if null
+
         $stmt = $this->pdo->prepare("
             SELECT * FROM contact_groups
             ORDER BY name ASC
             LIMIT :limit OFFSET :offset
         ");
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limitValue, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offsetValue, PDO::PARAM_INT);
         $stmt->execute();
 
         $groups = [];
@@ -68,6 +72,40 @@ class ContactGroupRepository implements RepositoryInterface
 
         return ContactGroup::fromPDO($this->pdo, $row);
     }
+
+    /**
+     * Finds multiple contact groups by their IDs, ensuring they belong to the specified user.
+     *
+     * @param array<int> $ids Array of group IDs.
+     * @param int $userId The ID of the user to filter by.
+     * @return array<ContactGroup> Array of found ContactGroup objects.
+     */
+    public function findByIds(array $ids, int $userId): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        // Create placeholders for the IN clause
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM contact_groups
+            WHERE id IN ($placeholders) AND user_id = ?
+        ");
+
+        // Bind the IDs and the user ID
+        $params = array_merge($ids, [$userId]);
+        $stmt->execute($params);
+
+        $groups = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $groups[] = ContactGroup::fromPDO($this->pdo, $row);
+        }
+
+        return $groups;
+    }
+
 
     public function findByUserId(int $userId, int $limit = 100, int $offset = 0): array
     {

@@ -132,9 +132,9 @@ import { date } from 'quasar';
 import { useUserDashboardStore } from '../stores/userDashboardStore';
 import { useAuthStore } from '../stores/authStore';
 import { useUserStore } from '../stores/userStore';
-import CreditWidget from 'src/components/CreditWidget.vue';
-import UsageChart from 'src/components/UsageChart.vue';
-import LoadingOverlay from 'src/components/LoadingOverlay.vue';
+import CreditWidget from '../components/CreditWidget.vue';
+import UsageChart from '../components/UsageChart.vue';
+import LoadingOverlay from '../components/LoadingOverlay.vue';
 
 export default defineComponent({
   name: 'UserDashboard',

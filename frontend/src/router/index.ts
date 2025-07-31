@@ -74,11 +74,30 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/scheduled-sms',
-      name: 'scheduled-sms',
-      component: () => import('../views/ScheduledSMS.vue'),
+      path: '/whatsapp',
+      name: 'whatsapp',
+      component: () => import('../views/WhatsApp.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/whatsapp-templates',
+      name: 'whatsapp-templates',
+      component: () => import('../views/WhatsAppTemplates.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/test-auth',
+      name: 'test-auth',
+      component: () => import('../components/whatsapp/TestAuth.vue'),
+      meta: { requiresAuth: true }
+    },
+    // Temporarily commented out due to missing component
+    // {
+    //   path: '/scheduled-sms',
+    //   name: 'scheduled-sms',
+    //   component: () => import('../views/ScheduledSMS.vue'),
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: '/import',
       name: 'import',
@@ -88,7 +107,7 @@ const router = createRouter({
     {
       path: '/contacts',
       name: 'contacts',
-      component: () => import('../views/Contacts.vue'),
+      component: () => import('../views/Contacts/ContactsView.vue'),
       meta: { requiresAuth: true }
     },
     {

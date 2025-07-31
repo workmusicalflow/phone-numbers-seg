@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\PhoneNumber;
-use App\Models\CustomSegment;
-use App\Repositories\CustomSegmentRepository;
+use App\Entities\PhoneNumber; // Use Doctrine Entity
+use App\Entities\CustomSegment; // Use Doctrine Entity
+use App\Repositories\Interfaces\CustomSegmentRepositoryInterface; // Use Interface
 use App\Services\Interfaces\CustomSegmentMatcherInterface;
 use App\Services\Interfaces\RegexValidatorInterface;
 
@@ -14,9 +14,9 @@ use App\Services\Interfaces\RegexValidatorInterface;
 class CustomSegmentMatcher implements CustomSegmentMatcherInterface
 {
     /**
-     * @var CustomSegmentRepository
+     * @var CustomSegmentRepositoryInterface
      */
-    private CustomSegmentRepository $customSegmentRepository;
+    private CustomSegmentRepositoryInterface $customSegmentRepository; // Use Interface
 
     /**
      * @var RegexValidatorInterface
@@ -26,11 +26,11 @@ class CustomSegmentMatcher implements CustomSegmentMatcherInterface
     /**
      * Constructor
      * 
-     * @param CustomSegmentRepository $customSegmentRepository
+     * @param CustomSegmentRepositoryInterface $customSegmentRepository // Use Interface
      * @param RegexValidatorInterface $regexValidator
      */
     public function __construct(
-        CustomSegmentRepository $customSegmentRepository,
+        CustomSegmentRepositoryInterface $customSegmentRepository, // Use Interface
         RegexValidatorInterface $regexValidator
     ) {
         $this->customSegmentRepository = $customSegmentRepository;
@@ -40,10 +40,10 @@ class CustomSegmentMatcher implements CustomSegmentMatcherInterface
     /**
      * Find all custom segments that match a phone number
      * 
-     * @param PhoneNumber $phoneNumber The phone number to match
-     * @return array Array of matching CustomSegment objects
+     * @param PhoneNumber $phoneNumber The phone number entity to match // Use Doctrine Entity
+     * @return array Array of matching CustomSegment objects // Returns Doctrine Entities
      */
-    public function findMatchingSegments(PhoneNumber $phoneNumber): array
+    public function findMatchingSegments(PhoneNumber $phoneNumber): array // Use Doctrine Entity
     {
         // Get all custom segments
         $allSegments = $this->customSegmentRepository->findAll();
@@ -62,11 +62,11 @@ class CustomSegmentMatcher implements CustomSegmentMatcherInterface
     /**
      * Check if a phone number matches a custom segment
      * 
-     * @param PhoneNumber $phoneNumber The phone number to check
-     * @param CustomSegment $segment The custom segment to check against
+     * @param PhoneNumber $phoneNumber The phone number entity to check // Use Doctrine Entity
+     * @param CustomSegment $segment The custom segment entity to check against // Use Doctrine Entity
      * @return bool True if the phone number matches the segment, false otherwise
      */
-    public function matches(PhoneNumber $phoneNumber, CustomSegment $segment): bool
+    public function matches(PhoneNumber $phoneNumber, CustomSegment $segment): bool // Use Doctrine Entities
     {
         // If the segment doesn't have a pattern, it can't match
         $pattern = $segment->getPattern();
@@ -84,10 +84,10 @@ class CustomSegmentMatcher implements CustomSegmentMatcherInterface
     /**
      * Automatically assign matching segments to a phone number
      * 
-     * @param PhoneNumber $phoneNumber The phone number to assign segments to
+     * @param PhoneNumber $phoneNumber The phone number entity to assign segments to // Use Doctrine Entity
      * @return int Number of segments assigned
      */
-    public function autoAssignSegments(PhoneNumber $phoneNumber): int
+    public function autoAssignSegments(PhoneNumber $phoneNumber): int // Use Doctrine Entity
     {
         // Find matching segments
         $matchingSegments = $this->findMatchingSegments($phoneNumber);
@@ -120,10 +120,10 @@ class CustomSegmentMatcher implements CustomSegmentMatcherInterface
     /**
      * Automatically assign matching segments to multiple phone numbers
      * 
-     * @param array $phoneNumbers Array of PhoneNumber objects
+     * @param array $phoneNumbers Array of PhoneNumber entities // Use Doctrine Entities
      * @return array Associative array with phone number IDs as keys and number of segments assigned as values
      */
-    public function batchAutoAssignSegments(array $phoneNumbers): array
+    public function batchAutoAssignSegments(array $phoneNumbers): array // Use Doctrine Entities
     {
         $results = [];
 
@@ -137,11 +137,11 @@ class CustomSegmentMatcher implements CustomSegmentMatcherInterface
     /**
      * Check if a phone number is already in a segment
      * 
-     * @param PhoneNumber $phoneNumber The phone number to check
-     * @param CustomSegment $segment The segment to check
+     * @param PhoneNumber $phoneNumber The phone number entity to check // Use Doctrine Entity
+     * @param CustomSegment $segment The segment entity to check // Use Doctrine Entity
      * @return bool True if the phone number is in the segment, false otherwise
      */
-    private function isPhoneNumberInSegment(PhoneNumber $phoneNumber, CustomSegment $segment): bool
+    private function isPhoneNumberInSegment(PhoneNumber $phoneNumber, CustomSegment $segment): bool // Use Doctrine Entities
     {
         // Get segments for the phone number
         $segments = $this->customSegmentRepository->findByPhoneNumberId($phoneNumber->getId());

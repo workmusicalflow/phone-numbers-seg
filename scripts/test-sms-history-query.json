@@ -1,0 +1,1 @@
+{"query":"{ smsHistory(limit: 5) { id, phoneNumber, message, status, createdAt, sentAt, deliveredAt, failedAt } }"}

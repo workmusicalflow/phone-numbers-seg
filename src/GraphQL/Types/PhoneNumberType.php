@@ -3,8 +3,10 @@
 namespace App\GraphQL\Types;
 
 use App\Models\PhoneNumber;
+use App\Repositories\Interfaces\ContactRepositoryInterface;
 use TheCodingMachine\GraphQLite\Annotations\Field;
 use TheCodingMachine\GraphQLite\Annotations\Type;
+use TheCodingMachine\GraphQLite\Annotations\Autowire;
 
 /**
  * @Type(class=PhoneNumber::class)
@@ -97,5 +99,19 @@ class PhoneNumberType
     public function customSegments(PhoneNumber $phoneNumber): array
     {
         return $phoneNumber->getCustomSegments();
+    }
+    
+    /**
+     * @Field
+     * @Autowire(for="contactRepository")
+     */
+    public function contactCount(
+        PhoneNumber $phoneNumber, 
+        ContactRepositoryInterface $contactRepository
+    ): int
+    {
+        // Count contacts with this phone number
+        $criteria = ['phoneNumber' => $phoneNumber->getNumber()];
+        return $contactRepository->countByCriteria($criteria);
     }
 }
